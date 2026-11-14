@@ -6,7 +6,7 @@
       "runtimeExecutable": "py",
       "runtimeArgs": [
         "-3",
-        "tarkov_quest_map.py",
+        "raid_task_map.py",
         "--no-browser"
       ],
       "port": 3000
@@ -16,7 +16,7 @@
       "runtimeExecutable": "py",
       "runtimeArgs": [
         "-3",
-        "tarkov_quest_map.py",
+        "raid_task_map.py",
         "--no-browser",
         "--port",
         "3005",

@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
 """
-Tarkov Quest Map - a small local replacement for the Tarkov.dev map.
+Raid Task Map - a local quest map and quest tracker for Escape from Tarkov.
 
 What it does
   * Serves a map page at http://localhost:3000
-  * Reads your progress from TarkovTracker.org (api.tarkovtracker.org) with your API token
+  * Reads your progress from TarkovTracker.org (api.tarkovtracker.org) with your API token,
+    and sends your changes there when you set that on
   * Watches the EFT screenshots folder: every new screenshot moves your marker on the map
-  * Never writes to TarkovTracker: TarkovMonitor keeps your progress up to date
+  * Reads the game's log files: raid map and timer, quests started, completed and failed
 
-Only the Python standard library is used. Run:  python tarkov_quest_map.py
+Only the Python standard library is used. Run:  python raid_task_map.py
+
+Copyright (C) 2026 the Raid Task Map contributors.
+This program is free software: you can redistribute it and/or modify it under the terms of
+the GNU General Public License, version 3, as published by the Free Software Foundation.
+It comes with no warranty. See the LICENSE file.
+
+Not affiliated with or approved by Battlestate Games.
 """
 import json
 import os
@@ -32,11 +40,12 @@ def _arg(name: str, default: str) -> str:
     return sys.argv[sys.argv.index(name) + 1] if name in sys.argv[1:-1] else default
 
 
+APP_NAME = "Raid Task Map"
 APP_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = Path(_arg("--config", str(APP_DIR / "config.json")))
 STATE_PATH = Path(_arg("--state", str(APP_DIR / "state.json")))  # a different file for tests
 GAME_MODES = ("regular", "pve", "pvp-season")
-PORT =int(_arg("--port", os.environ.get("TQM_PORT", "3000")))
+PORT =int(_arg("--port", os.environ.get("RTM_PORT") or os.environ.get("TQM_PORT") or "3000"))
 TT_API = _arg("--tracker", "https://api.tarkovtracker.org")  # a local stand-in for tests
 USER_AGENT = "RaidTaskMap/1.0 (local)"
 
@@ -592,7 +601,7 @@ def request_allowed(host: str, origin: str) -> bool:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "TarkovQuestMap/1.0"
+    server_version = "RaidTaskMap/1.0"
 
     def log_message(self, fmt, *args):  # keep the console quiet
         pass
@@ -844,12 +853,12 @@ def main():
     try:
         server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     except OSError as exc:
-        print(f"Could not start on port {PORT}: {exc}\nIs it already running? Set TQM_PORT to use another port.")
+        print(f"Could not start on port {PORT}: {exc}\nIs it already running? Use --port to select another port, for example: --port 3005")
         input("Press Enter to close.")
         sys.exit(1)
     server.daemon_threads = True
     url = f"http://localhost:{PORT}/"
-    print(f"Tarkov Quest Map running at {url}  (close this window to stop)")
+    print(f"{APP_NAME} running at {url}  (close this window to stop)")
     if "--no-browser" not in sys.argv:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     try:

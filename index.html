@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Tarkov Quest Map</title>
+<title>Raid Task Map</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -22,6 +22,7 @@
   #status.err { color:var(--danger); }
   #raidTimer { display:none; padding:3px 9px; border:1px solid var(--line); border-radius:6px; font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
   #raidTimer.on { display:block; }
+  #about a { color:var(--accent); } #about p { margin:6px 0; }
   #writesNote { display:none; font-size:12px; color:var(--muted); white-space:nowrap; }
   #writesNote.on { display:block; }
   #writesNote.err { color:var(--danger); white-space:normal; max-width:320px; }
@@ -98,7 +99,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Tarkov Quest Map</h1>
+    <h1>Raid Task Map</h1>
     <select id="mapSelect" title="Map"></select>
     <select id="floorSelect" title="Floor"></select>
     <select id="styleSelect" title="Map style"></select>
@@ -165,6 +166,14 @@
     <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoTick"> Tick a quest when you accept it in the game; untick it when it ends</label>
     <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoMap"> Select the map when a raid loads</label>
     <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoView"> Show the mission list during a raid, and the setup panel after it</label>
+    <details class="hint" id="about" style="margin-top:12px">
+      <summary>About, credits and licenses</summary>
+      <p><b>Raid Task Map</b> is free software under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU General Public License, version 3</a>. It comes with no warranty.</p>
+      <p>Maps: <a href="https://tarkov.dev" target="_blank" rel="noopener">tarkov.dev</a> and their authors (Shebuka and others), <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>. Not for commercial use and not for use in cheat software.<br>
+      Game data: the tarkov.dev API. Quest progress: <a href="https://tarkovtracker.org" target="_blank" rel="noopener">TarkovTracker.org</a>.<br>
+      Game log reading is ported from <a href="https://github.com/the-hideout/TarkovMonitor" target="_blank" rel="noopener">TarkovMonitor</a> (GPL-3.0). Map library: <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a> (BSD 2-Clause).</p>
+      <p>Not affiliated with or approved by Battlestate Games. Escape from Tarkov is a trademark of Battlestate Games Limited. This app reads only the game's log files and screenshots.</p>
+    </details>
     <div class="row" style="justify-content:flex-end;margin-top:14px">
       <button value="cancel" formnovalidate>Cancel</button>
       <button id="saveSettings" value="save">Save</button>
@@ -193,6 +202,7 @@ const S = {
   sel: new Set(), custom: [],
 };
 const store = {
+  // "tqm." is the prefix of the app's first name; it stays so that saved settings are not lost
   get(k, d) { try { const v = localStorage.getItem("tqm." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem("tqm." + k, JSON.stringify(v)); } catch {} },
 };
@@ -744,7 +754,7 @@ async function showMap(key) {
     attributionControl: true, zoomControl: false,
   });
   map.attributionControl.setPrefix(false);
-  map.attributionControl.addAttribution('Map data &amp; images: <a href="https://tarkov.dev" target="_blank">tarkov.dev</a>');
+  map.attributionControl.addAttribution('Maps: <a href="https://tarkov.dev" target="_blank" rel="noopener">tarkov.dev</a>, <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>');
   L.control.zoom({ position: "bottomright" }).addTo(map);
   S.lmap = map;
   const bounds = getBounds(mc.bounds);
@@ -967,7 +977,7 @@ function onEvent(ev) {
 function connectEvents() {
   const es = new EventSource("/api/events");
   es.onmessage = (m) => { try { onEvent(JSON.parse(m.data)); } catch (e) { console.warn(e); } };
-  es.onerror = () => setStatus("Lost connection to the local helper — is tarkov_quest_map.py still running?", true);
+  es.onerror = () => setStatus("Lost connection to the local helper — is the Raid Task Map console window still open?", true);
 }
 
 // ------------------------------------------------------------------ game state from the log files
@@ -1068,7 +1078,7 @@ async function boot() {
   try {
     S.cfg = await getJSON("/api/config");
   } catch (e) {
-    setStatus("Open this page through tarkov_quest_map.py (http://localhost:3000), not as a file.", true);
+    setStatus("Run Start Raid Task Map.bat and open http://localhost:3000. The page does not work when you open it as a file.", true);
     return;
   }
   S.mode = S.cfg.gameMode;

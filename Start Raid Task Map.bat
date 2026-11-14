@@ -2,12 +2,12 @@
 cd /d "%~dp0"
 where py >nul 2>nul
 if %errorlevel%==0 (
-  py -3 tarkov_quest_map.py
+  py -3 raid_task_map.py
   goto :eof
 )
 where python >nul 2>nul
 if %errorlevel%==0 (
-  python tarkov_quest_map.py
+  python raid_task_map.py
   goto :eof
 )
 echo Python 3 is not installed.

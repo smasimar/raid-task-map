@@ -7,9 +7,6 @@ the game's log files.
 It runs on your PC as a local web page. It reads only log files and screenshots. It
 does not read the game's memory, network traffic or game files.
 
-> **Status:** work in progress. Some files still carry the working name
-> "Tarkov Quest Map". See [Roadmap](#roadmap).
-
 ## Features
 
 - **Quest map.** Objective zones, quest-item locations and extracts for the quests you
@@ -41,7 +38,7 @@ does not read the game's memory, network traffic or game files.
 ## Setup
 
 1. Download or clone this repository.
-2. Double-click `Start Tarkov Quest Map.bat`. A console window opens, and your browser
+2. Double-click `Start Raid Task Map.bat`. A console window opens, and your browser
    opens <http://localhost:3000>. Keep the console window open while you play.
 3. Click **Settings** and paste a TarkovTracker API token. Create one on
    tarkovtracker.org → Settings → API Tokens. The token decides the game mode: a
@@ -81,7 +78,7 @@ is the raid's map when raid tracking is on.
 ## Troubleshooting
 
 - **"Port 3000 in use".** Start the app on a different port:
-  `py tarkov_quest_map.py --port 3005`
+  `py raid_task_map.py --port 3005`
 - **The marker does not move.** Make sure that Settings shows the screenshots folder as
   found. It is usually `Documents\Escape From Tarkov\Screenshots`.
 - **The map does not change when a raid loads.** Make sure that Settings shows the logs
@@ -106,14 +103,14 @@ is the raid's map when raid tracking is on.
 ## Development
 
 ```
-py -3 tarkov_quest_map.py --no-browser      start without opening the browser
+py -3 raid_task_map.py --no-browser      start without opening the browser
 py -3 -m unittest discover tests            server and log-reader tests
 cd tests && npm install && npm test         page tests (Node.js and jsdom)
 ```
 
 | File | Purpose |
 | --- | --- |
-| `tarkov_quest_map.py` | Local server: static page, TarkovTracker proxy, screenshot and log watchers, live events |
+| `raid_task_map.py` | Local server: static page, TarkovTracker proxy, screenshot and log watchers, live events |
 | `game_logs.py` | Game log reader and raid state |
 | `index.html` | The full page: map, quest lists, settings |
 | `maps.json` | Map projection settings, from tarkov.dev |
@@ -128,7 +125,8 @@ is sufficient.
 - [x] Read the game logs: map selection, mission view, raid timer, game mode
 - [x] Tick quests automatically when you accept them in the game
 - [x] Send completed and failed quests to TarkovTracker; mark steps done by hand
-- [ ] New name in all files, release package
+- [x] New name in all files; credits and licenses in the app
+- [ ] Release package (one `.exe`, no Python install)
 
 ## Credits and licenses
 
@@ -142,7 +140,7 @@ is sufficient.
 - **Game data:** the [tarkov.dev](https://tarkov.dev) API. `maps.json` is from the
   tarkov-dev project (MIT).
 - **Quest progress:** [TarkovTracker.org](https://tarkovtracker.org).
-- **Map library:** [Leaflet](https://leafletjs.com) (BSD 2-Clause).
+- **Map library:** [Leaflet](https://leafletjs.com) (BSD 2-Clause), loaded from unpkg.com.
 
 This project is not affiliated with or approved by Battlestate Games. Escape from
 Tarkov is a trademark of Battlestate Games Limited. The game's license agreement does

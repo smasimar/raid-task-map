@@ -1,0 +1,5 @@
+# holds the TarkovTracker token in plain text
+config.json
+config.json.tmp
+node_modules/
+__pycache__/

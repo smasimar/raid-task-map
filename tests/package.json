@@ -1,0 +1,6 @@
+{
+  "name": "tarkov-quest-map-tests",
+  "private": true,
+  "scripts": { "test": "node e2e.test.js" },
+  "devDependencies": { "jsdom": "^24.0.0", "leaflet": "1.9.4" }
+}

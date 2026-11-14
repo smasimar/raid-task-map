@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "quest-map",
+      "runtimeExecutable": "py",
+      "runtimeArgs": ["-3", "tarkov_quest_map.py", "--no-browser"],
+      "port": 3000
+    }
+  ]
+}

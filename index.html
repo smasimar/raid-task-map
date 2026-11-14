@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tarkov Quest Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+  :root { --bg:#14171a; --panel:#1d2227; --line:#30363d; --text:#e6e6e6; --muted:#9aa4ad; --accent:#e5e200; --pmc:#00e599; --shared:#00e4e5; --danger:#ff6b6b; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #app { display:grid; grid-template-columns: 320px 1fr; grid-template-rows: auto auto 1fr; height:100%; }
+  #app.no-left { grid-template-columns: 0 1fr; }
+  #app.no-left aside { display:none; }
+  #app.no-quests #questPanel { display:none; }
+  header { grid-column: 1 / -1; grid-row:1; display:flex; gap:10px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header h1 { font-size:15px; margin:0 8px 0 0; font-weight:600; }
+  select, button, input[type=text], input[type=password] { background:#0f1215; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font:inherit; }
+  button { cursor:pointer; }
+  button:hover { border-color:#58616b; }
+  #status { margin-left:auto; color:var(--muted); font-size:12px; text-align:right; }
+  #status.err { color:var(--danger); }
+  aside { grid-column:1; grid-row:3; overflow:auto; background:var(--panel); border-right:1px solid var(--line); padding:10px 12px; }
+  #map { grid-column:2; grid-row:3; background:#0c0e10; min-width:0; min-height:0; }
+  #questPanel { grid-column: 1 / -1; grid-row:2; min-width:0; background:var(--panel); border-bottom:1px solid var(--line); padding:6px 12px; }
+  #questList { display:flex; gap:14px; overflow-x:auto; align-items:flex-start; padding-bottom:4px; }
+  .qgroupbox { flex:none; }
+  .qrow { display:flex; gap:8px; align-items:flex-start; }
+  .qgroup { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 4px; font-weight:600; white-space:nowrap; }
+  .qcard { flex:none; width:270px; max-height:24vh; overflow-y:auto; border:1px solid var(--line); border-radius:8px; padding:6px 9px; }
+  .qhead { display:flex; gap:6px; align-items:flex-start; }
+  .qhead .qname { flex:1; }
+  .qx { padding:0 6px; line-height:18px; border-radius:4px; color:var(--muted); }
+  .q-tip { background:#1d2227; color:var(--text); border:1px solid var(--line); white-space:normal; width:max-content; max-width:280px; font-size:13px; padding:8px 10px; }
+  .q-tip.leaflet-tooltip-top:before { border-top-color:#1d2227; }
+  .qcard.here { border-color:#5c5a1f; }
+  .qcard .qname { font-weight:600; }
+  .qcard .qmeta { color:var(--muted); font-size:12px; margin-bottom:3px; }
+  .step { font-size:12.5px; margin:3px 0 0; padding-left:16px; text-indent:-16px; }
+  .step.done { text-decoration:line-through; color:var(--muted); }
+  .step.go { cursor:pointer; } .step.go:hover { color:var(--accent); }
+  .step .num { color:var(--muted); display:inline-block; width:16px; text-indent:0; }
+  .section { margin-bottom:14px; }
+  .section h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 6px; font-weight:600; }
+  .row { display:flex; gap:8px; align-items:center; margin:3px 0; }
+  .muted { color:var(--muted); }
+  .task { border:1px solid var(--line); border-radius:8px; padding:6px 8px; margin:6px 0; }
+  .task.hidden-task { opacity:.45; }
+  .task-head { display:flex; gap:6px; align-items:flex-start; }
+  .task-name { font-weight:600; cursor:pointer; flex:1; }
+  .task-name:hover { color:var(--accent); }
+  .trader { color:var(--muted); font-weight:400; font-size:12px; }
+  .obj { font-size:12.5px; margin:3px 0 0 22px; cursor:default; }
+  .obj.has-pos { cursor:pointer; }
+  .obj.has-pos:hover { color:var(--accent); }
+  .obj.done { text-decoration:line-through; color:var(--muted); }
+  .obj .pin { color:var(--accent); }
+  .q-icon { width:16px; height:16px; background:var(--accent); border:2px solid #000; transform:rotate(45deg); border-radius:2px; box-shadow:0 0 0 1px var(--accent); }
+  .q-item { width:14px; height:14px; background:#ffb300; border:2px solid #000; border-radius:50%; box-shadow:0 0 0 1px #ffb300; }
+  .ex-icon { display:flex; align-items:center; gap:4px; white-space:nowrap; transform:translate(-6px,-6px); pointer-events:auto; }
+  .ex-icon .box { width:12px; height:12px; border:2px solid #000; border-radius:2px; flex:none; }
+  .ex-icon span { font-size:12px; font-weight:600; text-shadow:0 0 3px #000, 0 0 3px #000, 0 0 2px #000; }
+  .ex-pmc .box { background:var(--pmc); } .ex-pmc span { color:var(--pmc); }
+  .ex-shared .box { background:var(--shared); } .ex-shared span { color:var(--shared); }
+  .player svg { filter: drop-shadow(0 0 3px #000); }
+  .map-label { color:#ffffffb0; font-weight:600; white-space:nowrap; text-shadow:0 0 3px #000; pointer-events:none; }
+  .leaflet-container { background:#0c0e10; font:inherit; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background:#1d2227; color:var(--text); }
+  .leaflet-popup-content { margin:10px 12px; }
+  .leaflet-overlay-pane svg .overlay-layer.hidden-layer { display:none; }
+  .leaflet-overlay-pane svg.dim-base g.base-layer { opacity:.2; }
+  .leaflet-overlay-pane svg.floor-only g { display:none; }
+  .leaflet-overlay-pane svg.floor-only g.floor-shown, .leaflet-overlay-pane svg.floor-only g.floor-shown g { display:inline; }
+  dialog { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; width:min(560px, 92vw); }
+  dialog::backdrop { background:#000a; }
+  dialog label { display:block; margin:10px 0 3px; color:var(--muted); font-size:12px; }
+  dialog input[type=text], dialog input[type=password] { width:100%; }
+  .hint { font-size:12px; color:var(--muted); margin-top:3px; }
+  .ok { color:var(--pmc); } .bad { color:var(--danger); }
+  details summary { cursor:pointer; color:var(--muted); font-size:12px; margin-top:6px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Tarkov Quest Map</h1>
+    <select id="mapSelect" title="Map"></select>
+    <select id="floorSelect" title="Floor"></select>
+    <select id="styleSelect" title="Map style"></select>
+    <button id="refreshBtn" title="Reload progress from TarkovTracker">↻ Progress</button>
+    <button id="leftBtn" title="Show or hide the left panel">◧ Panel</button>
+    <button id="questsBtn" title="Show or hide the quest bar">☰ Quest list</button>
+    <button id="settingsBtn">Settings</button>
+    <div id="status">Starting…</div>
+  </header>
+  <aside>
+    <div class="section" id="profileBox"></div>
+    <div class="section">
+      <h2>Show</h2>
+      <label class="row"><input type="checkbox" id="showQuests" checked> Quest objectives</label>
+      <label class="row"><input type="checkbox" id="showExtracts" checked> PMC extracts</label>
+      <label class="row"><input type="checkbox" id="showLabels" checked> Extract names</label>
+    </div>
+    <div class="section">
+      <h2 id="tasksTitle">Tasks on this map</h2>
+      <label class="row"><input type="radio" name="showMode" value="selected" checked> Show only tasks I've ticked</label>
+      <label class="row"><input type="radio" name="showMode" value="all"> Show every possible task</label>
+      <div class="row" style="margin:8px 0 4px">
+        <input type="text" id="addTask" list="allTasks" placeholder="Add a task by name…" style="flex:1">
+        <button id="addTaskBtn">Add</button>
+      </div>
+      <datalist id="allTasks"></datalist>
+      <div class="hint" style="margin-bottom:6px">Tick the tasks you have in-game. Ticks are remembered; a task drops off by itself once TarkovTracker marks it complete. Click a task or a 📍 objective to jump to it.</div>
+      <div id="taskList"></div>
+      <details id="otherBox" style="margin-top:12px">
+        <summary id="otherTitle"></summary>
+        <div class="hint">Worked out from your TarkovTracker progress (completed tasks, level, traders). Tasks unlocked by trader dialogue can't be told apart, so this list has extras — tick only the ones you really have.</div>
+        <div id="otherList"></div>
+      </details>
+    </div>
+  </aside>
+  <div id="map"></div>
+  <section id="questPanel" title="Every task you've ticked, with all its steps. Steps marked 📍 are on the current map — click to jump there.">
+    <div id="questList"></div>
+  </section>
+</div>
+
+<dialog id="settings">
+  <form method="dialog" id="settingsForm">
+    <h3 style="margin-top:0">Settings</h3>
+    <label for="tokenInput">TarkovTracker.org API token</label>
+    <input type="password" id="tokenInput" placeholder="PVP_… or PVE_…  (leave empty to keep the current one)" autocomplete="off">
+    <div class="hint" id="tokenHint"></div>
+    <label for="shotsInput">EFT screenshots folder</label>
+    <input type="text" id="shotsInput">
+    <div class="hint" id="shotsHint"></div>
+    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="deleteShots"> Delete each screenshot after reading its position</label>
+    <div class="row" style="justify-content:flex-end;margin-top:14px">
+      <button value="cancel" formnovalidate>Cancel</button>
+      <button id="saveSettings" value="save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+"use strict";
+const JSON_API = "https://json.tarkov.dev";
+const POLL_MS = 120000; // TarkovTracker free tier allows 1000 reads/day
+const TRADER_UNLOCK_TASKS = {
+  lightkeeper: { regular: "625d700cc48e6c62a440fab5", pve: "625d700cc48e6c62a440fab5", "pvp-season": "625d700cc48e6c62a440fab5" },
+  "btr-driver": { regular: "6752f6d83038f7df520c83e8", pve: "6752f6d83038f7df520c83e8", "pvp-season": "6752f6d83038f7df520c83e8" },
+  ref: { regular: "66058cb22cee99303f1ba067", pve: "6834145ebc1f443d7603c8a7", "pvp-season": "66058cb22cee99303f1ba067" },
+};
+
+const $ = (id) => document.getElementById(id);
+const S = {
+  cfg: null, mode: "regular",
+  mapCfgs: [], apiMaps: [], mapsEn: {}, tasks: [], tasksById: new Map(), tasksEn: {}, traders: {},
+  progress: null, available: [],
+  progressJson: null, current: null, lmap: null, layers: {}, svgEl: null, baseStyle: null, floorLayer: null, floorIndex: -1, floorSeq: 0,
+  player: null, playerMarker: null, markersByKey: new Map(),
+};
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("tqm." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("tqm." + k, JSON.stringify(v)); } catch {} },
+};
+
+function setStatus(text, isErr) { const el = $("status"); el.textContent = text; el.classList.toggle("err", !!isErr); }
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ref = (v) => (v && typeof v === "object" ? v.id : v);
+
+// ------------------------------------------------------------------ data loading
+async function getJSON(url) {
+  const r = await fetch(url, { cache: "no-cache" });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.error || `${r.status} ${r.statusText} (${url})`);
+  return body;
+}
+function t(dict, key, fallback) { const v = dict[key]; return v ? v : (fallback ?? key); }
+
+async function loadGameData() {
+  const m = S.mode;
+  setStatus(`Loading ${m} game data from tarkov.dev…`);
+  const [mapCfgs, tasks, tasksEn, maps, mapsEn, traders, tradersEn] = await Promise.all([
+    getJSON("/maps.json"),
+    getJSON(`${JSON_API}/${m}/tasks`), getJSON(`${JSON_API}/${m}/tasks_en`),
+    getJSON(`${JSON_API}/${m}/maps`), getJSON(`${JSON_API}/${m}/maps_en`),
+    getJSON(`${JSON_API}/${m}/traders`), getJSON(`${JSON_API}/${m}/traders_en`).catch(() => ({ data: {} })),
+  ]);
+  S.mapCfgs = mapCfgs;
+  S.tasksEn = tasksEn.data || {};
+  S.mapsEn = mapsEn.data || {};
+  S.tasks = Object.values(tasks.data.tasks);
+  S.tasksById = new Map(S.tasks.map((x) => [x.id, x]));
+  S.apiMaps = Object.values(maps.data.maps);
+  const tr = traders.data.traders || traders.data;
+  const trEn = tradersEn.data || {};
+  S.traders = {};
+  for (const x of Object.values(tr)) S.traders[x.id] = { id: x.id, normalizedName: x.normalizedName, name: t(trEn, x.name, x.normalizedName) };
+  // attach API maps to each interactive map config
+  for (const mc of S.mapCfgs) {
+    const names = [mc.key, ...(mc.altMaps || [])];
+    mc.apiMaps = S.apiMaps.filter((a) => names.includes(a.normalizedName));
+    mc.primary = S.apiMaps.find((a) => a.normalizedName === mc.key) || mc.apiMaps[0];
+    mc.ids = new Set(mc.apiMaps.map((a) => a.id));
+    mc.displayName = mc.primary ? t(S.mapsEn, mc.primary.name, mc.key) : mc.key;
+  }
+  S.mapCfgs = S.mapCfgs.filter((mc) => mc.primary);
+  S.mapCfgs.sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+async function loadProgress(force) {
+  try {
+    setStatus("Loading progress from TarkovTracker…");
+    const r = await fetch("/api/progress" + (force === true ? "?force=1" : ""), { cache: "no-store" });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || `${r.status} ${r.statusText}`);
+    const stale = r.headers?.get?.("X-Stale") === "1";
+    const json = JSON.stringify(body.data);
+    if (json !== S.progressJson) { // an unchanged answer keeps the lists and any open popup as they are
+      S.progressJson = json;
+      S.progress = body.data;
+      computeAvailable();
+      populateTaskSearch();
+      renderProfile();
+      renderTasks();
+      drawQuestMarkers();
+    }
+    const time = new Date().toLocaleTimeString();
+    if (stale) setStatus(`TarkovTracker not reachable — showing the last saved progress (${time})`, true);
+    else setStatus(`${S.available.length} tasks available · progress checked ${time}`);
+  } catch (e) {
+    setStatus(e.message, true);
+    renderProfile(e.message);
+  }
+}
+
+// ------------------------------------------------------------------ task availability
+// Mirrors TarkovTracker's "available" rules: not done/failed, level, faction, trader
+// loyalty/reputation, prerequisite task states and trader unlocks.
+function computeAvailable() {
+  const p = S.progress;
+  const comp = new Map((p.tasksProgress || []).map((x) => [x.id, x]));
+  const objDone = new Map((p.taskObjectivesProgress || []).map((x) => [x.id, x]));
+  const traders = new Map((p.tradersProgress || []).map((x) => [x.id, x]));
+  const level = p.playerLevel || 1;
+  const faction = p.pmcFaction || "USEC";
+  const isDone = (id) => { const c = comp.get(id); return !!(c && c.complete && !c.failed); };
+  const isFailed = (id) => { const c = comp.get(id); return !!(c && c.failed); };
+  const isInvalid = (id) => { const c = comp.get(id); return !!(c && c.invalid); };
+
+  const rewardUnlocks = new Map(); // traderId -> [taskIds whose reward unlocks it]
+  for (const task of S.tasks) {
+    for (const tid of task.finishRewards?.traderUnlock || []) {
+      const id = ref(tid);
+      if (!rewardUnlocks.has(id)) rewardUnlocks.set(id, []);
+      rewardUnlocks.get(id).push(task.id);
+    }
+  }
+  const cmp = (cur, op, val) => ({ ">=": cur >= val, ">": cur > val, "<=": cur <= val, "<": cur < val, "=": cur === val, "==": cur === val }[op] ?? true);
+  const memo = new Map(), visiting = new Set();
+
+  function evaluate(id, allowCompleted) {
+    const key = `${allowCompleted}:${id}`;
+    if (memo.has(key)) return memo.get(key);
+    if (visiting.has(key)) return false;
+    const task = S.tasksById.get(id);
+    if (!task) return false;
+    if (isFailed(id) || isInvalid(id)) return false;
+    if (isDone(id)) return allowCompleted;
+    visiting.add(key);
+    let ok = true;
+    if ((task.minPlayerLevel || 0) > level) ok = false;
+    if (ok && task.factionName && task.factionName !== "Any" && task.factionName !== faction) ok = false;
+    if (ok) for (const req of task.traderRequirements || []) {
+      const tp = traders.get(ref(req.trader)) || {};
+      const cur = req.requirementType === "reputation" ? (tp.reputation ?? 0) : (tp.level ?? 1);
+      if (req.requirementType === "level" || req.requirementType === "reputation") {
+        if (!cmp(cur, req.compareMethod, req.value)) { ok = false; break; }
+      }
+    }
+    // a completed alternative branch fails this task
+    if (ok) for (const fc of task.failConditions || []) {
+      const other = ref(fc.task);
+      if (other && (fc.status || []).includes("complete") && isDone(other)) { ok = false; break; }
+    }
+    if (ok) for (const req of task.taskRequirements || []) {
+      const other = ref(req.task);
+      const st = (req.status || []).map((s) => String(s).toLowerCase());
+      const wantsComplete = !st.length || st.includes("complete") || st.includes("completed");
+      if (wantsComplete && isDone(other)) continue;
+      if (st.includes("failed") && isFailed(other)) continue;
+      if (st.some((s) => ["active", "accept", "accepted"].includes(s))) {
+        if (isFailed(other)) { ok = false; break; }
+        if (isDone(other) || evaluate(other, true)) continue;
+      }
+      ok = false; break;
+    }
+    if (ok) {
+      const tr = S.traders[ref(task.trader)];
+      const configured = tr && TRADER_UNLOCK_TASKS[tr.normalizedName]?.[S.mode];
+      const unlockIds = [...(configured ? [configured] : []), ...(rewardUnlocks.get(ref(task.trader)) || [])].filter((x) => x !== id);
+      if (unlockIds.length && !unlockIds.some(isDone)) ok = false;
+    }
+    visiting.delete(key);
+    memo.set(key, ok);
+    return ok;
+  }
+
+  S.objDone = objDone;
+  S.finished = new Set((p.tasksProgress || []).filter((x) => x.complete || x.failed).map((x) => x.id));
+  // forget ticks on tasks that are now done
+  const sel = selectedSet(), before = sel.size;
+  for (const id of [...sel]) if (S.finished.has(id)) sel.delete(id);
+  if (sel.size !== before) store.set(selKey(), [...sel]);
+  S.available = S.tasks.filter((task) => evaluate(task.id, false));
+}
+
+// ------------------------------------------------------------------ objectives for current map
+function objectivesOnMap(task, mc) {
+  const out = [];
+  for (const obj of task.objectives || []) {
+    const positions = [];
+    for (const z of obj.zones || []) if (mc.ids.has(ref(z.map)) && z.position) positions.push({ pos: z.position, kind: "zone", outline: z.outline, name: z.name });
+    for (const loc of obj.possibleLocations || []) if (mc.ids.has(ref(loc.map))) for (const p of loc.positions || []) positions.push({ pos: p, kind: "item" });
+    const onMap = positions.length || (obj.maps || []).some((m) => mc.ids.has(ref(m)));
+    if (!onMap) continue;
+    // de-duplicate positions that appear once per map variant
+    const seen = new Set();
+    const uniq = positions.filter((p) => { const k = `${p.kind}:${p.pos.x.toFixed(1)}:${p.pos.z.toFixed(1)}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    const prog = S.objDone?.get(obj.id);
+    out.push({
+      obj, positions: uniq,
+      done: !!prog?.complete,
+      count: prog?.count, total: obj.count,
+      text: t(S.tasksEn, obj.description, obj.type) + (obj.optional ? " (optional)" : ""),
+    });
+  }
+  return out;
+}
+function candidateTasks() {
+  // computed available tasks plus anything you added by hand that isn't finished yet
+  const sel = selectedSet();
+  const seen = new Set(S.available.map((x) => x.id));
+  const extra = [...sel].filter((id) => !seen.has(id) && !S.finished?.has(id)).map((id) => S.tasksById.get(id)).filter(Boolean);
+  return [...S.available, ...extra];
+}
+function tasksForMap(mc) {
+  const res = [];
+  for (const task of candidateTasks()) {
+    const objs = objectivesOnMap(task, mc);
+    const taskOnMap = task.map && mc.ids.has(ref(task.map));
+    if (!objs.length && !taskOnMap) continue;
+    res.push({ task, objs, name: t(S.tasksEn, task.name, task.normalizedName), trader: S.traders[ref(task.trader)]?.name || "" });
+  }
+  res.sort((a, b) => a.trader.localeCompare(b.trader) || a.name.localeCompare(b.name));
+  return res;
+}
+const selKey = () => `selected.${S.mode}`;
+const selectedSet = () => new Set(store.get(selKey(), []));
+const showMode = () => document.querySelector('input[name="showMode"]:checked').value;
+function setSelected(id, on) {
+  const s = selectedSet();
+  if (on) s.add(id); else s.delete(id);
+  store.set(selKey(), [...s]);
+  renderTasks(); drawQuestMarkers();
+}
+const customKey = () => `custom.${S.mode}`;
+const customQuests = () => store.get(customKey(), []);
+function setCustom(name, on) {
+  const list = customQuests().filter((n) => n.toLowerCase() !== name.toLowerCase());
+  if (on) list.push(name);
+  store.set(customKey(), list);
+  renderQuestPanel();
+}
+const isShown = (id) => showMode() === "all" || selectedSet().has(id);
+function taskLabel(task) { return `${t(S.tasksEn, task.name, task.normalizedName)} (${S.traders[ref(task.trader)]?.name || "?"})`; }
+function populateTaskSearch() {
+  const opts = S.tasks.filter((x) => !S.finished?.has(x.id)).map(taskLabel).sort();
+  $("allTasks").innerHTML = opts.map((o) => `<option value="${esc(o)}">`).join("");
+}
+function addTaskByName() {
+  const v = $("addTask").value.trim();
+  if (!v) return;
+  const task = S.tasks.find((x) => taskLabel(x) === v) || S.tasks.find((x) => t(S.tasksEn, x.name, "").toLowerCase() === v.toLowerCase());
+  if (!task) {
+    // new quests can be in the game before they are in the tarkov.dev data
+    $("addTask").value = "";
+    setCustom(v, true);
+    setStatus(`"${v}" is not in the tarkov.dev data — added to the quest list as text only.`, true);
+    return;
+  }
+  $("addTask").value = "";
+  setSelected(task.id, true);
+  const mc = S.current;
+  if (mc && !objectivesOnMap(task, mc).length && !(task.map && mc.ids.has(ref(task.map)))) setStatus(`Added "${taskLabel(task)}" — it has nothing on ${mc.displayName}.`);
+}
+
+// ------------------------------------------------------------------ sidebar
+function renderProfile(error) {
+  const p = S.progress;
+  const box = $("profileBox");
+  if (!p) {
+    box.innerHTML = `<h2>TarkovTracker</h2><div class="${error ? "bad" : "muted"}">${esc(error || "Not loaded yet")}</div>` +
+      (S.cfg && !S.cfg.hasToken ? `<div class="hint">Open <b>Settings</b> and paste your TarkovTracker.org token.</div>` : "");
+    return;
+  }
+  const modeName = { regular: "PvP", pve: "PvE", "pvp-season": "Seasonal" }[S.mode] || S.mode;
+  box.innerHTML = `<h2>TarkovTracker · ${esc(modeName)}</h2>
+    <div><b>${esc(p.displayName || "")}</b> · level ${esc(p.playerLevel)} · ${esc(p.pmcFaction)}</div>
+    <div class="muted">${S.available.length} tasks available in total</div>`;
+}
+
+function taskCard(it, selected) {
+  const div = document.createElement("div");
+  div.className = "task" + (selected || showMode() === "all" ? "" : " hidden-task");
+  div.innerHTML = `<div class="task-head"><input type="checkbox" ${selected ? "checked" : ""} title="I have this task">
+    <div class="task-name">${esc(it.name)} <span class="trader">· ${esc(it.trader)}</span></div>
+    <a href="${esc(it.task.wikiLink || "#")}" target="_blank" rel="noopener" title="Wiki" class="muted" style="text-decoration:none">↗</a></div>`;
+  div.querySelector("input").addEventListener("change", (e) => setSelected(it.task.id, e.target.checked));
+  div.querySelector(".task-name").addEventListener("click", () => {
+    const first = it.objs.find((o) => !o.done && o.positions.length);
+    if (first) focusPos(first.positions[0].pos, `${it.task.id}:${first.obj.id}:0`);
+  });
+  if (selected || showMode() === "all") for (const o of it.objs) {
+    const od = document.createElement("div");
+    od.className = "obj" + (o.done ? " done" : "") + (o.positions.length && !o.done ? " has-pos" : "");
+    const cnt = o.total > 1 && !o.done ? ` <span class="muted">${o.count || 0}/${o.total}</span>` : "";
+    od.innerHTML = `${o.positions.length && !o.done ? '<span class="pin">📍</span> ' : "• "}${esc(o.text)}${cnt}`;
+    if (o.positions.length && !o.done) od.addEventListener("click", () => focusPos(o.positions[0].pos, `${it.task.id}:${o.obj.id}:0`));
+    div.appendChild(od);
+  }
+  return div;
+}
+
+function renderTasks() {
+  renderQuestPanel();
+  const list = $("taskList"), other = $("otherList");
+  const mc = S.current;
+  list.innerHTML = ""; other.innerHTML = "";
+  $("otherBox").style.display = "none";
+  if (!mc) return;
+  if (!S.progress) list.innerHTML = `<div class="hint bad">Progress not loaded — your ticked tasks are shown without progress.</div>`;
+  const sel = selectedSet();
+  const items = tasksForMap(mc);
+  const mine = items.filter((i) => sel.has(i.task.id));
+  const rest = items.filter((i) => !sel.has(i.task.id));
+  const shownCount = showMode() === "all" ? items.length : mine.length;
+  $("tasksTitle").textContent = `Tasks on ${mc.displayName} · ${shownCount} shown`;
+  if (!mine.length) list.innerHTML += `<div class="muted">You haven't ticked any task on this map yet${rest.length ? " — open &quot;Possible tasks&quot; below or add one by name" : ""}.</div>`;
+  for (const it of mine) list.appendChild(taskCard(it, true));
+  if (rest.length) {
+    $("otherBox").style.display = "";
+    $("otherTitle").textContent = `Possible tasks on this map (${rest.length}) — tick to add`;
+    for (const it of rest) other.appendChild(taskCard(it, false));
+  }
+}
+
+function taskMaps(task) {
+  const ids = new Set();
+  if (task.map) ids.add(ref(task.map));
+  for (const o of task.objectives || []) {
+    for (const m of o.maps || []) ids.add(ref(m));
+    for (const z of o.zones || []) ids.add(ref(z.map));
+    for (const l of o.possibleLocations || []) ids.add(ref(l.map));
+  }
+  return S.mapCfgs.filter((mc) => [...mc.ids].some((id) => ids.has(id)));
+}
+function renderQuestPanel() {
+  const box = $("questList");
+  if (!box) return;
+  box.innerHTML = "";
+  const sel = [...selectedSet()].map((id) => S.tasksById.get(id)).filter((x) => x && !S.finished?.has(x.id));
+  const custom = customQuests();
+  if (!sel.length && !custom.length) { box.innerHTML = `<div class="muted" style="margin-top:8px">No quests ticked yet. Tick tasks in the left panel or add one by name.</div>`; return; }
+  const groups = new Map(); // label -> [{task, maps}]
+  const cur = S.current;
+  for (const task of sel) {
+    const maps = taskMaps(task);
+    const label = cur && maps.includes(cur) ? `On ${cur.displayName}` : maps.length ? maps.map((m) => m.displayName).join(" / ") : "Any map / hideout & traders";
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push({ task, maps });
+  }
+  const order = [...groups.keys()].sort((a, b) => (b.startsWith("On ") - a.startsWith("On ")) || (a.startsWith("Any") - b.startsWith("Any")) || a.localeCompare(b));
+  for (const label of order) {
+    const row = addGroup(box, label);
+    for (const { task, maps } of groups.get(label)) {
+      const here = cur && maps.includes(cur);
+      const onMap = here ? new Map(objectivesOnMap(task, cur).map((o) => [o.obj.id, o])) : new Map();
+      const card = document.createElement("div");
+      card.className = "qcard" + (here ? " here" : "");
+      const name = t(S.tasksEn, task.name, task.normalizedName);
+      const trader = S.traders[ref(task.trader)]?.name || "";
+      card.innerHTML = `<div class="qhead"><div class="qname">${esc(name)}</div><button class="qx" title="Remove from my quests">×</button></div><div class="qmeta">${esc(trader)}${task.wikiLink ? ` · <a href="${esc(task.wikiLink)}" target="_blank" rel="noopener" style="color:inherit">wiki ↗</a>` : ""}</div>`;
+      (task.objectives || []).forEach((obj, i) => {
+        const prog = S.objDone?.get(obj.id);
+        const done = !!prog?.complete;
+        const mo = onMap.get(obj.id);
+        const go = mo && mo.positions.length && !done;
+        const cnt = obj.count > 1 && !done ? ` <span class="muted">${prog?.count || 0}/${obj.count}</span>` : "";
+        const st = document.createElement("div");
+        st.className = "step" + (done ? " done" : "") + (go ? " go" : "");
+        st.innerHTML = `<span class="num">${done ? "✓" : i + 1 + "."}</span>${go ? "📍 " : ""}${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}`;
+        if (go) st.addEventListener("click", () => focusPos(mo.positions[0].pos, `${task.id}:${obj.id}:0`));
+        card.appendChild(st);
+      });
+      card.querySelector(".qx").addEventListener("click", () => setSelected(task.id, false));
+      row.appendChild(card);
+    }
+  }
+  if (custom.length) {
+    const row = addGroup(box, "Not in tarkov.dev data");
+    for (const name of custom) {
+      const card = document.createElement("div");
+      card.className = "qcard";
+      card.innerHTML = `<div class="qhead"><div class="qname">${esc(name)}</div><button class="qx" title="Remove from my quests">×</button></div><div class="qmeta">No steps or map markers available</div>`;
+      card.querySelector(".qx").addEventListener("click", () => setCustom(name, false));
+      row.appendChild(card);
+    }
+  }
+  S.lmap?.invalidateSize(); // the bar height can change
+}
+function addGroup(box, label) {
+  const gb = document.createElement("div");
+  gb.className = "qgroupbox";
+  const h = document.createElement("div");
+  h.className = "qgroup"; h.textContent = label;
+  const row = document.createElement("div");
+  row.className = "qrow";
+  gb.append(h, row);
+  box.appendChild(gb);
+  return row;
+}
+
+// ------------------------------------------------------------------ map (same projection as tarkov.dev)
+function applyRotation(latLng, rotation) {
+  if (!latLng.lng && !latLng.lat) return L.latLng(0, 0);
+  if (!rotation) return latLng;
+  const a = (rotation * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+  const { lng: x, lat: y } = latLng;
+  return L.latLng(x * s + y * c, x * c - y * s);
+}
+function getCRS(mc) {
+  const tf = mc.transform || [1, 0, 1, 0];
+  return L.extend({}, L.CRS.Simple, {
+    transformation: new L.Transformation(tf[0], tf[1], tf[2] * -1, tf[3]),
+    projection: L.extend({}, L.Projection.LonLat, {
+      project: (ll) => L.Projection.LonLat.project(applyRotation(ll, mc.coordinateRotation)),
+      unproject: (pt) => applyRotation(L.Projection.LonLat.unproject(pt), mc.coordinateRotation * -1),
+    }),
+  });
+}
+const pos = (p) => [p.z, p.x];
+// index of the floor (mc.layers) that holds this position, -1 = ground level
+function floorOf(mc, p) {
+  const y = p?.y;
+  if (typeof y !== "number") return -1;
+  const between = (v, a, b) => v >= Math.min(a, b) && v <= Math.max(a, b);
+  const layers = mc.layers || [];
+  for (let i = 0; i < layers.length; i++) {
+    for (const ex of layers[i].extents || []) {
+      if (y < ex.height[0] || y >= ex.height[1]) continue;
+      if (!ex.bounds) return i;
+      if (ex.bounds.some((b) => between(p.x, b[0][0], b[1][0]) && between(p.z, b[0][1], b[1][1]))) return i;
+    }
+  }
+  return -1;
+}
+const getBounds = (b) => (b ? L.latLngBounds([b[0][1], b[0][0]], [b[1][1], b[1][0]]) : undefined);
+function scaledBounds(b, f) {
+  const cx = (b[0][0] + b[1][0]) / 2, cy = (b[0][1] + b[1][1]) / 2;
+  const w = (b[1][0] - b[0][0]) * f, h = (b[1][1] - b[0][1]) * f;
+  return [[cy - h / 2, cx - w / 2], [cy + h / 2, cx + w / 2]];
+}
+
+async function showMap(key) {
+  const mc = S.mapCfgs.find((m) => m.key === key) || S.mapCfgs[0];
+  if (!mc) return;
+  S.current = mc;
+  store.set("map", mc.key);
+  $("mapSelect").value = mc.key;
+  if (S.lmap) { S.lmap.remove(); S.lmap = null; }
+  S.svgEl = null; S.floorLayer = null; S.playerMarker = null; S.floorIndex = -1; S.floorSeq++;
+  const maxZoom = Math.max(7, mc.maxZoom || 5);
+  const map = L.map("map", {
+    crs: getCRS(mc), minZoom: mc.minZoom ?? 1, maxZoom, zoomSnap: 0.25, zoomDelta: 0.5,
+    attributionControl: true, maxBounds: scaledBounds(mc.bounds, 1.5),
+  });
+  map.attributionControl.setPrefix(false);
+  map.attributionControl.addAttribution('Map data &amp; images: <a href="https://tarkov.dev" target="_blank">tarkov.dev</a>');
+  S.lmap = map;
+  const bounds = getBounds(mc.bounds);
+  map.fitBounds(bounds);
+
+  // base style choice
+  const styles = [];
+  if (mc.svgPath) styles.push(["svg", "Abstract"]);
+  if (mc.tilePath) styles.push(["tile", "Satellite"]);
+  const saved = store.get("style", "svg");
+  S.baseStyle = styles.some((s) => s[0] === saved) ? saved : styles[0][0];
+  $("styleSelect").innerHTML = styles.map(([v, n]) => `<option value="${v}">${n}</option>`).join("");
+  $("styleSelect").value = S.baseStyle;
+  $("styleSelect").disabled = styles.length < 2;
+
+  S.layers = { base: null, quests: L.layerGroup().addTo(map), extracts: L.layerGroup().addTo(map), labels: L.layerGroup().addTo(map), player: L.layerGroup().addTo(map) };
+  await buildBase(mc);
+  if (S.current !== mc || S.lmap !== map) return; // another map was selected while this one loaded
+  buildFloorSelect(mc);
+  drawLabels(mc);
+  drawExtracts(mc);
+  renderTasks();
+  drawQuestMarkers();
+  drawPlayer(false);
+  const pf = S.player && S.player.mapKey === mc.key ? floorOf(mc, S.player) : -1;
+  if (pf >= 0) await showFloor(pf);
+}
+
+async function buildBase(mc) {
+  const map = S.lmap;
+  if (S.layers.base) { map.removeLayer(S.layers.base); S.layers.base = null; }
+  if (S.floorLayer) { map.removeLayer(S.floorLayer); S.floorLayer = null; }
+  const bounds = getBounds(mc.bounds);
+  if (S.baseStyle === "svg" && mc.svgPath) {
+    const svg = await loadSvg(mc);
+    if (S.current !== mc || S.lmap !== map) return;
+    if (svg) {
+      S.svgEl = svg;
+      S.layers.base = L.svgOverlay(svg, mc.svgBounds ? getBounds(mc.svgBounds) : bounds, { interactive: false }).addTo(map);
+      S.layers.base.bringToBack();
+      return;
+    }
+  }
+  S.svgEl = null;
+  if (mc.tilePath) {
+    S.layers.base = L.tileLayer(mc.tilePath, { tileSize: mc.tileSize || 256, bounds, maxNativeZoom: mc.maxZoom, maxZoom: Math.max(7, mc.maxZoom || 5) }).addTo(map);
+  }
+}
+
+const svgCache = new Map();
+async function loadSvg(mc, onlyGroup) {
+  try {
+    if (!svgCache.has(mc.svgPath)) svgCache.set(mc.svgPath, fetch(mc.svgPath).then((r) => r.text()));
+    const text = await svgCache.get(mc.svgPath);
+    const el = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    el.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    el.innerHTML = text;
+    const inner = el.children[0];
+    if (!inner) return null;
+    el.setAttribute("viewBox", inner.getAttribute("viewBox"));
+    const groups = [...inner.children].filter((c) => c.nodeName === "g" && c.id);
+    for (const g of groups) {
+      if (onlyGroup) { if (g.id === onlyGroup) g.classList.add("floor-shown"); continue; }
+      if (g.id === mc.svgLayer || g.dataset.keepWithGroup === mc.svgLayer) g.classList.add("base-layer");
+      else g.classList.add("hidden-layer", "overlay-layer");
+    }
+    if (onlyGroup) el.classList.add("floor-only");
+    return el;
+  } catch (e) {
+    console.warn("svg load failed", e);
+    return null;
+  }
+}
+
+function buildFloorSelect(mc) {
+  const sel = $("floorSelect");
+  const layers = mc.layers || [];
+  sel.innerHTML = `<option value="-1">Ground level</option>` + layers.map((l, i) => `<option value="${i}">${esc(l.name)}</option>`).join("");
+  sel.disabled = !layers.length;
+  sel.value = "-1";
+}
+
+async function showFloor(index) {
+  const mc = S.current, map = S.lmap;
+  if (!mc || !map) return;
+  const seq = ++S.floorSeq;
+  const stale = () => seq !== S.floorSeq || S.lmap !== map;
+  if (!(mc.layers || [])[index]) index = -1;
+  S.floorIndex = index;
+  $("floorSelect").value = String(index);
+  drawQuestMarkers();
+  if (S.floorLayer) { map.removeLayer(S.floorLayer); S.floorLayer = null; }
+  if (S.svgEl) S.svgEl.classList.remove("dim-base");
+  if (S.layers.base?.setOpacity && !S.svgEl) S.layers.base.setOpacity(1);
+  if (index < 0) return;
+  const layer = mc.layers[index];
+  const bounds = getBounds(mc.bounds);
+  if (S.svgEl && layer.svgLayer) {
+    const el = await loadSvg(mc, layer.svgLayer);
+    if (!el || stale()) return;
+    S.svgEl.classList.add("dim-base");
+    S.floorLayer = L.svgOverlay(el, mc.svgBounds ? getBounds(mc.svgBounds) : bounds, { interactive: false }).addTo(map);
+  } else if (layer.tilePath) {
+    if (S.svgEl) S.svgEl.classList.add("dim-base"); else S.layers.base?.setOpacity?.(0.3);
+    S.floorLayer = L.tileLayer(layer.tilePath, { tileSize: mc.tileSize || 256, bounds, maxNativeZoom: mc.maxZoom, maxZoom: Math.max(7, mc.maxZoom || 5) }).addTo(map);
+  } else if (layer.svgLayer && mc.svgPath) {
+    const el = await loadSvg(mc, layer.svgLayer);
+    if (!el || stale()) return;
+    S.layers.base?.setOpacity?.(0.3);
+    S.floorLayer = L.svgOverlay(el, mc.svgBounds ? getBounds(mc.svgBounds) : bounds, { interactive: false }).addTo(map);
+  }
+}
+
+function drawLabels(mc) {
+  for (const label of mc.labels || []) {
+    const size = label.size ?? 100;
+    L.marker(pos({ x: label.position[0], z: label.position[1] }), {
+      interactive: false, keyboard: false,
+      icon: L.divIcon({ className: "", iconSize: null, html: `<div class="map-label" style="font-size:${size / 7}px;transform:translate(-50%,-50%) rotate(${label.rotation || 0}deg)">${esc(label.text)}</div>` }),
+    }).addTo(S.layers.labels);
+  }
+}
+
+function drawExtracts(mc) {
+  S.layers.extracts.clearLayers();
+  if (!$("showExtracts").checked) return;
+  const seen = new Set();
+  for (const ex of mc.primary.extracts || []) {
+    const faction = ex.faction || "shared";
+    if (faction === "scav" || !ex.position) continue;
+    const name = t(S.mapsEn, ex.name, ex.name);
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const cls = faction === "pmc" ? "ex-pmc" : "ex-shared";
+    const showName = $("showLabels").checked;
+    const m = L.marker(pos(ex.position), {
+      zIndexOffset: 500, riseOnHover: true, title: name,
+      icon: L.divIcon({ className: "", iconSize: null, html: `<div class="ex-icon ${cls}"><div class="box"></div>${showName ? `<span>${esc(name)}</span>` : ""}</div>` }),
+    });
+    const extra = (ex.switches || []).length ? `<div class="muted">Needs a switch/condition</div>` : "";
+    m.bindPopup(`<b>${esc(name)}</b><div class="muted">${faction === "pmc" ? "PMC extract" : "Shared extract (PMC & Scav)"}</div>${extra}`);
+    m.addTo(S.layers.extracts);
+    if (ex.outline?.length) {
+      const poly = L.polygon(ex.outline.map(pos), { color: faction === "pmc" ? "#00e599" : "#00e4e5", weight: 1, fillOpacity: 0.15, interactive: false });
+      m.on("mouseover", () => poly.addTo(S.layers.extracts));
+      m.on("mouseout", () => poly.remove());
+    }
+  }
+}
+
+function drawQuestMarkers() {
+  if (!S.lmap || !S.current) return;
+  S.layers.quests.clearLayers();
+  S.markersByKey.clear();
+  if (!$("showQuests").checked) return;
+  for (const it of tasksForMap(S.current)) {
+    if (!isShown(it.task.id)) continue;
+    for (const o of it.objs) {
+      if (o.done) continue;
+      o.positions.forEach((p, i) => {
+        const icon = L.divIcon({ className: "", iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -8], html: `<div class="${p.kind === "item" ? "q-item" : "q-icon"}"></div>` });
+        const floor = floorOf(S.current, p.pos);
+        const offFloor = floor !== S.floorIndex;
+        const floorName = floor < 0 ? "Ground level" : S.current.layers[floor].name;
+        const m = L.marker(pos(p.pos), { icon, riseOnHover: true, zIndexOffset: offFloor ? 900 : 1000, opacity: offFloor ? 0.4 : 1 });
+        const cnt = o.total > 1 ? ` (${o.count || 0}/${o.total})` : "";
+        m.bindTooltip(`<b>${esc(it.name)}</b> <span class="muted">· ${esc(it.trader)}</span><div style="margin-top:4px">${esc(o.text)}${cnt}</div>` +
+          (p.kind === "item" ? `<div class="muted">Possible quest item location</div>` : "") +
+          `<div class="muted" style="font-size:11px">${esc(floorName)} · elevation ${p.pos.y?.toFixed?.(1) ?? "?"}</div>`, { direction: "top", offset: [0, -10], opacity: 1, className: "q-tip" });
+        if (p.outline?.length) {
+          const poly = L.polygon(p.outline.map(pos), { color: "#e5e200", weight: 1, opacity: offFloor ? 0.4 : 1, fillOpacity: offFloor ? 0.05 : 0.15, interactive: false }).addTo(S.layers.quests);
+          m.on("mouseover", () => poly.setStyle({ weight: 2, fillOpacity: 0.3 }));
+          m.on("mouseout", () => poly.setStyle({ weight: 1, fillOpacity: offFloor ? 0.05 : 0.15 }));
+        }
+        m.addTo(S.layers.quests);
+        S.markersByKey.set(`${it.task.id}:${o.obj.id}:${i}`, m);
+      });
+    }
+  }
+}
+
+function focusPos(p, key) {
+  if (!S.lmap) return;
+  S.lmap.flyTo(pos(p), Math.max(S.lmap.getZoom(), (S.current.maxZoom || 5) - 1), { duration: 0.6 });
+  const m = S.markersByKey.get(key);
+  if (m) setTimeout(() => m.openTooltip(), 650);
+}
+
+function drawPlayer(pan) {
+  if (!S.lmap || !S.layers.player) return;
+  S.layers.player.clearLayers();
+  const p = S.player;
+  if (!p || p.mapKey !== S.current.key) return;
+  let add = S.current.coordinateRotation || 0;
+  if (add === 90 || add === 270) add += 180;
+  const rot = (p.rotation ?? 0) + add;
+  const html = `<div class="player" style="transform:rotate(${rot}deg);width:30px;height:30px"><svg viewBox="0 0 30 30" width="30" height="30">
+    <path d="M15 2 L25 26 L15 20 L5 26 Z" fill="#3fa9ff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></div>`;
+  S.playerMarker = L.marker(pos(p), { icon: L.divIcon({ className: "", html, iconSize: [30, 30], iconAnchor: [15, 15] }), zIndexOffset: 3000, interactive: true, title: "You" })
+    .bindPopup(`<b>Your position</b><div class="muted">${esc(p.filename || "")}</div><div class="muted">x ${p.x.toFixed(1)} · y ${p.y.toFixed(1)} · z ${p.z.toFixed(1)}</div>`)
+    .addTo(S.layers.player);
+  if (pan) S.lmap.panTo(pos(p), { animate: true });
+}
+
+// ------------------------------------------------------------------ live events from the local helper
+function onEvent(ev) {
+  if (ev.type !== "position" || !S.current) return;
+  // the screenshot has no map name, so it is placed on the map you have selected
+  S.player = { ...ev, mapKey: S.current.key };
+  drawPlayer(true);
+  const floor = floorOf(S.current, ev);
+  if (floor !== S.floorIndex) showFloor(floor);
+  setStatus(`Position updated ${new Date().toLocaleTimeString()}`);
+}
+function connectEvents() {
+  const es = new EventSource("/api/events");
+  es.onmessage = (m) => { try { onEvent(JSON.parse(m.data)); } catch (e) { console.warn(e); } };
+  es.onerror = () => setStatus("Lost connection to the local helper — is tarkov_quest_map.py still running?", true);
+}
+
+// ------------------------------------------------------------------ settings
+function fillSettings() {
+  const c = S.cfg;
+  $("tokenInput").value = "";
+  $("tokenHint").innerHTML = c.hasToken ? `<span class="ok">Token saved (${esc(c.tokenHint)}) · mode: ${esc(c.gameMode)}</span>` : `<span class="bad">No token saved yet.</span> Create one on tarkovtracker.org → Settings → API Tokens (read permission is enough).`;
+  $("shotsInput").value = c.screenshotsDir || "";
+  $("shotsHint").innerHTML = c.screenshotsDirExists ? `<span class="ok">Folder found.</span> Bind a screenshot key in EFT (Settings → Controls).` : `<span class="bad">Folder not found.</span> It is usually Documents\\Escape From Tarkov\\Screenshots.`;
+  $("deleteShots").checked = !!c.deleteScreenshots;
+}
+async function saveSettings() {
+  const body = { screenshotsDir: $("shotsInput").value, deleteScreenshots: $("deleteShots").checked };
+  const tok = $("tokenInput").value.trim();
+  if (tok) body.token = tok;
+  const r = await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const prevMode = S.mode;
+  S.cfg = await r.json();
+  S.mode = S.cfg.gameMode;
+  S.progressJson = null;
+  if (S.mode !== prevMode) { await loadGameData(); populateMapSelect(); await showMap(S.current?.key); }
+  await loadProgress();
+}
+
+function populateMapSelect() {
+  $("mapSelect").innerHTML = S.mapCfgs.map((m) => `<option value="${m.key}">${esc(m.displayName)}</option>`).join("");
+}
+
+// ------------------------------------------------------------------ boot
+async function boot() {
+  try {
+    S.cfg = await getJSON("/api/config");
+  } catch (e) {
+    setStatus("Open this page through tarkov_quest_map.py (http://localhost:3000), not as a file.", true);
+    return;
+  }
+  S.mode = S.cfg.gameMode;
+  try {
+    await loadGameData();
+  } catch (e) {
+    setStatus(`Could not load game data from tarkov.dev: ${e.message}`, true);
+    return;
+  }
+  populateMapSelect();
+  populateTaskSearch();
+  const state =await getJSON("/api/state").catch(() => ({}));
+  const startKey = store.get("map", "customs");
+  // a position from an earlier raid is probably on a different map
+  if (state.position && Date.now() / 1000 - (state.position.time || 0) < 600) S.player = { ...state.position, mapKey: startKey };
+  await showMap(startKey);
+  if (S.cfg.hasToken) await loadProgress(); else { renderProfile(); renderTasks(); setStatus("Add your TarkovTracker token in Settings.", true); $("settingsBtn").click(); }
+  connectEvents();
+  setInterval(() => { if (S.cfg.hasToken && document.visibilityState === "visible") loadProgress(); }, POLL_MS);
+}
+
+$("mapSelect").addEventListener("change", (e) => showMap(e.target.value));
+$("styleSelect").addEventListener("change", async (e) => { S.baseStyle = e.target.value; store.set("style", S.baseStyle); await buildBase(S.current); await showFloor(-1); });
+$("floorSelect").addEventListener("change", (e) => showFloor(Number(e.target.value)));
+$("refreshBtn").addEventListener("click", () => loadProgress(true));
+$("showQuests").addEventListener("change", drawQuestMarkers);
+$("showExtracts").addEventListener("change", () => drawExtracts(S.current));
+$("showLabels").addEventListener("change", () => drawExtracts(S.current));
+document.querySelectorAll('input[name="showMode"]').forEach((r) => r.addEventListener("change", () => { store.set("showMode", showMode()); renderTasks(); drawQuestMarkers(); }));
+{ const m = store.get("showMode", "selected"); const r = document.querySelector(`input[name="showMode"][value="${m}"]`); if (r) r.checked = true; }
+$("addTaskBtn").addEventListener("click", addTaskByName);
+$("addTask").addEventListener("keydown", (e) => { if (e.key === "Enter") addTaskByName(); });
+if (store.get("questPanel", true) === false) $("app").classList.add("no-quests");
+$("questsBtn").addEventListener("click", () => { const off = $("app").classList.toggle("no-quests"); store.set("questPanel", !off); setTimeout(() => S.lmap?.invalidateSize(), 50); });
+if (store.get("leftPanel", true) === false) $("app").classList.add("no-left");
+$("leftBtn").addEventListener("click", () => { const off = $("app").classList.toggle("no-left"); store.set("leftPanel", !off); setTimeout(() => S.lmap?.invalidateSize(), 50); });
+$("settingsBtn").addEventListener("click", () => { if (S.cfg) fillSettings(); $("settings").showModal(); });
+$("settings").addEventListener("close", () => { if ($("settings").returnValue === "save") saveSettings(); });
+boot();
+</script>
+</body>
+</html>

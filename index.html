@@ -10,10 +10,9 @@
   :root { --bg:#14171a; --panel:#1d2227; --line:#30363d; --text:#e6e6e6; --muted:#9aa4ad; --accent:#e5e200; --pmc:#00e599; --shared:#00e4e5; --danger:#ff6b6b; }
   * { box-sizing: border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  #app { display:grid; grid-template-columns: 320px 1fr; grid-template-rows: auto auto 1fr; height:100%; }
-  #app.no-left { grid-template-columns: 0 1fr; }
-  #app.no-left aside { display:none; }
-  #app.no-quests #questPanel { display:none; }
+  #app { display:grid; grid-template-columns: 320px 1fr; grid-template-rows: auto 1fr; height:100%; }
+  #app.view-mission-h, #app.view-mission-v { grid-template-columns: 0 1fr; }
+  #app.view-mission-h aside, #app.view-mission-v aside { display:none; }
   header { grid-column: 1 / -1; grid-row:1; display:flex; gap:10px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
   header h1 { font-size:15px; margin:0 8px 0 0; font-weight:600; }
   select, button, input[type=text], input[type=password] { background:#0f1215; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font:inherit; }
@@ -21,23 +20,30 @@
   button:hover { border-color:#58616b; }
   #status { margin-left:auto; color:var(--muted); font-size:12px; text-align:right; }
   #status.err { color:var(--danger); }
-  aside { grid-column:1; grid-row:3; overflow:auto; background:var(--panel); border-right:1px solid var(--line); padding:10px 12px; }
-  #map { grid-column:2; grid-row:3; background:#0c0e10; min-width:0; min-height:0; }
-  #questPanel { grid-column: 1 / -1; grid-row:2; min-width:0; background:var(--panel); border-bottom:1px solid var(--line); padding:6px 12px; }
-  #questList { display:flex; gap:14px; overflow-x:auto; align-items:flex-start; padding-bottom:4px; }
-  .qgroupbox { flex:none; }
-  .qrow { display:flex; gap:8px; align-items:flex-start; }
-  .qgroup { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 4px; font-weight:600; white-space:nowrap; }
-  .qcard { flex:none; width:270px; max-height:24vh; overflow-y:auto; border:1px solid var(--line); border-radius:8px; padding:6px 9px; }
-  .qhead { display:flex; gap:6px; align-items:flex-start; }
-  .qhead .qname { flex:1; }
+  aside { grid-column:1; grid-row:2; overflow:auto; background:var(--panel); border-right:1px solid var(--line); padding:10px 12px; }
+  #map { grid-column:2; grid-row:2; background:#0c0e10; min-width:0; min-height:0; }
+  /* mission list: semi-transparent cards over the map; only the cards take the mouse */
+  #mission { grid-column:2; grid-row:2; z-index:1000; display:none; pointer-events:none; min-width:0; min-height:0; padding:8px; overflow:hidden; }
+  #app.view-mission-h #mission, #app.view-mission-v #mission { display:block; }
+  #questList { display:flex; gap:6px; overflow-y:auto; scrollbar-width:thin; }
+  /* across the top: columns packed like masonry, so a short card leaves no gap below it */
+  #app.view-mission-h #mission { align-self:start; max-height:50vh; overflow-y:auto; scrollbar-width:thin; }
+  #app.view-mission-h #questList { display:block; column-width:240px; column-gap:6px; overflow:visible; }
+  #app.view-mission-v #questList { flex-direction:column; width:290px; max-height:calc(100vh - 70px); }
+  .qcard { flex:none; width:250px; pointer-events:auto; background:rgba(20,23,26,.74); border:1px solid #30363dcc; border-radius:7px; padding:5px 8px; font-size:12px; line-height:1.3; text-shadow:0 0 2px #000; }
+  #app.view-mission-h .qcard { width:auto; break-inside:avoid; margin-bottom:6px; }
+  #app.view-mission-v .qcard { width:auto; }
+  .qcard:hover { background:rgba(20,23,26,.95); }
+  .qcard .trader { margin-left:6px; white-space:nowrap; }
+  .step.elsewhere { color:var(--muted); }
+  .qhead { display:flex; align-items:baseline; flex-wrap:wrap; }
   .qx { padding:0 6px; line-height:18px; border-radius:4px; color:var(--muted); }
   .q-tip { background:#1d2227; color:var(--text); border:1px solid var(--line); white-space:normal; width:max-content; max-width:280px; font-size:13px; padding:8px 10px; }
   .q-tip.leaflet-tooltip-top:before { border-top-color:#1d2227; }
   .qcard.here { border-color:#5c5a1f; }
   .qcard .qname { font-weight:600; }
   .qcard .qmeta { color:var(--muted); font-size:12px; margin-bottom:3px; }
-  .step { font-size:12.5px; margin:3px 0 0; padding-left:16px; text-indent:-16px; }
+  .step { margin:2px 0 0; padding-left:14px; text-indent:-14px; }
   .step.done { text-decoration:line-through; color:var(--muted); }
   .step.go { cursor:pointer; } .step.go:hover { color:var(--accent); }
   .step .num { color:var(--muted); display:inline-block; width:16px; text-indent:0; }
@@ -89,8 +95,7 @@
     <select id="floorSelect" title="Floor"></select>
     <select id="styleSelect" title="Map style"></select>
     <button id="refreshBtn" title="Reload progress from TarkovTracker">↻ Progress</button>
-    <button id="leftBtn" title="Show or hide the left panel">◧ Panel</button>
-    <button id="questsBtn" title="Show or hide the quest bar">☰ Quest list</button>
+    <button id="viewBtn" title="Change the view: setup panel → mission list across the top → mission list down the side"></button>
     <button id="settingsBtn">Settings</button>
     <div id="status">Starting…</div>
   </header>
@@ -118,12 +123,15 @@
         <div class="hint">Worked out from your TarkovTracker progress (completed tasks, level, traders). Tasks unlocked by trader dialogue can't be told apart, so this list has extras — tick only the ones you really have.</div>
         <div id="otherList"></div>
       </details>
+      <details id="elseBox" style="margin-top:12px">
+        <summary id="elseTitle"></summary>
+        <div class="hint">Ticked tasks that are not on this map. "Any location" tasks also show in the mission list.</div>
+        <div id="elseList"></div>
+      </details>
     </div>
   </aside>
   <div id="map"></div>
-  <section id="questPanel" title="Every task you've ticked, with all its steps. Steps marked 📍 are on the current map — click to jump there.">
-    <div id="questList"></div>
-  </section>
+  <div id="mission"><div id="questList"></div></div>
 </div>
 
 <dialog id="settings">
@@ -467,70 +475,77 @@ function taskMaps(task) {
   }
   return S.mapCfgs.filter((mc) => [...mc.ids].some((id) => ids.has(id)));
 }
+const taskName = (task) => t(S.tasksEn, task.name, task.normalizedName);
+// Mission list: ticked quests on the current map, then "any location" quests, then text-only quests.
+// Completed steps are left out to keep the cards short.
 function renderQuestPanel() {
-  const box = $("questList");
+  const box = $("questList"), cur = S.current;
   if (!box) return;
   box.innerHTML = "";
   const sel = [...selectedSet()].map((id) => S.tasksById.get(id)).filter((x) => x && !S.finished?.has(x.id));
-  const custom = customQuests();
-  if (!sel.length && !custom.length) { box.innerHTML = `<div class="muted" style="margin-top:8px">No quests ticked yet. Tick tasks in the left panel or add one by name.</div>`; return; }
-  const groups = new Map(); // label -> [{task, maps}]
-  const cur = S.current;
+  const here = [], any = [], other = [];
   for (const task of sel) {
     const maps = taskMaps(task);
-    const label = cur && maps.includes(cur) ? `On ${cur.displayName}` : maps.length ? maps.map((m) => m.displayName).join(" / ") : "Any map / hideout & traders";
-    if (!groups.has(label)) groups.set(label, []);
-    groups.get(label).push({ task, maps });
+    (cur && maps.includes(cur) ? here : maps.length ? other : any).push({ task, maps });
   }
-  const order = [...groups.keys()].sort((a, b) => (b.startsWith("On ") - a.startsWith("On ")) || (a.startsWith("Any") - b.startsWith("Any")) || a.localeCompare(b));
-  for (const label of order) {
-    const row = addGroup(box, label);
-    for (const { task, maps } of groups.get(label)) {
-      const here = cur && maps.includes(cur);
-      const onMap = here ? new Map(objectivesOnMap(task, cur).map((o) => [o.obj.id, o])) : new Map();
-      const card = document.createElement("div");
-      card.className = "qcard" + (here ? " here" : "");
-      const name = t(S.tasksEn, task.name, task.normalizedName);
-      const trader = S.traders[ref(task.trader)]?.name || "";
-      card.innerHTML = `<div class="qhead"><div class="qname">${esc(name)}</div><button class="qx" title="Remove from my quests">×</button></div><div class="qmeta">${esc(trader)}${task.wikiLink ? ` · <a href="${esc(task.wikiLink)}" target="_blank" rel="noopener" style="color:inherit">wiki ↗</a>` : ""}</div>`;
-      (task.objectives || []).forEach((obj, i) => {
-        const prog = S.objDone?.get(obj.id);
-        const done = !!prog?.complete;
-        const mo = onMap.get(obj.id);
-        const go = mo && mo.positions.length && !done;
-        const cnt = obj.count > 1 && !done ? ` <span class="muted">${prog?.count || 0}/${obj.count}</span>` : "";
-        const st = document.createElement("div");
-        st.className = "step" + (done ? " done" : "") + (go ? " go" : "");
-        st.innerHTML = `<span class="num">${done ? "✓" : i + 1 + "."}</span>${go ? "📍 " : ""}${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}`;
-        if (go) st.addEventListener("click", () => focusPos(mo.positions[0].pos, `${task.id}:${obj.id}:0`));
-        card.appendChild(st);
-      });
-      card.querySelector(".qx").addEventListener("click", () => setSelected(task.id, false));
-      row.appendChild(card);
-    }
+  const byName = (a, b) => taskName(a.task).localeCompare(taskName(b.task));
+  for (const list of [here, any, other]) list.sort(byName);
+  for (const { task } of here) box.appendChild(missionCard(task, true));
+  for (const { task } of any) box.appendChild(missionCard(task, false));
+  const custom = customQuests();
+  for (const name of custom) {
+    const card = document.createElement("div");
+    card.className = "qcard";
+    card.innerHTML = `<div class="qhead"><span class="qname">${esc(name)}</span><span class="trader">not in tarkov.dev data</span></div>`;
+    box.appendChild(card);
   }
-  if (custom.length) {
-    const row = addGroup(box, "Not in tarkov.dev data");
-    for (const name of custom) {
-      const card = document.createElement("div");
-      card.className = "qcard";
-      card.innerHTML = `<div class="qhead"><div class="qname">${esc(name)}</div><button class="qx" title="Remove from my quests">×</button></div><div class="qmeta">No steps or map markers available</div>`;
-      card.querySelector(".qx").addEventListener("click", () => setCustom(name, false));
-      row.appendChild(card);
-    }
-  }
-  S.lmap?.invalidateSize(); // the bar height can change
+  if (!box.children.length) box.innerHTML = `<div class="qcard muted">No ticked quests on ${esc(cur?.displayName || "this map")}. Change to the Setup view to tick tasks.</div>`;
+  renderElsewhere(other, any, custom);
 }
-function addGroup(box, label) {
-  const gb = document.createElement("div");
-  gb.className = "qgroupbox";
-  const h = document.createElement("div");
-  h.className = "qgroup"; h.textContent = label;
-  const row = document.createElement("div");
-  row.className = "qrow";
-  gb.append(h, row);
-  box.appendChild(gb);
-  return row;
+function missionCard(task, here) {
+  const onMap = here ? new Map(objectivesOnMap(task, S.current).map((o) => [o.obj.id, o])) : new Map();
+  const card = document.createElement("div");
+  card.className = "qcard" + (here ? " here" : "");
+  const trader = S.traders[ref(task.trader)]?.name || "";
+  card.innerHTML = `<div class="qhead"><span class="qname">${esc(taskName(task))}</span><span class="trader">${esc(trader)}${here ? "" : " · any location"}</span></div>`;
+  let open = 0;
+  for (const obj of task.objectives || []) {
+    const prog = S.objDone?.get(obj.id);
+    if (prog?.complete) continue;
+    open++;
+    const mo = onMap.get(obj.id);
+    const go = !!(mo && mo.positions.length);
+    const hasMap = (obj.maps || []).length || (obj.zones || []).length || (obj.possibleLocations || []).length;
+    const elsewhere = here && !mo && hasMap; // this step is on a different map
+    const cnt = obj.count > 1 ? ` <span class="muted">${prog?.count || 0}/${obj.count}</span>` : "";
+    const st = document.createElement("div");
+    st.className = "step" + (go ? " go" : "") + (elsewhere ? " elsewhere" : "");
+    st.innerHTML = `${go ? "📍 " : "• "}${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}`;
+    if (go) st.addEventListener("click", () => focusPos(mo.positions[0].pos, `${task.id}:${obj.id}:0`));
+    card.appendChild(st);
+  }
+  if (!open) card.insertAdjacentHTML("beforeend", `<div class="step muted">• All steps done</div>`);
+  return card;
+}
+// Left panel: ticked quests that are not on the current map, with a remove button
+function renderElsewhere(other, any, custom) {
+  const list = $("elseList");
+  if (!list) return;
+  list.innerHTML = "";
+  const rows = [
+    ...other.map(({ task, maps }) => ({ name: taskName(task), where: maps.map((m) => m.displayName).join(" / "), remove: () => setSelected(task.id, false) })),
+    ...any.map(({ task }) => ({ name: taskName(task), where: "any location", remove: () => setSelected(task.id, false) })),
+    ...custom.map((name) => ({ name, where: "not in tarkov.dev data", remove: () => setCustom(name, false) })),
+  ];
+  $("elseBox").style.display = rows.length ? "" : "none";
+  $("elseTitle").textContent = `My other quests (${rows.length})`;
+  for (const r of rows) {
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `<button class="qx" title="Remove from my quests">×</button><span><span class="ename">${esc(r.name)}</span> <span class="trader">· ${esc(r.where)}</span></span>`;
+    div.querySelector("button").addEventListener("click", r.remove);
+    list.appendChild(div);
+  }
 }
 
 // ------------------------------------------------------------------ map (same projection as tarkov.dev)
@@ -585,10 +600,11 @@ async function showMap(key) {
   const maxZoom = Math.max(7, mc.maxZoom || 5);
   const map = L.map("map", {
     crs: getCRS(mc), minZoom: mc.minZoom ?? 1, maxZoom, zoomSnap: 0.25, zoomDelta: 0.5,
-    attributionControl: true, maxBounds: scaledBounds(mc.bounds, 1.5),
+    attributionControl: true, zoomControl: false, maxBounds: scaledBounds(mc.bounds, 1.5),
   });
   map.attributionControl.setPrefix(false);
   map.attributionControl.addAttribution('Map data &amp; images: <a href="https://tarkov.dev" target="_blank">tarkov.dev</a>');
+  L.control.zoom({ position: "bottomright" }).addTo(map);
   S.lmap = map;
   const bounds = getBounds(mc.bounds);
   map.fitBounds(bounds);
@@ -872,10 +888,18 @@ document.querySelectorAll('input[name="showMode"]').forEach((r) => r.addEventLis
 { const m = store.get("showMode", "selected"); const r = document.querySelector(`input[name="showMode"][value="${m}"]`); if (r) r.checked = true; }
 $("addTaskBtn").addEventListener("click", addTaskByName);
 $("addTask").addEventListener("keydown", (e) => { if (e.key === "Enter") addTaskByName(); });
-if (store.get("questPanel", true) === false) $("app").classList.add("no-quests");
-$("questsBtn").addEventListener("click", () => { const off = $("app").classList.toggle("no-quests"); store.set("questPanel", !off); setTimeout(() => S.lmap?.invalidateSize(), 50); });
-if (store.get("leftPanel", true) === false) $("app").classList.add("no-left");
-$("leftBtn").addEventListener("click", () => { const off = $("app").classList.toggle("no-left"); store.set("leftPanel", !off); setTimeout(() => S.lmap?.invalidateSize(), 50); });
+const VIEWS = [["setup", "Setup"], ["mission-h", "Mission ↔"], ["mission-v", "Mission ↕"]];
+function setView(v) {
+  const i = Math.max(0, VIEWS.findIndex((x) => x[0] === v));
+  $("app").classList.remove(...VIEWS.map((x) => "view-" + x[0]));
+  $("app").classList.add("view-" + VIEWS[i][0]);
+  $("app").dataset.view = VIEWS[i][0];
+  $("viewBtn").textContent = "View: " + VIEWS[i][1];
+  store.set("view", VIEWS[i][0]);
+  setTimeout(() => S.lmap?.invalidateSize(), 50);
+}
+setView(store.get("view", "setup"));
+$("viewBtn").addEventListener("click", () => setView(VIEWS[(VIEWS.findIndex((x) => x[0] === $("app").dataset.view) + 1) % VIEWS.length][0]));
 $("settingsBtn").addEventListener("click", () => { if (S.cfg) fillSettings(); $("settings").showModal(); });
 $("settings").addEventListener("close", () => { if ($("settings").returnValue === "save") saveSettings(); });
 boot();

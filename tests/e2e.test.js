@@ -93,9 +93,9 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   await sleep(50);
   assert(text("#taskList .task-name").some((x) => x.startsWith("Debut")), "Debut moved to ticked list");
   console.log("left objs:", text("#taskList .obj"));
-  console.log("quest panel:", text("#questList .qgroup"), text("#questList .step"));
-  assert(text("#questList .step").some((x) => x.includes("Kill 5 Scavs") && x.includes("3/5")), "quest panel shows steps with counts");
-  assert(d.querySelector("#questList .step.done")?.textContent.includes("Hand over 2 bolts"), "completed objective struck in quest panel");
+  console.log("mission list:", text("#questList .qname"), text("#questList .step"));
+  assert(text("#questList .step").some((x) => x.includes("Kill 5 Scavs") && x.includes("3/5")), "mission list shows steps with counts");
+  assert(!text("#questList .step").some((x) => x.includes("Hand over 2 bolts")), "completed objective left out of the mission list");
 
   // add a task by name that the computed list says is locked (Checking) -> markers appear
   d.getElementById("addTask").value = "Checking (Prapor)";
@@ -104,14 +104,29 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   const qm = d.querySelectorAll(".leaflet-marker-pane .q-icon").length, qi = d.querySelectorAll(".leaflet-marker-pane .q-item").length;
   console.log("markers zone/item:", qm, qi);
   assert(qm === 1 && qi === 2, "manually added task shows its zone + 2 item locations");
-  assert(text("#questList .qgroup")[0] === "On Customs", "quest panel groups current map first");
-  // needsActive should now count as possible? (its prereq 'checking' is not computed available) -> not listed
-  // add woods task -> grouped under Woods
+  assert(text("#questList .qname").includes("Checking"), "added task is in the mission list");
+  // add woods task -> not in the mission list for customs, listed under "My other quests"
   d.getElementById("addTask").value = "Woods Walk";
   d.getElementById("addTaskBtn").click();
   await sleep(50);
-  console.log("groups:", text("#questList .qgroup"));
-  assert(text("#questList .qgroup").includes("Woods"), "other-map quest grouped by its map");
+  assert(!text("#questList .qname").includes("Woods Walk"), "other-map quest is not in the mission list");
+  assert(text("#elseList .ename").includes("Woods Walk"), "other-map quest listed under My other quests");
+
+  // a name that tarkov.dev does not know becomes a text-only quest
+  d.getElementById("addTask").value = "Brand New Quest";
+  d.getElementById("addTaskBtn").click();
+  await sleep(50);
+  assert(text("#questList .qname").includes("Brand New Quest"), "unknown quest added as text only");
+  [...d.querySelectorAll("#elseList .row")].find((x) => x.textContent.includes("Brand New Quest")).querySelector("button").click();
+  await sleep(50);
+  assert(!text("#questList .qname").includes("Brand New Quest"), "text-only quest removed");
+
+  // the view button cycles setup -> mission across -> mission down -> setup
+  const app = d.getElementById("app"), vb = d.getElementById("viewBtn");
+  assert(app.dataset.view === "setup", "starts in the setup view");
+  vb.click(); assert(app.classList.contains("view-mission-h"), "second view: mission list across the top");
+  vb.click(); assert(app.classList.contains("view-mission-v"), "third view: mission list down the side");
+  vb.click(); assert(app.dataset.view === "setup" && !app.classList.contains("view-mission-v"), "back to the setup view");
 
   // show-all mode draws markers for everything possible
   d.querySelector('input[name="showMode"][value="all"]').click();
@@ -126,7 +141,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   const tb = [...d.querySelectorAll("#taskList .task")].find((x) => x.textContent.includes("Debut")).querySelector("input");
   tb.checked = false; tb.dispatchEvent(new w.Event("change"));
   await sleep(50);
-  assert(!text("#questList .qname").includes("Debut"), "untick removes from quest panel");
+  assert(!text("#questList .qname").includes("Debut"), "untick removes from the mission list");
 
   // screenshot position event
   w.__es.onmessage({ data: JSON.stringify({ type: "position", x: 120, y: 1, z: -60, rotation: 45, filename: "shot.png" }) });
@@ -140,7 +155,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   await sleep(300);
   assert(d.querySelectorAll(".leaflet-marker-pane .player").length === 0, "player marker not on other map");
   assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 1, "woods quest marker shown");
-  assert(text("#questList .qgroup")[0] === "On Woods", "quest panel regroups for woods");
+  assert(text("#questList .qname").includes("Woods Walk"), "mission list follows the selected map");
 
   // floor select on customs
   d.getElementById("mapSelect").value = "customs";

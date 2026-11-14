@@ -28,12 +28,18 @@ USING IT
   trader dialogue hasn't unlocked yet (the API can't tell those apart), so tick
   only the ones in your in-game list. Use "Add a task by name" for anything
   missing.
-- Top bar ("Quest list" button): every ticked quest with all of its steps,
-  side by side. Completed steps are crossed out. Steps marked with a pin are
-  on the current map; click one to jump to it. The x removes a quest.
-- A quest that is not in the tarkov.dev data yet (new quests) is added to the
-  bar as text only when you add it by name. It has no steps or markers.
-- "Panel" hides or shows the left panel.
+- The "View" button changes between three views:
+    Setup      the left panel, where you tick tasks.
+    Mission <->  no panel; your quests show across the top of the map.
+    Mission |    no panel; your quests show down the left side of the map.
+  The mission list is semi-transparent. It shows your ticked quests for the
+  selected map and the quests that have no fixed location. Completed steps are
+  left out. Steps marked with a pin are on the map; click one to jump to it.
+  Grey steps are on a different map.
+- "My other quests" in the left panel lists ticked quests that are not on the
+  selected map. The x removes a quest.
+- A quest that is not in the tarkov.dev data yet (new quests) is added as text
+  only when you add it by name. It has no steps or markers.
 - Move the mouse over a quest marker to see its details.
 - A ticked quest disappears by itself once TarkovTracker marks it complete.
   Progress reloads every 2 minutes; press "Progress" to reload it now.

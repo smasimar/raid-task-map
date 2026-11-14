@@ -123,3 +123,11 @@ Fixed after a code review:
 - **Tests:** `tests/test_server.py` (`py -3 -m unittest discover tests`) covers the filename parser, the request check and the token-prefix mode. `e2e.test.js` now checks the markers in show-all mode.
 
 Verified in a real browser against live json.tarkov.dev data, without a token: quest markers without progress, fast map change, floor follow on Customs, 415/403/400 answers. **Not run:** `tests/e2e.test.js` (no Node on this PC), and anything against a real TarkovTracker account.
+
+## UI changes after the review (2026-11-14)
+
+- **The right-hand "My quests" panel is gone.** One header button (`#viewBtn`, `setView()`, stored in `tqm.view`) cycles three views: `setup` (left panel), `mission-h` and `mission-v`. The mission views hide the left panel and show `#mission` over the map: semi-transparent cards for the ticked quests on the selected map, then "any location" quests, then text-only quests. Completed steps are left out. Only the cards take mouse input, so the map can be dragged between them.
+- **"My other quests"** (`#elseBox`) in the left panel lists ticked quests that are not on the selected map, with a remove button.
+- **Text-only quests:** a name that tarkov.dev does not have (for example "A Familiar Face...", checked 2026-11-14 in all three game modes) is stored in `tqm.custom.<mode>` and shown without steps or markers.
+- **Quest markers** show a tooltip on hover (`bindTooltip`), not a popup on click. The zoom buttons are at the bottom right.
+- The user asked for a local git repository only. Do not add a remote or push.

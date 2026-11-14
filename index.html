@@ -94,6 +94,7 @@
     <select id="mapSelect" title="Map"></select>
     <select id="floorSelect" title="Floor"></select>
     <select id="styleSelect" title="Map style"></select>
+    <button id="resetViewBtn" title="Put the full map back in the window">⌖ Reset view</button>
     <button id="refreshBtn" title="Reload progress from TarkovTracker">↻ Progress</button>
     <button id="viewBtn" title="Change the view: setup panel → mission list across the top → mission list down the side"></button>
     <button id="settingsBtn">Settings</button>
@@ -125,7 +126,7 @@
       </details>
       <details id="elseBox" style="margin-top:12px">
         <summary id="elseTitle"></summary>
-        <div class="hint">Ticked tasks that are not on this map. "Any location" tasks also show in the mission list.</div>
+        <div class="hint">Ticked tasks that are not on this map. "Any location" tasks also show in the mission list. "Not in a raid" tasks (build a weapon, hand over items, Arena) do not.</div>
         <div id="elseList"></div>
       </details>
     </div>
@@ -491,7 +492,7 @@ function renderQuestPanel() {
   const byName = (a, b) => taskName(a.task).localeCompare(taskName(b.task));
   for (const list of [here, any, other]) list.sort(byName);
   for (const { task } of here) box.appendChild(missionCard(task, true));
-  for (const { task } of any) box.appendChild(missionCard(task, false));
+  for (const { task } of any) if (hasRaidStep(task)) box.appendChild(missionCard(task, false));
   const custom = customQuests();
   for (const name of custom) {
     const card = document.createElement("div");
@@ -502,6 +503,17 @@ function renderQuestPanel() {
   if (!box.children.length) box.innerHTML = `<div class="qcard muted">No ticked quests on ${esc(cur?.displayName || "this map")}. Change to the Setup view to tick tasks.</div>`;
   renderElsewhere(other, any, custom);
 }
+// Objective types that are done in a raid. The other types (buildWeapon, giveItem, giveQuestItem,
+// sellItem, taskStatus, traderLevel, traderStanding, skill, experience, ...) are done in the menus.
+const RAID_TYPES = new Set(["shoot", "findItem", "findQuestItem", "visit", "mark", "plantItem", "plantQuestItem", "extract", "useItem"]);
+function isRaidStep(obj) {
+  if (!RAID_TYPES.has(obj.type)) return false;
+  // a "visit" step with no map is an Arena step ("Play a match in ...")
+  if (obj.type === "visit" && !(obj.maps || []).length && !(obj.zones || []).length) return false;
+  return true;
+}
+// true if the task still has an open step to do in a raid
+const hasRaidStep = (task) => (task.objectives || []).some((obj) => isRaidStep(obj) && !S.objDone?.get(obj.id)?.complete);
 function missionCard(task, here) {
   const onMap = here ? new Map(objectivesOnMap(task, S.current).map((o) => [o.obj.id, o])) : new Map();
   const card = document.createElement("div");
@@ -534,7 +546,7 @@ function renderElsewhere(other, any, custom) {
   list.innerHTML = "";
   const rows = [
     ...other.map(({ task, maps }) => ({ name: taskName(task), where: maps.map((m) => m.displayName).join(" / "), remove: () => setSelected(task.id, false) })),
-    ...any.map(({ task }) => ({ name: taskName(task), where: "any location", remove: () => setSelected(task.id, false) })),
+    ...any.map(({ task }) => ({ name: taskName(task), where: hasRaidStep(task) ? "any location" : "not in a raid", remove: () => setSelected(task.id, false) })),
     ...custom.map((name) => ({ name, where: "not in tarkov.dev data", remove: () => setCustom(name, false) })),
   ];
   $("elseBox").style.display = rows.length ? "" : "none";
@@ -583,11 +595,6 @@ function floorOf(mc, p) {
   return -1;
 }
 const getBounds = (b) => (b ? L.latLngBounds([b[0][1], b[0][0]], [b[1][1], b[1][0]]) : undefined);
-function scaledBounds(b, f) {
-  const cx = (b[0][0] + b[1][0]) / 2, cy = (b[0][1] + b[1][1]) / 2;
-  const w = (b[1][0] - b[0][0]) * f, h = (b[1][1] - b[0][1]) * f;
-  return [[cy - h / 2, cx - w / 2], [cy + h / 2, cx + w / 2]];
-}
 
 async function showMap(key) {
   const mc = S.mapCfgs.find((m) => m.key === key) || S.mapCfgs[0];
@@ -599,8 +606,8 @@ async function showMap(key) {
   S.svgEl = null; S.floorLayer = null; S.playerMarker = null; S.floorIndex = -1; S.floorSeq++;
   const maxZoom = Math.max(7, mc.maxZoom || 5);
   const map = L.map("map", {
-    crs: getCRS(mc), minZoom: mc.minZoom ?? 1, maxZoom, zoomSnap: 0.25, zoomDelta: 0.5,
-    attributionControl: true, zoomControl: false, maxBounds: scaledBounds(mc.bounds, 1.5),
+    crs: getCRS(mc), minZoom: (mc.minZoom ?? 1) - 3, maxZoom, zoomSnap: 0.25, zoomDelta: 0.5,
+    attributionControl: true, zoomControl: false,
   });
   map.attributionControl.setPrefix(false);
   map.attributionControl.addAttribution('Map data &amp; images: <a href="https://tarkov.dev" target="_blank">tarkov.dev</a>');
@@ -649,7 +656,7 @@ async function buildBase(mc) {
   }
   S.svgEl = null;
   if (mc.tilePath) {
-    S.layers.base = L.tileLayer(mc.tilePath, { tileSize: mc.tileSize || 256, bounds, maxNativeZoom: mc.maxZoom, maxZoom: Math.max(7, mc.maxZoom || 5) }).addTo(map);
+    S.layers.base = L.tileLayer(mc.tilePath, { tileSize: mc.tileSize || 256, bounds, minNativeZoom: mc.minZoom ?? 1, maxNativeZoom: mc.maxZoom, maxZoom: Math.max(7, mc.maxZoom || 5) }).addTo(map);
   }
 }
 
@@ -708,7 +715,7 @@ async function showFloor(index) {
     S.floorLayer = L.svgOverlay(el, mc.svgBounds ? getBounds(mc.svgBounds) : bounds, { interactive: false }).addTo(map);
   } else if (layer.tilePath) {
     if (S.svgEl) S.svgEl.classList.add("dim-base"); else S.layers.base?.setOpacity?.(0.3);
-    S.floorLayer = L.tileLayer(layer.tilePath, { tileSize: mc.tileSize || 256, bounds, maxNativeZoom: mc.maxZoom, maxZoom: Math.max(7, mc.maxZoom || 5) }).addTo(map);
+    S.floorLayer = L.tileLayer(layer.tilePath, { tileSize: mc.tileSize || 256, bounds, minNativeZoom: mc.minZoom ?? 1, maxNativeZoom: mc.maxZoom, maxZoom: Math.max(7, mc.maxZoom || 5) }).addTo(map);
   } else if (layer.svgLayer && mc.svgPath) {
     const el = await loadSvg(mc, layer.svgLayer);
     if (!el || stale()) return;
@@ -881,6 +888,7 @@ $("mapSelect").addEventListener("change", (e) => showMap(e.target.value));
 $("styleSelect").addEventListener("change", async (e) => { S.baseStyle = e.target.value; store.set("style", S.baseStyle); await buildBase(S.current); await showFloor(-1); });
 $("floorSelect").addEventListener("change", (e) => showFloor(Number(e.target.value)));
 $("refreshBtn").addEventListener("click", () => loadProgress(true));
+$("resetViewBtn").addEventListener("click", () => { if (S.lmap && S.current) S.lmap.fitBounds(getBounds(S.current.bounds)); });
 $("showQuests").addEventListener("change", drawQuestMarkers);
 $("showExtracts").addEventListener("change", () => drawExtracts(S.current));
 $("showLabels").addEventListener("change", () => drawExtracts(S.current));

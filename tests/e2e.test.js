@@ -19,10 +19,14 @@ const tasks = {
   unlockJaeger: task("unlockJaeger", { finishRewards: { traderUnlock: [JAEGER] }, objectives: [{ id: "o7", description: "o7", type: "visit", maps: [WOODS] }] }),
   needsActive: task("needsActive", { taskRequirements: [{ task: "checking", status: ["active"] }], objectives: [{ id: "o8", description: "o8", type: "visit", maps: [CUST] }] }),
   extraZone: task("extraZone", { objectives: [{ id: "o10", description: "o10", type: "visit", zones: [{ id: "zz", map: CUST, position: { x: 50, y: 1, z: 50 } }], maps: [CUST] }] }),
+  nades: task("nades", { objectives: [{ id: "o11", description: "o11", type: "shoot", count: 5 }] }),
+  gunsmith: task("gunsmith", { objectives: [{ id: "o12", description: "o12", type: "buildWeapon" }] }),
+  arena: task("arena", { objectives: [{ id: "o13", description: "o13", type: "visit" }] }),
   doneTask: task("doneTask", { objectives: [{ id: "o9", description: "o9", type: "visit", maps: [CUST] }] }),
 };
 const en = { "debut name": "Debut", "checking name": "Checking", "woodsTask name": "Woods Walk", "highLevel name": "Endgame", "jaegerTask name": "Jaeger Job", "unlockJaeger name": "Meet Jaeger", "needsActive name": "Follow Up", "doneTask name": "Old News",
-  o1: "Kill 5 Scavs on Customs", o2: "Hand over 2 bolts", o3: "Locate the warehouse", o3b: "Find the folder", o4: "Visit the sawmill", o5: "x", o6: "x", o7: "x", o8: "Do the follow up on Customs", o9: "x", "extraZone name": "Extra Zone", o10: "Visit the extra zone" };
+  o1: "Kill 5 Scavs on Customs", o2: "Hand over 2 bolts", o3: "Locate the warehouse", o3b: "Find the folder", o4: "Visit the sawmill", o5: "x", o6: "x", o7: "x", o8: "Do the follow up on Customs", o9: "x", "extraZone name": "Extra Zone", o10: "Visit the extra zone",
+  "nades name": "Nade Kills", o11: "Eliminate any target with grenades", "gunsmith name": "Gun Build", o12: "Modify a weapon", "arena name": "Arena Match", o13: "Play a match" };
 const apiMaps = {
   [CUST]: { id: CUST, name: `${CUST} Name`, normalizedName: "customs", nameId: "bigmap", extracts: [
     { id: "e1", name: "ex_pmc_a", faction: "pmc", position: { x: 300, y: 0, z: -100 }, outline: [{ x: 1, y: 0, z: 1 }, { x: 2, y: 0, z: 2 }, { x: 3, y: 0, z: 1 }], switches: [] },
@@ -120,6 +124,13 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   [...d.querySelectorAll("#elseList .row")].find((x) => x.textContent.includes("Brand New Quest")).querySelector("button").click();
   await sleep(50);
   assert(!text("#questList .qname").includes("Brand New Quest"), "text-only quest removed");
+
+  // any-location quests: only those with an open in-raid step are in the mission list
+  for (const n of ["Nade Kills", "Gun Build", "Arena Match"]) { d.getElementById("addTask").value = n; d.getElementById("addTaskBtn").click(); }
+  await sleep(50);
+  assert(text("#questList .qname").includes("Nade Kills"), "any-location quest with a raid step is in the mission list");
+  assert(!text("#questList .qname").includes("Gun Build") && !text("#questList .qname").includes("Arena Match"), "out-of-raid quests are not in the mission list");
+  assert(["Nade Kills", "Gun Build", "Arena Match"].every((n) => text("#elseList .ename").includes(n)), "they stay under My other quests");
 
   // the view button cycles setup -> mission across -> mission down -> setup
   const app = d.getElementById("app"), vb = d.getElementById("viewBtn");

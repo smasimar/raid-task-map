@@ -22,6 +22,11 @@
   #status.err { color:var(--danger); }
   #raidTimer { display:none; padding:3px 9px; border:1px solid var(--line); border-radius:6px; font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
   #raidTimer.on { display:block; }
+  #writesNote { display:none; font-size:12px; color:var(--muted); white-space:nowrap; }
+  #writesNote.on { display:block; }
+  #writesNote.err { color:var(--danger); white-space:normal; max-width:320px; }
+  .pbtn { all:unset; cursor:pointer; display:inline-block; text-indent:0; min-width:14px; text-align:center; padding:0 3px; margin-left:3px; border:1px solid var(--line); border-radius:4px; color:var(--muted); font-size:11px; line-height:15px; }
+  .pbtn:hover { color:var(--accent); border-color:var(--accent); }
   #raidTimer.low { color:var(--danger); border-color:var(--danger); }
   aside { grid-column:1; grid-row:2; overflow:auto; background:var(--panel); border-right:1px solid var(--line); padding:10px 12px; }
   #map { grid-column:2; grid-row:2; background:#0c0e10; min-width:0; min-height:0; }
@@ -102,6 +107,7 @@
     <button id="viewBtn" title="Change the view: setup panel → mission list across the top → mission list down the side"></button>
     <button id="settingsBtn">Settings</button>
     <div id="raidTimer" title="Raid state, read from the game's log files"></div>
+    <div id="writesNote" title="Progress changes that wait to be sent to TarkovTracker"></div>
     <div id="status">Starting…</div>
   </header>
   <aside>
@@ -146,6 +152,9 @@
     <label for="tokenInput">TarkovTracker.org API token</label>
     <input type="password" id="tokenInput" placeholder="PVP_… or PVE_…  (leave empty to keep the current one)" autocomplete="off">
     <div class="hint" id="tokenHint"></div>
+    <div class="row" id="modeRow" style="margin-top:6px"><label for="modeSelect" style="margin:0">Show game mode</label> <select id="modeSelect"></select></div>
+    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="writeTT"> Send quest progress to TarkovTracker</label>
+    <div class="hint" id="writeHint"></div>
     <label for="shotsInput">EFT screenshots folder</label>
     <input type="text" id="shotsInput">
     <div class="hint" id="shotsHint"></div>
@@ -404,6 +413,55 @@ async function questOp(op) {
 }
 const setSelected = (id, on) => questOp(on ? { add: [id] } : { remove: [id] });
 const setCustom = (name, on) => questOp(on ? { addCustom: [name] } : { removeCustom: [name] });
+// ------------------------------------------------------------------ progress changes, sent to TarkovTracker by the helper
+const MODE_NAMES = { regular: "PvP", pve: "PvE", "pvp-season": "PvP season" };
+const canWrite = () => !!(S.cfg?.hasToken && S.cfg.writeTT && S.cfg.canWrite !== false);
+async function sendProgress(kind, body) {
+  try {
+    const r = await postJSON("/api/progress/" + kind, body);
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `${r.status} ${r.statusText}`);
+  } catch (e) {
+    setStatus(`Could not save the progress: ${e.message}`, true);
+  }
+}
+// The helper holds fast clicks on one step for a few seconds and sends one change with the last value.
+function setObjective(obj, patch) {
+  const prog = S.objDone?.get(obj.id) || { id: obj.id };
+  if ("count" in patch) prog.count = patch.count;
+  if ("state" in patch) prog.complete = patch.state === "completed";
+  S.objDone?.set(obj.id, prog); // show the click at once; the helper sends the same values back
+  renderTasks(); drawQuestMarkers();
+  sendProgress("objective", { id: obj.id, ...patch });
+}
+function progressButtons(obj) {
+  const box = document.createElement("span");
+  if (!canWrite()) return box;
+  const prog = S.objDone?.get(obj.id), total = obj.count > 1 ? obj.count : 0, now = prog?.count || 0;
+  const add = (label, title, patch) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "pbtn"; b.textContent = label; b.title = title;
+    b.addEventListener("click", (e) => { e.stopPropagation(); setObjective(obj, patch); });
+    box.appendChild(b);
+  };
+  if (prog?.complete) { add("↺", "Not done", { state: "uncompleted", ...(total ? { count: 0 } : {}) }); return box; }
+  if (total) {
+    if (now > 0) add("−", "One less", { count: now - 1, state: "uncompleted" });
+    add("+", "One more", { count: Math.min(total, now + 1), state: now + 1 >= total ? "completed" : "uncompleted" });
+  }
+  add("✓", "Step done", { state: "completed", ...(total ? { count: total } : {}) });
+  return box;
+}
+function completeTask(task) {
+  if (!confirm(`Mark "${taskName(task)}" as completed on TarkovTracker?`)) return;
+  sendProgress("task", { id: task.id, state: "completed" });
+}
+function onWrites(ev) {
+  const el = $("writesNote");
+  el.classList.toggle("on", !!(ev.pending || ev.error));
+  el.classList.toggle("err", !!ev.error);
+  el.textContent = ev.error || `${ev.pending} change${ev.pending === 1 ? "" : "s"} to send…`;
+}
+
 async function loadQuests() {
   const q = await getJSON("/api/quests");
   // one time: move the ticks that an earlier version kept in this browser
@@ -506,6 +564,7 @@ function taskCard(it, selected) {
     const cnt = o.total > 1 && !o.done ? ` <span class="muted">${o.count || 0}/${o.total}</span>` : "";
     od.innerHTML = `${o.positions.length && !o.done ? '<span class="pin">📍</span> ' : "• "}${esc(o.text)}${cnt}`;
     if (o.positions.length && !o.done) od.addEventListener("click", () => focusPos(o.positions[0].pos, `${it.task.id}:${o.obj.id}:0`));
+    od.appendChild(progressButtons(o.obj));
     div.appendChild(od);
   }
   return div;
@@ -602,9 +661,16 @@ function missionCard(task, here) {
     st.className = "step" + (go ? " go" : "") + (elsewhere ? " elsewhere" : "");
     st.innerHTML = `${go ? "📍 " : "• "}${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}`;
     if (go) st.addEventListener("click", () => focusPos(mo.positions[0].pos, `${task.id}:${obj.id}:0`));
+    st.appendChild(progressButtons(obj));
     card.appendChild(st);
   }
   if (!open) card.insertAdjacentHTML("beforeend", `<div class="step muted">• All steps done</div>`);
+  if (canWrite()) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "pbtn"; b.textContent = "✓ quest"; b.title = "Mark the quest as completed";
+    b.addEventListener("click", () => completeTask(task));
+    card.querySelector(".qhead").appendChild(b);
+  }
   return card;
 }
 // Left panel: ticked quests that are not on the current map, with a remove button
@@ -887,6 +953,9 @@ function drawPlayer(pan) {
 function onEvent(ev) {
   if (ev.type === "game") return applyGame(ev);
   if (ev.type === "quests") return onQuests(ev);
+  if (ev.type === "writes") return onWrites(ev);
+  if (ev.type === "progress") return S.cfg?.hasToken && loadProgress();
+  if (ev.type === "config") return getJSON("/api/config").then(applyConfig);
   if (ev.type !== "position" || !S.current) return;
   // the screenshot has no map name, so it is placed on the map you have selected
   S.player = { ...ev, mapKey: S.current.key };
@@ -911,8 +980,8 @@ async function applyGame(g) {
   S.game = g;
   const wasIdle = (prev?.raid?.phase || "idle") === "idle";
   const idle = (g.raid?.phase || "idle") === "idle";
-  if (g.mode && g.mode !== prev?.mode && S.cfg?.hasToken && g.mode !== S.cfg.gameMode)
-    setStatus(`The game runs in ${g.mode} mode, but the TarkovTracker token is for ${S.cfg.gameMode}.`, true);
+  if (g.mode && g.mode !== prev?.mode && S.cfg?.hasToken && !(g.mode in (S.cfg.tokens || {})))
+    setStatus(`The game runs in ${MODE_NAMES[g.mode] || g.mode} mode, but there is no TarkovTracker token for that mode. Add one in Settings.`, true);
   if (idle) {
     S.raidAutoKey = null;
     if (S.viewAuto) { S.viewAuto = false; setView("setup"); }
@@ -950,7 +1019,17 @@ setInterval(updateRaidTimer, 1000);
 function fillSettings() {
   const c = S.cfg;
   $("tokenInput").value = "";
-  $("tokenHint").innerHTML = c.hasToken ? `<span class="ok">Token saved (${esc(c.tokenHint)}) · mode: ${esc(c.gameMode)}</span>` : `<span class="bad">No token saved yet.</span> Create one on tarkovtracker.org → Settings → API Tokens (read permission is enough).`;
+  const modes = Object.keys(c.tokens || {});
+  $("tokenHint").innerHTML = modes.length
+    ? `<span class="ok">Saved: ${modes.map((m) => `${MODE_NAMES[m] || m} (${esc(c.tokens[m])})`).join(" · ")}</span>. Paste a token for a different mode to add it; each mode has its own token.`
+    : `<span class="bad">No token saved yet.</span> Create one on tarkovtracker.org → Settings → API Tokens.`;
+  $("modeRow").style.display = modes.length > 1 ? "" : "none";
+  $("modeSelect").innerHTML = modes.map((m) => `<option value="${m}">${MODE_NAMES[m] || m}</option>`).join("");
+  $("modeSelect").value = c.gameMode;
+  $("writeTT").checked = !!c.writeTT;
+  $("writeHint").innerHTML = c.writeTT && c.canWrite === false
+    ? `<span class="bad">The ${MODE_NAMES[c.gameMode] || c.gameMode} token has no write permission.</span> Create a token with "Write progress" on tarkovtracker.org.`
+    : `Completed and failed quests from the game logs, and the steps you mark by hand. The token needs the "Write progress" permission. While the game runs, the mode follows the game.`;
   $("shotsInput").value = c.screenshotsDir || "";
   $("shotsHint").innerHTML = c.screenshotsDirExists ? `<span class="ok">Folder found.</span> Bind a screenshot key in EFT (Settings → Controls).` : `<span class="bad">Folder not found.</span> It is usually Documents\\Escape From Tarkov\\Screenshots.`;
   $("deleteShots").checked = !!c.deleteScreenshots;
@@ -966,13 +1045,18 @@ async function saveSettings() {
   store.set("autoView", $("autoView").checked);
   const tok = $("tokenInput").value.trim();
   if (tok) body.token = tok;
-  const r = await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  body.writeTT = $("writeTT").checked;
+  if ($("modeSelect").value) body.mode = $("modeSelect").value;
+  const r = await postJSON("/api/config", body);
+  await applyConfig(await r.json());
+}
+async function applyConfig(cfg) {
   const prevMode = S.mode;
-  S.cfg = await r.json();
-  S.mode = S.cfg.gameMode;
+  S.cfg = cfg;
+  S.mode = cfg.gameMode;
   S.progressJson = null;
-  if (S.mode !== prevMode) { await loadGameData(); await loadQuests(); populateMapSelect(); await showMap(S.current?.key); }
-  await loadProgress();
+  if (S.mode !== prevMode) { await loadGameData(); await loadQuests(); populateMapSelect(); populateTaskSearch(); await showMap(S.current?.key); }
+  if (S.cfg.hasToken) await loadProgress(); else renderTasks();
 }
 
 function populateMapSelect() {
@@ -1005,6 +1089,7 @@ async function boot() {
   if (state.game) await applyGame(state.game);
   if (S.cfg.hasToken) await loadProgress(); else { renderProfile(); renderTasks(); setStatus("Add your TarkovTracker token in Settings.", true); $("settingsBtn").click(); }
   connectEvents();
+  getJSON("/api/writes").then(onWrites).catch(() => {});
   setInterval(() => { if (S.cfg.hasToken && document.visibilityState === "visible") loadProgress(); }, POLL_MS);
 }
 

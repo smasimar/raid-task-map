@@ -7,3 +7,5 @@ state.json
 state.json.tmp
 state.test.json
 state.test.json.tmp
+config.test.json
+config.test.json.tmp

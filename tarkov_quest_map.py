@@ -18,6 +18,7 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -32,12 +33,12 @@ def _arg(name: str, default: str) -> str:
 
 
 APP_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = APP_DIR / "config.json"
+CONFIG_PATH = Path(_arg("--config", str(APP_DIR / "config.json")))
 STATE_PATH = Path(_arg("--state", str(APP_DIR / "state.json")))  # a different file for tests
 GAME_MODES = ("regular", "pve", "pvp-season")
 PORT =int(_arg("--port", os.environ.get("TQM_PORT", "3000")))
-TT_API = "https://api.tarkovtracker.org"
-USER_AGENT = "TarkovQuestMap/1.0 (local)"
+TT_API = _arg("--tracker", "https://api.tarkovtracker.org")  # a local stand-in for tests
+USER_AGENT = "RaidTaskMap/1.0 (local)"
 
 PROGRESS_MIN_AGE = 60   # seconds a cached /progress answer is reused (protects the daily quota)
 PROGRESS_FORCE_AGE = 5  # same, when the page asks for a forced reload
@@ -76,7 +77,8 @@ def default_screenshots_dir() -> str:
 
 
 def load_config() -> dict:
-    cfg = {"token": "", "screenshotsDir": "", "deleteScreenshots": False, "logsDir": "", "autoTick": True}
+    cfg = {"tokens": {}, "mode": "", "screenshotsDir": "", "deleteScreenshots": False, "logsDir": "",
+           "autoTick": True, "writeTT": False}
     if CONFIG_PATH.exists():
         try:
             cfg.update(json.loads(CONFIG_PATH.read_text(encoding="utf-8")))
@@ -84,6 +86,11 @@ def load_config() -> dict:
             print(f"[config] could not read config.json: {exc}")
     if not cfg.get("screenshotsDir"):
         cfg["screenshotsDir"] = default_screenshots_dir()
+    if not isinstance(cfg.get("tokens"), dict):
+        cfg["tokens"] = {}
+    old = cfg.pop("token", "")  # earlier versions kept one token
+    if old:
+        cfg["tokens"].setdefault(game_mode_for_token(old), old)
     return cfg
 
 
@@ -97,10 +104,6 @@ def save_config(cfg: dict) -> None:
     save_json(CONFIG_PATH, cfg)
 
 
-CONFIG = load_config()
-CONFIG_LOCK = threading.Lock()
-
-
 def game_mode_for_token(token: str) -> str:
     """json.tarkov.dev game mode that matches the TarkovTracker token prefix."""
     t = (token or "").upper()
@@ -109,6 +112,34 @@ def game_mode_for_token(token: str) -> str:
     if t.startswith("SZN_"):
         return "pvp-season"
     return "regular"
+
+
+CONFIG = load_config()
+CONFIG_LOCK = threading.Lock()
+
+
+def active_mode() -> str:
+    """The game mode the app shows: the last one set, if it has a token; else a mode that has one."""
+    with CONFIG_LOCK:
+        tokens = CONFIG["tokens"]
+        if CONFIG.get("mode") in tokens:
+            return CONFIG["mode"]
+        return next((m for m in GAME_MODES if m in tokens), "regular")
+
+
+def token_for(mode: str) -> str:
+    with CONFIG_LOCK:
+        return CONFIG["tokens"].get(mode, "")
+
+
+def use_game_mode(mode: str) -> bool:
+    """The game runs in this mode: show it, if there is a token for it. True if the mode changed."""
+    if not mode or mode == active_mode() or not token_for(mode):
+        return False
+    with CONFIG_LOCK:
+        CONFIG["mode"] = mode
+        save_config(CONFIG)
+    return True
 
 
 # --------------------------------------------------------------------------- events
@@ -160,7 +191,8 @@ class QuestList:
         self.path = path
         self.publish = publish or (lambda event: None)
         self.lock = threading.Lock()
-        self.data = {"modes": {}, "migrated": [], "logTime": 0.0}
+        self.data = {"modes": {}, "migrated": [], "logTime": 0.0, "writes": {}}
+        self.changed = 0.0   # time of the last queued write
         if path.exists():
             try:
                 self.data.update(json.loads(path.read_text(encoding="utf-8")))
@@ -200,6 +232,41 @@ class QuestList:
             self.publish(event)
         return event
 
+    # -- progress changes that wait to be sent to TarkovTracker
+    def _writes(self, mode: str) -> dict:
+        return self.data["writes"].setdefault(mode, {"tasks": {}, "objectives": {}})
+
+    def queue_task(self, mode: str, task_id: str, state: str):
+        with self.lock:
+            self._writes(mode)["tasks"][task_id] = state
+            self.changed = time.time()
+            save_json(self.path, self.data)
+
+    def queue_objective(self, mode: str, objective_id: str, patch: dict):
+        """Several changes to one objective become one write with the last values."""
+        with self.lock:
+            self._writes(mode)["objectives"].setdefault(objective_id, {}).update(patch)
+            self.changed = time.time()
+            save_json(self.path, self.data)
+
+    def pending(self, mode: str = None) -> dict:
+        with self.lock:
+            w = self.data["writes"]
+            copy = json.loads(json.dumps(w))
+        return copy.get(mode, {"tasks": {}, "objectives": {}}) if mode else copy
+
+    def pending_count(self) -> int:
+        with self.lock:
+            return sum(len(w["tasks"]) + len(w["objectives"]) for w in self.data["writes"].values())
+
+    def sent(self, mode: str, kind: str, item_id: str, value):
+        """Remove a write that was sent, unless it changed again in the meantime."""
+        with self.lock:
+            items = self._writes(mode)[kind]
+            if items.get(item_id) == value:
+                del items[item_id]
+                save_json(self.path, self.data)
+
     def log_time(self) -> float:
         with self.lock:
             return float(self.data.get("logTime") or 0)
@@ -211,6 +278,36 @@ class QuestList:
         if ev["status"] == "started":
             return self.apply(mode, add=[ev["id"]], log_time=ev["time"], note=note)
         return self.apply(mode, remove=[ev["id"]], log_time=ev["time"], note=note)
+
+
+def overlay_progress(body: bytes, pending: dict) -> bytes:
+    """A /progress answer with the changes that are not sent yet put on top,
+    so the page shows a click at once and keeps it after a reload."""
+    if not pending["tasks"] and not pending["objectives"]:
+        return body
+    try:
+        doc = json.loads(body)
+        data = doc["data"]
+    except (ValueError, KeyError, TypeError):
+        return body
+
+    def entry(key, item_id):
+        rows = data.setdefault(key, [])
+        row = next((r for r in rows if r.get("id") == item_id), None)
+        if row is None:
+            row = {"id": item_id}
+            rows.append(row)
+        return row
+
+    for task_id, state in pending["tasks"].items():
+        entry("tasksProgress", task_id).update({"complete": state == "completed", "failed": state == "failed"})
+    for objective_id, patch in pending["objectives"].items():
+        row = entry("taskObjectivesProgress", objective_id)
+        if "state" in patch:
+            row["complete"] = patch["state"] == "completed"
+        if "count" in patch:
+            row["count"] = patch["count"]
+    return json.dumps(doc).encode("utf-8")
 
 
 QUESTS = QuestList(STATE_PATH, HUB.publish)
@@ -310,13 +407,24 @@ def log_watcher():
             if follower:
                 with CONFIG_LOCK:
                     auto_tick = bool(CONFIG.get("autoTick", True))
-                    token_mode = game_mode_for_token(CONFIG.get("token") or "")
+                    write_tt = bool(CONFIG.get("writeTT"))
                 for entry in follower.read():
                     for ev in state.handle(*entry):
                         # logTime stops a message from being applied again after a restart
-                        if ev["type"] == "task" and auto_tick and ev["time"] > QUESTS.log_time():
-                            QUESTS.apply_task_event(ev, token_mode)
-                            print(f"[logs] task {ev['status']}: {ev['id']}")
+                        if ev["type"] != "task" or ev["time"] <= QUESTS.log_time():
+                            continue
+                        mode = ev.get("mode") or active_mode()
+                        if write_tt and ev["status"] != "started" and token_for(mode):
+                            QUESTS.queue_task(mode, ev["id"], "completed" if ev["status"] == "finished" else "failed")
+                            HUB.publish({"type": "progress"})
+                        if auto_tick:
+                            QUESTS.apply_task_event(ev, active_mode())
+                        else:
+                            QUESTS.apply(mode, log_time=ev["time"])
+                        print(f"[logs] task {ev['status']}: {ev['id']}")
+                if use_game_mode(state.mode):
+                    print(f"[logs] the game runs in {state.mode} mode: showing that mode")
+                    HUB.publish({"type": "config"})
                 state.expire(time.time())
             snap = state.snapshot()
             snap["session"] = os.path.basename(folder) if folder else None
@@ -332,7 +440,8 @@ def log_watcher():
 
 # --------------------------------------------------------------------------- http
 
-def tt_request(path: str, token: str, etag: str = None):
+def tt_request(path: str, token: str, etag: str = None, body=None):
+    """GET, or POST when a body is given. Returns (status, body bytes, headers)."""
     req = urllib.request.Request(TT_API + path, headers={
         "Authorization": f"Bearer {token}",
         "User-Agent": USER_AGENT,
@@ -340,11 +449,123 @@ def tt_request(path: str, token: str, etag: str = None):
     })
     if etag:
         req.add_header("If-None-Match", etag)
+    if body is not None:
+        req.data = json.dumps(body).encode("utf-8")
+        req.add_header("Content-Type", "application/json")
     try:
         with urllib.request.urlopen(req, timeout=20) as resp:
             return resp.status, resp.read(), dict(resp.headers)
     except urllib.error.HTTPError as err:
         return err.code, err.read(), dict(err.headers or {})
+
+
+TOKEN_INFO = {}   # token -> list of permissions, or None when the check failed
+
+
+def token_permissions(token: str):
+    """GP = read, WP = write. Asked one time for each token."""
+    if token and token not in TOKEN_INFO:
+        try:
+            status, body, _ = tt_request("/token", token)
+            TOKEN_INFO[token] = list(json.loads(body).get("permissions") or []) if status == 200 else None
+        except Exception:
+            return None  # not reachable now: ask again later
+    return TOKEN_INFO.get(token)
+
+
+WRITE_DELAY = 3.0     # seconds without a new change before the changes are sent, so fast clicks make one write
+WRITES = {"error": None, "retryAt": 0.0, "remaining": None, "backoff": 30.0}
+
+
+def writes_status() -> dict:
+    return {"type": "writes", "pending": QUESTS.pending_count(), "error": WRITES["error"],
+            "remaining": WRITES["remaining"], "retryAt": WRITES["retryAt"]}
+
+
+def _error_text(body: bytes) -> str:
+    try:
+        return str(json.loads(body).get("error") or "")[:200]
+    except Exception:
+        return body.decode("utf-8", "replace")[:200]
+
+
+def send_writes(request=tt_request) -> bool:
+    """Send the queued changes of each mode that has a token. True if all were sent.
+
+    A refused change (400, 404: not in TarkovTracker's task list) is dropped. A 429
+    or a network fault keeps the queue for a later try.
+    """
+    ok = True
+    sent_any = False
+    for mode, pending in QUESTS.pending().items():
+        token = token_for(mode)
+        if not token:
+            continue
+        calls = []
+        tasks = pending["tasks"]
+        if len(tasks) == 1:
+            (task_id, state), = tasks.items()
+            calls.append((f"/progress/task/{urllib.parse.quote(task_id, safe='')}", {"state": state}, [("tasks", task_id, state)]))
+        elif tasks:
+            calls.append(("/progress/tasks", [{"id": i, "state": st} for i, st in tasks.items()], [("tasks", i, st) for i, st in tasks.items()]))
+        for objective_id, patch in pending["objectives"].items():
+            calls.append((f"/progress/task/objective/{urllib.parse.quote(objective_id, safe='')}", patch, [("objectives", objective_id, patch)]))
+        for path, body, items in calls:
+            try:
+                status, answer, headers = request(path, token, None, body)
+            except Exception as exc:
+                WRITES.update({"error": f"TarkovTracker not reachable: {exc}", "retryAt": time.time() + WRITES["backoff"]})
+                WRITES["backoff"] = min(WRITES["backoff"] * 2, 600.0)
+                return False
+            low = {k.lower(): v for k, v in headers.items()}
+            if "x-ratelimit-remaining" in low:
+                WRITES["remaining"] = low["x-ratelimit-remaining"]
+            if status == 200:
+                sent_any = True
+            elif status in (400, 404, 413):
+                print(f"[tracker] change refused and dropped ({status}): {path}: {_error_text(answer)}")
+                WRITES["error"] = f"TarkovTracker refused a change: {_error_text(answer) or status}"
+            elif status == 429:
+                try:
+                    wait = float(low.get("retry-after") or 600)
+                except ValueError:
+                    wait = 600.0
+                WRITES.update({"error": "TarkovTracker daily write limit reached. The changes are kept and sent later.",
+                               "retryAt": time.time() + max(wait, 60.0)})
+                return False
+            else:
+                msg = "the token is not valid or has no write permission" if status in (401, 403) else f"answer {status}"
+                WRITES.update({"error": f"TarkovTracker: {msg}. The changes are kept.", "retryAt": time.time() + (600.0 if status in (401, 403) else WRITES["backoff"])})
+                WRITES["backoff"] = min(WRITES["backoff"] * 2, 600.0)
+                return False
+            for kind, item_id, value in items:
+                QUESTS.sent(mode, kind, item_id, value)
+    if sent_any:
+        WRITES.update({"backoff": 30.0, "retryAt": 0.0})
+        if ok and not QUESTS.pending_count():
+            WRITES["error"] = None if not (WRITES["error"] or "").startswith("TarkovTracker refused") else WRITES["error"]
+        with PROGRESS_LOCK:
+            PROGRESS_CACHE["time"] = 0.0   # the next read gets the new progress from TarkovTracker
+    return ok
+
+
+def write_worker():
+    last = None
+    while True:
+        try:
+            with CONFIG_LOCK:
+                enabled = bool(CONFIG.get("writeTT"))
+            now = time.time()
+            if enabled and QUESTS.pending_count() and now - QUESTS.changed >= WRITE_DELAY and now >= WRITES["retryAt"]:
+                send_writes()
+                HUB.publish({"type": "progress"})
+            status = writes_status()
+            if status != last:
+                last = status
+                HUB.publish(status)
+        except Exception as exc:
+            print(f"[tracker] error: {exc}")
+        time.sleep(0.5)
 
 
 PROGRESS_CACHE = {"etag": None, "body": None, "token": None, "time": 0.0}
@@ -397,18 +618,26 @@ class Handler(BaseHTTPRequestHandler):
         return cfg
 
     def _config_fields(self):
+        mode = active_mode()
+        token = token_for(mode)
+        hint = lambda t: (t[:4] + "…" + t[-4:]) if len(t) > 10 else "saved"
         with CONFIG_LOCK:
-            token = CONFIG.get("token") or ""
-            return {
+            fields = {
                 "hasToken": bool(token),
-                "tokenHint": (token[:4] + "…" + token[-4:]) if len(token) > 10 else "",
-                "gameMode": game_mode_for_token(token),
+                "tokenHint": hint(token) if token else "",
+                "gameMode": mode,
+                "tokens": {m: hint(t) for m, t in CONFIG["tokens"].items()},
                 "screenshotsDir": CONFIG.get("screenshotsDir", ""),
                 "screenshotsDirExists": os.path.isdir(CONFIG.get("screenshotsDir", "") or ""),
                 "deleteScreenshots": bool(CONFIG.get("deleteScreenshots")),
                 "logsDir": CONFIG.get("logsDir", ""),
                 "autoTick": bool(CONFIG.get("autoTick", True)),
+                "writeTT": bool(CONFIG.get("writeTT")),
             }
+        # the permission check costs one request, so it is made only when writes are on
+        perms = token_permissions(token) if fields["writeTT"] and token else None
+        fields["canWrite"] = None if perms is None else "WP" in perms
+        return fields
 
     def _allowed(self):
         if request_allowed(self.headers.get("Host", ""), self.headers.get("Origin", "")):
@@ -430,6 +659,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, HUB.state)
         if path == "/api/quests":
             return self._json(200, QUESTS.public())
+        if path == "/api/writes":
+            return self._json(200, writes_status())
         if path == "/api/progress":
             return self._progress(force="force=1" in query.split("&"))
         if path == "/api/events":
@@ -452,13 +683,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"error": "bad json"})
         if path == "/api/config":
             with CONFIG_LOCK:
-                for key in ("token", "screenshotsDir", "logsDir"):
-                    if key in data and isinstance(data[key], str):
-                        val = data[key].strip()
-                        if key == "token" and not val:
-                            continue  # empty token field = keep current
-                        CONFIG[key] = val
-                for key in ("deleteScreenshots", "autoTick"):
+                for key in ("screenshotsDir", "logsDir"):
+                    if isinstance(data.get(key), str):
+                        CONFIG[key] = data[key].strip()
+                token = data.get("token").strip() if isinstance(data.get("token"), str) else ""
+                if token:  # an empty field keeps the saved tokens; a token is saved for the mode of its prefix
+                    CONFIG["tokens"][game_mode_for_token(token)] = token
+                    CONFIG["mode"] = game_mode_for_token(token)
+                if data.get("mode") in CONFIG["tokens"]:
+                    CONFIG["mode"] = data["mode"]
+                if data.get("removeToken") in CONFIG["tokens"]:
+                    del CONFIG["tokens"][data["removeToken"]]
+                for key in ("deleteScreenshots", "autoTick", "writeTT"):
                     if key in data:
                         CONFIG[key] = bool(data[key])
                 if not CONFIG.get("screenshotsDir"):
@@ -477,6 +713,31 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"error": "x, y, z and rotation must be numbers"})
             HUB.publish(ev)
             return self._json(200, ev)
+        if path in ("/api/progress/task", "/api/progress/objective"):
+            mode = active_mode()
+            with CONFIG_LOCK:
+                enabled = bool(CONFIG.get("writeTT"))
+            if not enabled or not token_for(mode):
+                return self._json(409, {"error": "Sending progress to TarkovTracker is off. Set it on in Settings."})
+            item_id = data.get("id")
+            if not isinstance(item_id, str) or not 0 < len(item_id.strip()) <= 64:
+                return self._json(400, {"error": "id must be text of 1 to 64 characters"})
+            if path.endswith("/task"):
+                if data.get("state") not in ("completed", "uncompleted", "failed"):
+                    return self._json(400, {"error": "state must be completed, uncompleted or failed"})
+                QUESTS.queue_task(mode, item_id.strip(), data["state"])
+            else:
+                patch = {}
+                if data.get("state") in ("completed", "uncompleted"):
+                    patch["state"] = data["state"]
+                count = data.get("count")
+                if isinstance(count, (int, float)) and not isinstance(count, bool) and 0 <= count <= 100000:
+                    patch["count"] = int(count)
+                if not patch:
+                    return self._json(400, {"error": "give a state (completed, uncompleted) or a count"})
+                QUESTS.queue_objective(mode, item_id.strip(), patch)
+            HUB.publish({"type": "progress"})
+            return self._json(200, writes_status())
         if path == "/api/quests":
             mode = data.get("mode")
             lists = [data.get(k, []) for k in ("add", "remove", "addCustom", "removeCustom")]
@@ -485,8 +746,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, QUESTS.apply(mode, *lists, migrated=bool(data.get("migrated"))))
         if path == "/api/past-logs":
             # with "apply": false this only reports what the old logs say
-            with CONFIG_LOCK:
-                token_mode = game_mode_for_token(CONFIG.get("token") or "")
+            token_mode = active_mode()
             events = game_logs.task_events(logs_dir()) if logs_dir() else []
             for ev in events:
                 ev["mode"] = ev["mode"] or token_mode
@@ -500,8 +760,7 @@ class Handler(BaseHTTPRequestHandler):
             # lets you check the automatic ticks without the game
             if data.get("status") not in ("started", "finished", "failed") or not isinstance(data.get("id"), str):
                 return self._json(400, {"error": "status must be started, finished or failed; id must be text"})
-            with CONFIG_LOCK:
-                token_mode = game_mode_for_token(CONFIG.get("token") or "")
+            token_mode = active_mode()
             ev = {"type": "task", "status": data["status"], "id": data["id"], "time": time.time(), "mode": data.get("mode")}
             return self._json(200, QUESTS.apply_task_event(ev, token_mode))
         if path == "/api/test-game":
@@ -520,33 +779,37 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, p.read_bytes(), ctype)
 
     def _progress(self, force=False):
-        with CONFIG_LOCK:
-            token = CONFIG.get("token") or ""
+        mode = active_mode()
+        token = token_for(mode)
         if not token:
             return self._json(400, {"error": "No TarkovTracker token set. Open Settings and paste your token."})
+
+        def send(body, stale=False):
+            self._send(200, overlay_progress(body, QUESTS.pending(mode)), extra={"X-Stale": "1"} if stale else None)
+
         # one lock for the whole call: several tabs then share one upstream read
         with PROGRESS_LOCK:
             cached = PROGRESS_CACHE["body"] if PROGRESS_CACHE["token"] == token else None
             age = time.time() - PROGRESS_CACHE["time"]
             if cached and age < (PROGRESS_FORCE_AGE if force else PROGRESS_MIN_AGE):
-                return self._send(200, cached)
+                return send(cached)
             try:
                 status, body, headers = tt_request("/progress", token, PROGRESS_CACHE["etag"] if cached else None)
                 if status == 304 and not cached:
                     status, body, headers = tt_request("/progress", token)
             except Exception as exc:
                 if cached:
-                    return self._send(200, cached, extra={"X-Stale": "1"})
+                    return send(cached, stale=True)
                 return self._json(502, {"error": f"Could not reach TarkovTracker: {exc}"})
             if status == 304:
                 PROGRESS_CACHE["time"] = time.time()
-                return self._send(200, cached)
+                return send(cached)
             if status == 200:
                 PROGRESS_CACHE.update({"etag": headers.get("ETag") or headers.get("etag"),
                                        "body": body, "token": token, "time": time.time()})
-                return self._send(200, body)
+                return send(body)
             if cached and (status == 429 or status >= 500):
-                return self._send(200, cached, extra={"X-Stale": "1"})
+                return send(cached, stale=True)
         try:
             msg = json.loads(body).get("error") or body.decode("utf-8", "replace")
         except Exception:
@@ -577,6 +840,7 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     threading.Thread(target=screenshot_watcher, daemon=True).start()
     threading.Thread(target=log_watcher, daemon=True).start()
+    threading.Thread(target=write_worker, daemon=True).start()
     try:
         server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     except OSError as exc:

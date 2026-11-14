@@ -21,7 +21,11 @@
         "--port",
         "3005",
         "--state",
-        "state.test.json"
+        "state.test.json",
+        "--config",
+        "config.test.json",
+        "--tracker",
+        "http://127.0.0.1:3099"
       ],
       "port": 3005
     }

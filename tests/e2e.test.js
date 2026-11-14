@@ -40,7 +40,8 @@ const progress = { data: { tasksProgress: [{ id: "doneTask", complete: true }], 
 
 const routes = {
   "/maps.json": mapsCfg,
-  "/api/config": { hasToken: true, tokenHint: "PVP_…abcd", gameMode: "regular", screenshotsDir: "C:/s", screenshotsDirExists: true, deleteScreenshots: false, logsDir: "", logsDirActive: "C:/g/Logs", logsDirExists: true, autoTick: true },
+  "/api/config": { hasToken: true, tokenHint: "PVP_…abcd", gameMode: "regular", screenshotsDir: "C:/s", screenshotsDirExists: true, deleteScreenshots: false, logsDir: "", logsDirActive: "C:/g/Logs", logsDirExists: true, autoTick: true, tokens: { regular: "PVP_…abcd" }, writeTT: false, canWrite: null },
+  "/api/writes": { type: "writes", pending: 0, error: null },
   "/api/state": { position: null, game: null },
   "/api/progress": progress,
   "https://json.tarkov.dev/regular/tasks": { data: { tasks } },
@@ -53,6 +54,7 @@ const routes = {
 // a small copy of the helper's quest list (state.json): it applies the changes and sends the "quests" event
 const quests = { modes: {}, migrated: [] };
 let pastLogsApplied = 0;
+const progressPosts = [];
 function questPost(w, body) {
   const m = quests.modes[body.mode] ??= { selected: [], custom: [] };
   const gone = new Set(body.remove || []);
@@ -74,6 +76,8 @@ const dom = new JSDOM(html, {
       const u = String(url).replace("?force=1", "");
       const reply = (obj) => ({ ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(obj)) });
       if (u === "/api/quests") return reply(opts?.method === "POST" ? questPost(w, JSON.parse(opts.body)) : quests);
+      if (u.startsWith("/api/progress/")) { progressPosts.push([u, JSON.parse(opts.body)]); return reply({ type: "writes", pending: 1, error: null }); }
+      if (u === "/api/config" && opts?.method === "POST") { Object.assign(routes["/api/config"], JSON.parse(opts.body), { canWrite: true }); return reply(routes["/api/config"]); }
       if (u === "/api/past-logs") {
         const changes = { regular: { started: ["woodsTask", "doneTask"], ended: ["nades"] } };
         if (JSON.parse(opts.body).apply) { pastLogsApplied++; questPost(w, { mode: "regular", add: changes.regular.started, remove: changes.regular.ended }); }
@@ -175,6 +179,34 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   await sleep(50);
   assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 2, "ticked-only mode shows the two ticked zones");
 
+  // progress controls: hidden until "Send quest progress to TarkovTracker" is on
+  assert(d.querySelectorAll(".pbtn").length === 0, "no progress buttons while sending is off");
+  d.getElementById("settingsBtn").click();
+  d.getElementById("writeTT").checked = true;
+  d.getElementById("settings").returnValue = "save";
+  d.getElementById("settings").dispatchEvent(new w.Event("close"));
+  await sleep(100);
+  const debutCard = () => [...d.querySelectorAll("#questList .qcard")].find((c) => c.querySelector(".qname").textContent === "Debut");
+  const btn = (label) => [...debutCard().querySelectorAll(".pbtn")].find((b) => b.textContent === label);
+  assert(btn("+") && btn("−") && btn("✓") && btn("✓ quest"), "counted step has −, + and ✓; the quest has ✓ quest");
+  btn("+").click(); btn("+").click();
+  await sleep(30);
+  assert(text("#questList .step").every((x) => !x.includes("Kill 5 Scavs")), "the step leaves the list when the count is full");
+  assert(JSON.stringify(progressPosts) === JSON.stringify([["/api/progress/objective", { id: "o1", count: 4, state: "uncompleted" }], ["/api/progress/objective", { id: "o1", count: 5, state: "completed" }]]), "each click goes to the helper with the new count");
+  const undo = [...d.querySelectorAll("#taskList .obj")].find((x) => x.textContent.includes("Kill 5 Scavs")).querySelector(".pbtn");
+  assert(undo.textContent === "↺", "a done step in the setup panel has an undo button");
+  undo.click();
+  await sleep(30);
+  assert(progressPosts.at(-1)[1].state === "uncompleted" && text("#questList .step").some((x) => x.includes("Kill 5 Scavs")), "undo puts the step back");
+  w.confirm = () => true;
+  btn("✓ quest").click();
+  assert(JSON.stringify(progressPosts.at(-1)) === JSON.stringify(["/api/progress/task", { id: "debut", state: "completed" }]), "✓ quest marks the quest as completed");
+  w.__es.onmessage({ data: JSON.stringify({ type: "writes", pending: 2, error: null }) });
+  assert(d.getElementById("writesNote").textContent === "2 changes to send…" && d.getElementById("writesNote").classList.contains("on"), "waiting changes show in the top bar");
+  w.__es.onmessage({ data: JSON.stringify({ type: "writes", pending: 2, error: "TarkovTracker daily write limit reached." }) });
+  assert(d.getElementById("writesNote").classList.contains("err"), "a send fault shows as an error");
+  w.__es.onmessage({ data: JSON.stringify({ type: "writes", pending: 0, error: null }) });
+
   // untick Debut
   const tb = [...d.querySelectorAll("#taskList .task")].find((x) => x.textContent.includes("Debut")).querySelector("input");
   tb.checked = false; tb.dispatchEvent(new w.Event("change"));
@@ -251,7 +283,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(app.dataset.view === "setup" && !timer.classList.contains("on"), "raid end goes back to setup and hides the timer");
   send({ type: "game", mode: "pve", session: "s", raid: { phase: "idle" } });
   await sleep(20);
-  assert(d.getElementById("status").textContent.includes("pve mode"), "warns when the game mode differs from the token");
+  assert(d.getElementById("status").textContent.includes("no TarkovTracker token"), "warns when the game mode has no token");
 
   // completing Checking in TarkovTracker drops it automatically
   routes["/api/progress"].data.tasksProgress.push({ id: "checking", complete: true });

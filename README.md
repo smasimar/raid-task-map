@@ -24,8 +24,12 @@ does not read the game's memory, network traffic or game files.
 - **Three views.** A setup panel to select quests, and two mission views that put a
   semi-transparent quest list over the map (across the top, or down the side).
 - **Progress from TarkovTracker.** Completed quests and steps disappear from the list.
-- **PvP and PvE.** The game mode comes from your TarkovTracker token; the app warns
-  you when the game runs in a different mode.
+- **Progress to TarkovTracker (optional).** Quests that you complete or fail in the
+  game are sent to TarkovTracker. You can mark steps and counts by hand on the mission
+  cards. Fast clicks on one step are sent as one change, and changes that cannot be
+  sent are kept and sent later.
+- **PvP and PvE.** Each game mode has its own token and its own quest list. The app
+  follows the mode that the game runs in.
 
 ## Requirements
 
@@ -41,8 +45,12 @@ does not read the game's memory, network traffic or game files.
    opens <http://localhost:3000>. Keep the console window open while you play.
 3. Click **Settings** and paste a TarkovTracker API token. Create one on
    tarkovtracker.org → Settings → API Tokens. The token decides the game mode: a
-   `PVP_` token shows PvP progress, a `PVE_` token shows PvE progress.
-4. In the game, bind a key to **Screenshot** (Settings → Controls).
+   `PVP_` token is for PvP progress, a `PVE_` token is for PvE progress. To use two
+   modes, paste one token for each.
+4. Optional: tick **Send quest progress to TarkovTracker**. The token then needs the
+   "Write progress" permission. With this on, you do not need TarkovMonitor for quest
+   tracking.
+5. In the game, bind a key to **Screenshot** (Settings → Controls).
 
 The app finds the game's `Logs` folder and your screenshots folder automatically. If
 it does not, type the paths in **Settings**.
@@ -56,6 +64,9 @@ it does not, type the paths in **Settings**.
 | "Add a task by name" | Adds a quest that is not in the list. A quest that tarkov.dev does not know yet is added as text only |
 | **View** button | Changes between Setup, Mission ↔ (list across the top) and Mission ↕ (list down the side) |
 | Click a 📍 step in the mission list | The map moves to that objective |
+| **−** / **+** / **✓** on a step | Changes the count of the step, or marks it done. Shown when sending to TarkovTracker is on |
+| **✓ quest** on a mission card | Marks the quest as completed on TarkovTracker |
+| **↺** on a done step in the setup panel | Marks the step as not done |
 | Mouse over a marker | Shows the quest and the step |
 | Screenshot key in a raid | Moves your position marker |
 | **⌖ Reset view** | Puts the full map back in the window |
@@ -78,13 +89,16 @@ is the raid's map when raid tracking is on.
 - **"Read past logs" proposes quests that you completed.** The game deletes old logs,
   so some completions are missing. Quests that TarkovTracker shows as completed are
   left out; untick the others.
+- **"TarkovTracker daily write limit reached".** A free account can send 100 changes
+  each day. The app keeps your changes and sends them after the limit resets at
+  00:00 UTC.
 - **TarkovTracker answered 401.** The token is wrong, revoked, or for a different game
   mode.
 
 ## Privacy
 
 - The app listens only on `127.0.0.1` and refuses requests from other sites.
-- Your token is stored in `config.json` next to the app, in plain text. Do not share
+- Your tokens are stored in `config.json` next to the app, in plain text. Do not share
   that file. It is excluded from git.
 - The app contacts only `tarkov.dev` (maps and game data), `unpkg.com` (the Leaflet
   map library) and `api.tarkovtracker.org` (your progress).
@@ -103,7 +117,7 @@ cd tests && npm install && npm test         page tests (Node.js and jsdom)
 | `game_logs.py` | Game log reader and raid state |
 | `index.html` | The full page: map, quest lists, settings |
 | `maps.json` | Map projection settings, from tarkov.dev |
-| `state.json` | Your quest list for each game mode. Made by the app; excluded from git |
+| `state.json` | Your quest list for each game mode, and the changes that wait to be sent. Made by the app; excluded from git |
 | `tests/fixtures` | Lines from a real game session, with IDs and addresses masked |
 
 ## Roadmap
@@ -113,7 +127,7 @@ is sufficient.
 
 - [x] Read the game logs: map selection, mission view, raid timer, game mode
 - [x] Tick quests automatically when you accept them in the game
-- [ ] Send completed and failed quests to TarkovTracker; mark steps done by hand
+- [x] Send completed and failed quests to TarkovTracker; mark steps done by hand
 - [ ] New name in all files, release package
 
 ## Credits and licenses

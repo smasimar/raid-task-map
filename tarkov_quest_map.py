@@ -23,9 +23,13 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import game_logs
+
 APP_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = APP_DIR / "config.json"
 PORT = int(os.environ.get("TQM_PORT", "3000"))
+if "--port" in sys.argv[1:-1]:
+    PORT = int(sys.argv[sys.argv.index("--port") + 1])
 TT_API = "https://api.tarkovtracker.org"
 USER_AGENT = "TarkovQuestMap/1.0 (local)"
 
@@ -66,7 +70,7 @@ def default_screenshots_dir() -> str:
 
 
 def load_config() -> dict:
-    cfg = {"token": "", "screenshotsDir": "", "deleteScreenshots": False}
+    cfg = {"token": "", "screenshotsDir": "", "deleteScreenshots": False, "logsDir": ""}
     if CONFIG_PATH.exists():
         try:
             cfg.update(json.loads(CONFIG_PATH.read_text(encoding="utf-8")))
@@ -103,7 +107,7 @@ class EventHub:
     def __init__(self):
         self.clients = []
         self.lock = threading.Lock()
-        self.state = {"position": None}
+        self.state = {"position": None, "game": None}
 
     def subscribe(self):
         q = queue.Queue(maxsize=100)
@@ -119,6 +123,8 @@ class EventHub:
     def publish(self, event: dict):
         if event.get("type") == "position":
             self.state["position"] = event
+        if event.get("type") == "game":
+            self.state["game"] = event
         with self.lock:
             for q in list(self.clients):
                 try:
@@ -192,6 +198,54 @@ def screenshot_watcher():
         time.sleep(0.5)
 
 
+_AUTO_LOGS_DIR = ""
+
+
+def logs_dir() -> str:
+    """The game's Logs folder: the one set in Settings, or the one found in the registry."""
+    global _AUTO_LOGS_DIR
+    with CONFIG_LOCK:
+        custom = (CONFIG.get("logsDir") or "").strip()
+    if custom:
+        return custom
+    if not _AUTO_LOGS_DIR:
+        _AUTO_LOGS_DIR = game_logs.default_logs_dir()
+    return _AUTO_LOGS_DIR
+
+
+def log_watcher():
+    """Follows the newest game session folder and publishes the game state when it changes."""
+    follower = None
+    state = game_logs.GameState()
+    published = None
+    while True:
+        try:
+            base = logs_dir()
+            folder = game_logs.newest_log_folder(base) if base else None
+            first = folder != (follower.folder if follower else None)
+            if first:
+                follower = game_logs.LogFollower(folder) if folder else None
+                state = game_logs.GameState()
+                print(f"[logs] reading {folder}" if folder else f"[logs] no game logs found in {base!r}")
+            if follower:
+                for entry in follower.read():
+                    for ev in state.handle(*entry):
+                        # entries that were in the log before this app started are history
+                        if ev["type"] == "task" and not first:
+                            print(f"[logs] task {ev['status']}: {ev['id']}")
+                state.expire(time.time())
+            snap = state.snapshot()
+            snap["session"] = os.path.basename(folder) if folder else None
+            if snap != published:
+                published = snap
+                HUB.publish({"type": "game", **snap})
+                r = snap["raid"]
+                print(f"[logs] mode {snap['mode']}, raid {r['phase']} {r['location'] or r['scenePath'] or ''}".rstrip())
+        except Exception as exc:
+            print(f"[logs] error: {exc}")
+        time.sleep(1)
+
+
 # --------------------------------------------------------------------------- http
 
 def tt_request(path: str, token: str, etag: str = None):
@@ -252,6 +306,13 @@ class Handler(BaseHTTPRequestHandler):
         self._send(status, json.dumps(obj).encode("utf-8"))
 
     def _public_config(self):
+        cfg = self._config_fields()
+        active = logs_dir()
+        cfg["logsDirActive"] = active
+        cfg["logsDirExists"] = bool(active) and os.path.isdir(active)
+        return cfg
+
+    def _config_fields(self):
         with CONFIG_LOCK:
             token = CONFIG.get("token") or ""
             return {
@@ -261,6 +322,7 @@ class Handler(BaseHTTPRequestHandler):
                 "screenshotsDir": CONFIG.get("screenshotsDir", ""),
                 "screenshotsDirExists": os.path.isdir(CONFIG.get("screenshotsDir", "") or ""),
                 "deleteScreenshots": bool(CONFIG.get("deleteScreenshots")),
+                "logsDir": CONFIG.get("logsDir", ""),
             }
 
     def _allowed(self):
@@ -303,7 +365,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"error": "bad json"})
         if path == "/api/config":
             with CONFIG_LOCK:
-                for key in ("token", "screenshotsDir"):
+                for key in ("token", "screenshotsDir", "logsDir"):
                     if key in data and isinstance(data[key], str):
                         val = data[key].strip()
                         if key == "token" and not val:
@@ -325,6 +387,13 @@ class Handler(BaseHTTPRequestHandler):
                       "filename": "test", "time": time.time()}
             except (TypeError, ValueError):
                 return self._json(400, {"error": "x, y, z and rotation must be numbers"})
+            HUB.publish(ev)
+            return self._json(200, ev)
+        if path == "/api/test-game":
+            # lets you check the raid behaviour without starting the game; the next log change replaces it
+            raid = game_logs.new_raid()
+            raid.update({k: data[k] for k in raid if k in data})
+            ev = {"type": "game", "mode": data.get("mode"), "raid": raid, "session": "test"}
             HUB.publish(ev)
             return self._json(200, ev)
         self._send(404, b'{"error":"not found"}')
@@ -392,6 +461,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     threading.Thread(target=screenshot_watcher, daemon=True).start()
+    threading.Thread(target=log_watcher, daemon=True).start()
     try:
         server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     except OSError as exc:

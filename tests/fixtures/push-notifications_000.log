@@ -1,0 +1,117 @@
+2026-11-14 19:16:00.171|1.3.0.2.48779|Info|push-notifications|LobbyNotificationsChannel: establishing lobby websocket
+2026-11-14 20:14:52.296|1.3.0.2.48779|Info|push-notifications|Got notification | UserConfirmed
+{
+  "type": "userConfirmed",
+  "eventId": "000000000000000000000000",
+  "profileid": "masked",
+  "profileToken": "masked",
+  "status": "Busy",
+  "ip": "0.0.0.0",
+  "port": 17005,
+  "sid": "masked",
+  "version": "live",
+  "location": "Shoreline",
+  "raidMode": "Online",
+  "mode": "deathmatch",
+  "shortId": "M63BLT",
+  "additional_info": []
+}
+2026-11-14 20:14:52.296|1.3.0.2.48779|Info|push-notifications|NotificationMessageProcessor.ProcessMessage | Received notification: Type: Ping, Time: 0, Duration: Default, ShowNotification: False
+2026-11-14 20:30:39.592|1.3.0.2.48779|Info|push-notifications|Got notification | UserMatchOver
+{
+  "type": "userMatchOver",
+  "eventId": "000000000000000000000000",
+  "profileid": "masked",
+  "profileToken": "masked",
+  "status": "Free",
+  "ip": "0.0.0.0",
+  "port": 17005,
+  "sid": "masked",
+  "version": "live",
+  "location": "Shoreline",
+  "raidMode": "Online",
+  "mode": "deathmatch",
+  "shortId": "M63BLT",
+  "additional_info": []
+}
+2026-11-14 20:30:39.592|1.3.0.2.48779|Info|push-notifications|NotificationMessageProcessor.ProcessMessage | Received notification: Type: Ping, Time: 0, Duration: Default, ShowNotification: False
+2026-11-14 20:30:39.594|1.3.0.2.48779|Info|push-notifications|Got notification | ChatMessageReceived
+{
+  "type": "new_message",
+  "eventId": "000000000000000000000000",
+  "dialogId": "000000000000000000000000",
+  "message": {
+    "_id": "000000000000000000000000",
+    "uid": "000000000000000000000000",
+    "type": 2,
+    "dt": 1794684640,
+    "text": "",
+    "templateId": "000000000000000000000000 0",
+    "systemData": {
+      "date": "14.11.2026",
+      "time": "22:30",
+      "location": "Shoreline"
+    },
+    "hasRewards": false,
+    "maxStorageTime": 604800
+  }
+}
+2026-11-14 20:30:39.594|1.3.0.2.48779|Info|push-notifications|NotificationMessageProcessor.ProcessMessage | Received notification: Type: ChatMessageReceived, Time: 0, Duration: Default, ShowNotification: False
+2026-11-14 20:40:49.641|1.3.0.2.48779|Info|push-notifications|Got notification | UserConfirmed
+{
+  "type": "userConfirmed",
+  "eventId": "000000000000000000000000",
+  "profileid": "masked",
+  "profileToken": "masked",
+  "status": "Busy",
+  "ip": "0.0.0.0",
+  "port": 17000,
+  "sid": "masked",
+  "version": "live",
+  "location": "Shoreline",
+  "raidMode": "Online",
+  "mode": "deathmatch",
+  "shortId": "M6P3JF",
+  "additional_info": []
+}
+2026-11-14 20:40:49.641|1.3.0.2.48779|Info|push-notifications|NotificationMessageProcessor.ProcessMessage | Received notification: Type: Ping, Time: 0, Duration: Default, ShowNotification: False
+2026-11-14 21:18:31.583|1.3.0.2.48779|Info|push-notifications|Got notification | UserMatchOver
+{
+  "type": "userMatchOver",
+  "eventId": "000000000000000000000000",
+  "profileid": "masked",
+  "profileToken": "masked",
+  "status": "Free",
+  "ip": "0.0.0.0",
+  "port": 17000,
+  "sid": "masked",
+  "version": "live",
+  "location": "Shoreline",
+  "raidMode": "Online",
+  "mode": "deathmatch",
+  "shortId": "M6P3JF",
+  "additional_info": []
+}
+2026-11-14 21:18:31.583|1.3.0.2.48779|Info|push-notifications|NotificationMessageProcessor.ProcessMessage | Received notification: Type: Ping, Time: 0, Duration: Default, ShowNotification: False
+2026-11-14 21:18:31.583|1.3.0.2.48779|Info|push-notifications|Got notification | ChatMessageReceived
+{
+  "type": "new_message",
+  "eventId": "000000000000000000000000",
+  "dialogId": "000000000000000000000000",
+  "message": {
+    "_id": "000000000000000000000000",
+    "uid": "000000000000000000000000",
+    "type": 2,
+    "dt": 1794687513,
+    "text": "",
+    "templateId": "000000000000000000000000 1",
+    "systemData": {
+      "date": "14.11.2026",
+      "time": "23:18",
+      "location": "Shoreline"
+    },
+    "hasRewards": false,
+    "maxStorageTime": 604800
+  }
+}
+2026-11-14 21:18:31.583|1.3.0.2.48779|Info|push-notifications|NotificationMessageProcessor.ProcessMessage | Received notification: Type: ChatMessageReceived, Time: 0, Duration: Default, ShowNotification: False

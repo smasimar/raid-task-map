@@ -20,6 +20,9 @@
   button:hover { border-color:#58616b; }
   #status { margin-left:auto; color:var(--muted); font-size:12px; text-align:right; }
   #status.err { color:var(--danger); }
+  #raidTimer { display:none; padding:3px 9px; border:1px solid var(--line); border-radius:6px; font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  #raidTimer.on { display:block; }
+  #raidTimer.low { color:var(--danger); border-color:var(--danger); }
   aside { grid-column:1; grid-row:2; overflow:auto; background:var(--panel); border-right:1px solid var(--line); padding:10px 12px; }
   #map { grid-column:2; grid-row:2; background:#0c0e10; min-width:0; min-height:0; }
   /* mission list: semi-transparent cards over the map; only the cards take the mouse */
@@ -98,6 +101,7 @@
     <button id="refreshBtn" title="Reload progress from TarkovTracker">↻ Progress</button>
     <button id="viewBtn" title="Change the view: setup panel → mission list across the top → mission list down the side"></button>
     <button id="settingsBtn">Settings</button>
+    <div id="raidTimer" title="Raid state, read from the game's log files"></div>
     <div id="status">Starting…</div>
   </header>
   <aside>
@@ -145,6 +149,11 @@
     <input type="text" id="shotsInput">
     <div class="hint" id="shotsHint"></div>
     <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="deleteShots"> Delete each screenshot after reading its position</label>
+    <label for="logsInput">EFT logs folder</label>
+    <input type="text" id="logsInput" placeholder="Leave empty to find it automatically">
+    <div class="hint" id="logsHint"></div>
+    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoMap"> Select the map when a raid loads</label>
+    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoView"> Show the mission list during a raid, and the setup panel after it</label>
     <div class="row" style="justify-content:flex-end;margin-top:14px">
       <button value="cancel" formnovalidate>Cancel</button>
       <button id="saveSettings" value="save">Save</button>
@@ -169,6 +178,7 @@ const S = {
   progress: null, available: [],
   progressJson: null, current: null, lmap: null, layers: {}, svgEl: null, baseStyle: null, floorLayer: null, floorIndex: -1, floorSeq: 0,
   player: null, playerMarker: null, markersByKey: new Map(),
+  game: null, raidAutoKey: null, viewAuto: false,
 };
 const store = {
   get(k, d) { try { const v = localStorage.getItem("tqm." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -817,6 +827,7 @@ function drawPlayer(pan) {
 
 // ------------------------------------------------------------------ live events from the local helper
 function onEvent(ev) {
+  if (ev.type === "game") return applyGame(ev);
   if (ev.type !== "position" || !S.current) return;
   // the screenshot has no map name, so it is placed on the map you have selected
   S.player = { ...ev, mapKey: S.current.key };
@@ -831,6 +842,51 @@ function connectEvents() {
   es.onerror = () => setStatus("Lost connection to the local helper — is tarkov_quest_map.py still running?", true);
 }
 
+// ------------------------------------------------------------------ game state from the log files
+function raidMap(raid) {
+  const api = S.apiMaps.find((a) => raid.location && a.nameId === raid.location) || S.apiMaps.find((a) => raid.scenePath && a.scenePath === raid.scenePath);
+  return { api, mc: api && S.mapCfgs.find((m) => m.ids.has(api.id)) };
+}
+async function applyGame(g) {
+  const prev = S.game;
+  S.game = g;
+  const wasIdle = (prev?.raid?.phase || "idle") === "idle";
+  const idle = (g.raid?.phase || "idle") === "idle";
+  if (g.mode && g.mode !== prev?.mode && S.cfg?.hasToken && g.mode !== S.cfg.gameMode)
+    setStatus(`The game runs in ${g.mode} mode, but the TarkovTracker token is for ${S.cfg.gameMode}.`, true);
+  if (idle) {
+    S.raidAutoKey = null;
+    if (S.viewAuto) { S.viewAuto = false; setView("setup"); }
+  } else {
+    if (wasIdle && store.get("autoView", true) && $("app").dataset.view === "setup") { S.viewAuto = true; setView(store.get("missionView", "mission-h")); }
+    const { mc } = raidMap(g.raid);
+    // once for each raid, so you can still look at a different map during the raid
+    if (mc && store.get("autoMap", true) && S.raidAutoKey !== mc.key) {
+      S.raidAutoKey = mc.key;
+      if (S.current?.key !== mc.key) await showMap(mc.key);
+    }
+  }
+  updateRaidTimer();
+}
+const clock = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+function updateRaidTimer() {
+  const el = $("raidTimer"), raid = S.game?.raid, phase = raid?.phase || "idle";
+  el.classList.toggle("on", phase !== "idle");
+  el.classList.remove("low");
+  if (phase === "idle") return;
+  const { api, mc } = raidMap(raid);
+  const name = mc ? mc.displayName : api ? t(S.mapsEn, api.name, api.normalizedName) : "";
+  if (phase === "loading") el.textContent = `Loading ${name}…`.replace(" …", "…");
+  else if (phase === "starting") el.textContent = `${name} · raid starts…`;
+  else {
+    const gone = Math.max(0, Date.now() / 1000 - (raid.started || 0));
+    const left = api?.raidDuration ? api.raidDuration * 60 - gone : -1;
+    el.textContent = `${name} · ${clock(gone)}` + (left >= 0 ? ` · ${clock(left)} left` : "");
+    el.classList.toggle("low", left >= 0 && left < 600);
+  }
+}
+setInterval(updateRaidTimer, 1000);
+
 // ------------------------------------------------------------------ settings
 function fillSettings() {
   const c = S.cfg;
@@ -839,9 +895,15 @@ function fillSettings() {
   $("shotsInput").value = c.screenshotsDir || "";
   $("shotsHint").innerHTML = c.screenshotsDirExists ? `<span class="ok">Folder found.</span> Bind a screenshot key in EFT (Settings → Controls).` : `<span class="bad">Folder not found.</span> It is usually Documents\\Escape From Tarkov\\Screenshots.`;
   $("deleteShots").checked = !!c.deleteScreenshots;
+  $("logsInput").value = c.logsDir || "";
+  $("logsHint").innerHTML = c.logsDirExists ? `<span class="ok">Reading ${esc(c.logsDirActive)}</span>` : `<span class="bad">Game logs not found.</span> Type the path of the Logs folder in the game folder.`;
+  $("autoMap").checked = store.get("autoMap", true);
+  $("autoView").checked = store.get("autoView", true);
 }
 async function saveSettings() {
-  const body = { screenshotsDir: $("shotsInput").value, deleteScreenshots: $("deleteShots").checked };
+  const body = { screenshotsDir: $("shotsInput").value, deleteScreenshots: $("deleteShots").checked, logsDir: $("logsInput").value };
+  store.set("autoMap", $("autoMap").checked);
+  store.set("autoView", $("autoView").checked);
   const tok = $("tokenInput").value.trim();
   if (tok) body.token = tok;
   const r = await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -879,6 +941,7 @@ async function boot() {
   // a position from an earlier raid is probably on a different map
   if (state.position && Date.now() / 1000 - (state.position.time || 0) < 600) S.player = { ...state.position, mapKey: startKey };
   await showMap(startKey);
+  if (state.game) await applyGame(state.game);
   if (S.cfg.hasToken) await loadProgress(); else { renderProfile(); renderTasks(); setStatus("Add your TarkovTracker token in Settings.", true); $("settingsBtn").click(); }
   connectEvents();
   setInterval(() => { if (S.cfg.hasToken && document.visibilityState === "visible") loadProgress(); }, POLL_MS);
@@ -904,9 +967,11 @@ function setView(v) {
   $("app").dataset.view = VIEWS[i][0];
   $("viewBtn").textContent = "View: " + VIEWS[i][1];
   store.set("view", VIEWS[i][0]);
+  if (VIEWS[i][0] !== "setup") store.set("missionView", VIEWS[i][0]);
   setTimeout(() => S.lmap?.invalidateSize(), 50);
 }
 setView(store.get("view", "setup"));
+$("viewBtn").addEventListener("click", () => S.viewAuto = false);
 $("viewBtn").addEventListener("click", () => setView(VIEWS[(VIEWS.findIndex((x) => x[0] === $("app").dataset.view) + 1) % VIEWS.length][0]));
 $("settingsBtn").addEventListener("click", () => { if (S.cfg) fillSettings(); $("settings").showModal(); });
 $("settings").addEventListener("close", () => { if ($("settings").returnValue === "save") saveSettings(); });

@@ -4,8 +4,24 @@
     {
       "name": "quest-map",
       "runtimeExecutable": "py",
-      "runtimeArgs": ["-3", "tarkov_quest_map.py", "--no-browser"],
+      "runtimeArgs": [
+        "-3",
+        "tarkov_quest_map.py",
+        "--no-browser"
+      ],
       "port": 3000
+    },
+    {
+      "name": "quest-map-dev",
+      "runtimeExecutable": "py",
+      "runtimeArgs": [
+        "-3",
+        "tarkov_quest_map.py",
+        "--no-browser",
+        "--port",
+        "3005"
+      ],
+      "port": 3005
     }
   ]
 }

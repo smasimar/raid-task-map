@@ -19,7 +19,9 @@
         "tarkov_quest_map.py",
         "--no-browser",
         "--port",
-        "3005"
+        "3005",
+        "--state",
+        "state.test.json"
       ],
       "port": 3005
     }

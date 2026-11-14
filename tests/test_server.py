@@ -46,5 +46,47 @@ class GameMode(unittest.TestCase):
         self.assertEqual(tqm.game_mode_for_token("PVP_abc"), "regular")
 
 
+class Quests(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        self.dir = tempfile.TemporaryDirectory()
+        self.path = Path(self.dir.name) / "state.json"
+        self.events = []
+        self.q = tqm.QuestList(self.path, self.events.append)
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def test_add_remove_and_reload(self):
+        self.q.apply("pve", add=["a", "b", "a"], add_custom=["New Quest"])
+        self.q.apply("pve", remove=["a"], add_custom=["new quest"])
+        self.q.apply("regular", add=["z"])
+        again = tqm.QuestList(self.path).public()
+        self.assertEqual(again["modes"], {"pve": {"selected": ["b"], "custom": ["New Quest"]}, "regular": {"selected": ["z"], "custom": []}})
+        self.assertEqual([e["mode"] for e in self.events], ["pve", "pve", "regular"])
+
+    def test_no_event_without_a_change(self):
+        self.q.apply("pve", add=["a"])
+        self.q.apply("pve", add=["a"])
+        self.assertEqual(len(self.events), 1)
+
+    def test_task_messages(self):
+        task = lambda status, when, mode="pve": {"type": "task", "status": status, "id": "a", "time": when, "mode": mode}
+        self.q.apply_task_event(task("started", 100.0), "regular")
+        self.assertEqual(self.q.public()["modes"]["pve"]["selected"], ["a"])
+        self.assertEqual(self.events[-1]["note"], {"status": "started", "id": "a"})
+        self.q.apply_task_event(task("finished", 200.0), "regular")
+        self.assertEqual(self.q.public()["modes"]["pve"]["selected"], [])
+        self.assertEqual(self.q.log_time(), 200.0)
+        # a log without a mode line uses the mode of the token
+        self.q.apply_task_event(task("started", 300.0, None), "regular")
+        self.assertEqual(self.q.public()["modes"]["regular"]["selected"], ["a"])
+        self.assertEqual(tqm.QuestList(self.path).log_time(), 300.0)
+
+    def test_migrated_flag(self):
+        self.q.apply("pve", add=["a"], migrated=True)
+        self.assertEqual(self.q.public()["migrated"], ["pve"])
+
+
 if __name__ == "__main__":
     unittest.main()

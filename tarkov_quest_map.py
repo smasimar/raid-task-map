@@ -25,11 +25,17 @@ from pathlib import Path
 
 import game_logs
 
+
+def _arg(name: str, default: str) -> str:
+    """The value after a command-line option, for example: --port 3005"""
+    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv[1:-1] else default
+
+
 APP_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = APP_DIR / "config.json"
-PORT = int(os.environ.get("TQM_PORT", "3000"))
-if "--port" in sys.argv[1:-1]:
-    PORT = int(sys.argv[sys.argv.index("--port") + 1])
+STATE_PATH = Path(_arg("--state", str(APP_DIR / "state.json")))  # a different file for tests
+GAME_MODES = ("regular", "pve", "pvp-season")
+PORT =int(_arg("--port", os.environ.get("TQM_PORT", "3000")))
 TT_API = "https://api.tarkovtracker.org"
 USER_AGENT = "TarkovQuestMap/1.0 (local)"
 
@@ -70,7 +76,7 @@ def default_screenshots_dir() -> str:
 
 
 def load_config() -> dict:
-    cfg = {"token": "", "screenshotsDir": "", "deleteScreenshots": False, "logsDir": ""}
+    cfg = {"token": "", "screenshotsDir": "", "deleteScreenshots": False, "logsDir": "", "autoTick": True}
     if CONFIG_PATH.exists():
         try:
             cfg.update(json.loads(CONFIG_PATH.read_text(encoding="utf-8")))
@@ -81,10 +87,14 @@ def load_config() -> dict:
     return cfg
 
 
+def save_json(path: Path, obj: dict) -> None:
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(obj, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def save_config(cfg: dict) -> None:
-    tmp = CONFIG_PATH.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
-    os.replace(tmp, CONFIG_PATH)
+    save_json(CONFIG_PATH, cfg)
 
 
 CONFIG = load_config()
@@ -134,6 +144,76 @@ class EventHub:
 
 
 HUB = EventHub()
+
+
+# --------------------------------------------------------------------------- quest list
+
+class QuestList:
+    """The quests you have in the game, for each game mode. Kept in state.json.
+
+    selected: task ids. custom: names of quests that are not in the tarkov.dev data.
+    logTime: the time of the last task message from the game logs that was applied,
+    so a restart does not apply the same messages again.
+    """
+
+    def __init__(self, path: Path, publish=None):
+        self.path = path
+        self.publish = publish or (lambda event: None)
+        self.lock = threading.Lock()
+        self.data = {"modes": {}, "migrated": [], "logTime": 0.0}
+        if path.exists():
+            try:
+                self.data.update(json.loads(path.read_text(encoding="utf-8")))
+            except Exception as exc:
+                print(f"[quests] could not read {path.name}: {exc}")
+
+    def _mode(self, mode: str) -> dict:
+        return self.data["modes"].setdefault(mode, {"selected": [], "custom": []})
+
+    def public(self) -> dict:
+        with self.lock:
+            return {"modes": json.loads(json.dumps(self.data["modes"])), "migrated": list(self.data["migrated"])}
+
+    def apply(self, mode, add=(), remove=(), add_custom=(), remove_custom=(), migrated=False, log_time=None, note=None):
+        """Change the list of one mode, save it, and tell the open pages."""
+        with self.lock:
+            m = self._mode(mode)
+            before = json.dumps(m)
+            gone = set(remove)
+            m["selected"] = ([x for x in m["selected"] if x not in gone]
+                             + [x for x in dict.fromkeys(add) if x not in m["selected"] and x not in gone])
+            low = {n.lower() for n in remove_custom}
+            m["custom"] = [n for n in m["custom"] if n.lower() not in low]
+            for name in add_custom:
+                if name.lower() not in {n.lower() for n in m["custom"]}:
+                    m["custom"].append(name)
+            if migrated and mode not in self.data["migrated"]:
+                self.data["migrated"].append(mode)
+            if log_time is not None:
+                self.data["logTime"] = max(float(self.data.get("logTime") or 0), log_time)
+            save_json(self.path, self.data)
+            changed = before != json.dumps(m)
+            event = {"type": "quests", "mode": mode, "selected": list(m["selected"]), "custom": list(m["custom"])}
+        if note:
+            event["note"] = note
+        if changed or note:
+            self.publish(event)
+        return event
+
+    def log_time(self) -> float:
+        with self.lock:
+            return float(self.data.get("logTime") or 0)
+
+    def apply_task_event(self, ev: dict, fallback_mode: str):
+        """A task message from the game logs: started = tick, finished or failed = untick."""
+        mode = ev.get("mode") or fallback_mode
+        note = {"status": ev["status"], "id": ev["id"]}
+        if ev["status"] == "started":
+            return self.apply(mode, add=[ev["id"]], log_time=ev["time"], note=note)
+        return self.apply(mode, remove=[ev["id"]], log_time=ev["time"], note=note)
+
+
+QUESTS = QuestList(STATE_PATH, HUB.publish)
 
 
 def quaternion_to_yaw(x, z, y, w):
@@ -228,10 +308,14 @@ def log_watcher():
                 state = game_logs.GameState()
                 print(f"[logs] reading {folder}" if folder else f"[logs] no game logs found in {base!r}")
             if follower:
+                with CONFIG_LOCK:
+                    auto_tick = bool(CONFIG.get("autoTick", True))
+                    token_mode = game_mode_for_token(CONFIG.get("token") or "")
                 for entry in follower.read():
                     for ev in state.handle(*entry):
-                        # entries that were in the log before this app started are history
-                        if ev["type"] == "task" and not first:
+                        # logTime stops a message from being applied again after a restart
+                        if ev["type"] == "task" and auto_tick and ev["time"] > QUESTS.log_time():
+                            QUESTS.apply_task_event(ev, token_mode)
                             print(f"[logs] task {ev['status']}: {ev['id']}")
                 state.expire(time.time())
             snap = state.snapshot()
@@ -323,6 +407,7 @@ class Handler(BaseHTTPRequestHandler):
                 "screenshotsDirExists": os.path.isdir(CONFIG.get("screenshotsDir", "") or ""),
                 "deleteScreenshots": bool(CONFIG.get("deleteScreenshots")),
                 "logsDir": CONFIG.get("logsDir", ""),
+                "autoTick": bool(CONFIG.get("autoTick", True)),
             }
 
     def _allowed(self):
@@ -343,6 +428,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, self._public_config())
         if path == "/api/state":
             return self._json(200, HUB.state)
+        if path == "/api/quests":
+            return self._json(200, QUESTS.public())
         if path == "/api/progress":
             return self._progress(force="force=1" in query.split("&"))
         if path == "/api/events":
@@ -371,8 +458,9 @@ class Handler(BaseHTTPRequestHandler):
                         if key == "token" and not val:
                             continue  # empty token field = keep current
                         CONFIG[key] = val
-                if "deleteScreenshots" in data:
-                    CONFIG["deleteScreenshots"] = bool(data["deleteScreenshots"])
+                for key in ("deleteScreenshots", "autoTick"):
+                    if key in data:
+                        CONFIG[key] = bool(data[key])
                 if not CONFIG.get("screenshotsDir"):
                     CONFIG["screenshotsDir"] = default_screenshots_dir()
                 save_config(CONFIG)
@@ -389,6 +477,33 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"error": "x, y, z and rotation must be numbers"})
             HUB.publish(ev)
             return self._json(200, ev)
+        if path == "/api/quests":
+            mode = data.get("mode")
+            lists = [data.get(k, []) for k in ("add", "remove", "addCustom", "removeCustom")]
+            if mode not in GAME_MODES or not all(isinstance(x, list) and all(isinstance(i, str) and 0 < len(i) <= 200 for i in x) for x in lists):
+                return self._json(400, {"error": "mode must be a game mode; add, remove, addCustom and removeCustom must be lists of text"})
+            return self._json(200, QUESTS.apply(mode, *lists, migrated=bool(data.get("migrated"))))
+        if path == "/api/past-logs":
+            # with "apply": false this only reports what the old logs say
+            with CONFIG_LOCK:
+                token_mode = game_mode_for_token(CONFIG.get("token") or "")
+            events = game_logs.task_events(logs_dir()) if logs_dir() else []
+            for ev in events:
+                ev["mode"] = ev["mode"] or token_mode
+            changes = game_logs.net_task_changes(events)
+            if data.get("apply"):
+                latest = max((ev["time"] for ev in events), default=None)
+                for mode, c in changes.items():
+                    QUESTS.apply(mode, add=c["started"], remove=c["ended"], log_time=latest)
+            return self._json(200, {"changes": changes, "messages": len(events), "applied": bool(data.get("apply"))})
+        if path == "/api/test-task":
+            # lets you check the automatic ticks without the game
+            if data.get("status") not in ("started", "finished", "failed") or not isinstance(data.get("id"), str):
+                return self._json(400, {"error": "status must be started, finished or failed; id must be text"})
+            with CONFIG_LOCK:
+                token_mode = game_mode_for_token(CONFIG.get("token") or "")
+            ev = {"type": "task", "status": data["status"], "id": data["id"], "time": time.time(), "mode": data.get("mode")}
+            return self._json(200, QUESTS.apply_task_event(ev, token_mode))
         if path == "/api/test-game":
             # lets you check the raid behaviour without starting the game; the next log change replaces it
             raid = game_logs.new_raid()

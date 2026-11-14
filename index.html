@@ -121,7 +121,8 @@
         <button id="addTaskBtn">Add</button>
       </div>
       <datalist id="allTasks"></datalist>
-      <div class="hint" style="margin-bottom:6px">Tick the tasks you have in-game. Ticks are remembered; a task drops off by itself once TarkovTracker marks it complete. Click a task or a 📍 objective to jump to it.</div>
+      <div class="hint" style="margin-bottom:6px">Tick the tasks you have in-game. A task that you accept while this app runs is ticked automatically, and it drops off when it is complete. Click a task or a 📍 objective to jump to it.</div>
+      <button id="pastLogsBtn" title="Find the quests you accepted before this app ran, from the game's old log files" style="margin-bottom:8px">Read past logs</button>
       <div id="taskList"></div>
       <details id="otherBox" style="margin-top:12px">
         <summary id="otherTitle"></summary>
@@ -152,6 +153,7 @@
     <label for="logsInput">EFT logs folder</label>
     <input type="text" id="logsInput" placeholder="Leave empty to find it automatically">
     <div class="hint" id="logsHint"></div>
+    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoTick"> Tick a quest when you accept it in the game; untick it when it ends</label>
     <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoMap"> Select the map when a raid loads</label>
     <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoView"> Show the mission list during a raid, and the setup panel after it</label>
     <div class="row" style="justify-content:flex-end;margin-top:14px">
@@ -179,6 +181,7 @@ const S = {
   progressJson: null, current: null, lmap: null, layers: {}, svgEl: null, baseStyle: null, floorLayer: null, floorIndex: -1, floorSeq: 0,
   player: null, playerMarker: null, markersByKey: new Map(),
   game: null, raidAutoKey: null, viewAuto: false,
+  sel: new Set(), custom: [],
 };
 const store = {
   get(k, d) { try { const v = localStorage.getItem("tqm." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -329,11 +332,13 @@ function computeAvailable() {
 
   S.objDone = objDone;
   S.finished = new Set((p.tasksProgress || []).filter((x) => x.complete || x.failed).map((x) => x.id));
-  // forget ticks on tasks that are now done
-  const sel = selectedSet(), before = sel.size;
-  for (const id of [...sel]) if (S.finished.has(id)) sel.delete(id);
-  if (sel.size !== before) store.set(selKey(), [...sel]);
   S.available = S.tasks.filter((task) => evaluate(task.id, false));
+  pruneFinished();
+}
+// forget ticks on tasks that TarkovTracker shows as completed or failed
+function pruneFinished() {
+  const done = [...S.sel].filter((id) => S.finished?.has(id));
+  if (done.length) questOp({ remove: done });
 }
 
 // ------------------------------------------------------------------ objectives for current map
@@ -376,22 +381,75 @@ function tasksForMap(mc) {
   res.sort((a, b) => a.trader.localeCompare(b.trader) || a.name.localeCompare(b.name));
   return res;
 }
-const selKey = () => `selected.${S.mode}`;
-const selectedSet = () => new Set(store.get(selKey(), []));
+// The quest list is kept by the local helper (state.json), one list for each game mode,
+// because the helper also changes it when the game logs show a quest start or end.
+const selectedSet = () => S.sel;
+const customQuests = () => S.custom;
 const showMode = () => document.querySelector('input[name="showMode"]:checked').value;
-function setSelected(id, on) {
-  const s = selectedSet();
-  if (on) s.add(id); else s.delete(id);
-  store.set(selKey(), [...s]);
+function useQuests(m) { S.sel = new Set(m?.selected || []); S.custom = [...(m?.custom || [])]; }
+const postJSON = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+async function questOp(op) {
+  // change the list here first so the page reacts at once; the helper then sends the saved list back as an event
+  for (const id of op.add || []) S.sel.add(id);
+  for (const id of op.remove || []) S.sel.delete(id);
+  const gone = new Set([...(op.removeCustom || []), ...(op.addCustom || [])].map((n) => n.toLowerCase()));
+  S.custom = [...S.custom.filter((n) => !gone.has(n.toLowerCase())), ...(op.addCustom || [])];
   renderTasks(); drawQuestMarkers();
+  try {
+    const r = await postJSON("/api/quests", { mode: S.mode, ...op });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `${r.status} ${r.statusText}`);
+  } catch (e) {
+    setStatus(`Could not save the quest list: ${e.message}`, true);
+  }
 }
-const customKey = () => `custom.${S.mode}`;
-const customQuests = () => store.get(customKey(), []);
-function setCustom(name, on) {
-  const list = customQuests().filter((n) => n.toLowerCase() !== name.toLowerCase());
-  if (on) list.push(name);
-  store.set(customKey(), list);
-  renderQuestPanel();
+const setSelected = (id, on) => questOp(on ? { add: [id] } : { remove: [id] });
+const setCustom = (name, on) => questOp(on ? { addCustom: [name] } : { removeCustom: [name] });
+async function loadQuests() {
+  const q = await getJSON("/api/quests");
+  // one time: move the ticks that an earlier version kept in this browser
+  for (const mode of ["regular", "pve", "pvp-season"]) {
+    const add = store.get(`selected.${mode}`, []), addCustom = store.get(`custom.${mode}`, []);
+    // a browser with no old ticks must not mark the move as done
+    if (q.migrated.includes(mode) || !(add.length + addCustom.length)) continue;
+    const r = await postJSON("/api/quests", { mode, add, addCustom, migrated: true });
+    if (r.ok) q.modes[mode] = await r.json();
+  }
+  useQuests(q.modes[S.mode]);
+}
+function onQuests(ev) {
+  if (ev.mode !== S.mode) return;
+  useQuests(ev);
+  renderTasks(); drawQuestMarkers();
+  if (ev.note) {
+    const task = S.tasksById.get(ev.note.id);
+    setStatus(`Quest ${ev.note.status} in the game: ${task ? taskLabel(task) : "not in the tarkov.dev data (" + ev.note.id + ")"}`);
+  }
+  pruneFinished();
+}
+async function readPastLogs() {
+  try {
+    setStatus("Reading the old game logs…");
+    const read = async (apply) => { const r = await postJSON("/api/past-logs", { apply }); const b = await r.json(); if (!r.ok) throw new Error(b.error || r.status); return b; };
+    const res = await read(false);
+    const name = (id) => { const task = S.tasksById.get(id); return task ? taskLabel(task) : id; };
+    const lines = [];
+    let total = 0;
+    for (const [mode, c] of Object.entries(res.changes)) {
+      const here = mode === S.mode;
+      const add = c.started.filter((id) => !(here && (S.sel.has(id) || S.finished?.has(id))));
+      const remove = c.ended.filter((id) => !here || S.sel.has(id));
+      total += add.length + remove.length;
+      if (!add.length && !remove.length) continue;
+      lines.push(`${mode}: tick ${add.length}, untick ${remove.length}`);
+      if (here) lines.push(...add.slice(0, 20).map((id) => "  + " + name(id)), ...(add.length > 20 ? [`  … and ${add.length - 20} more`] : []), ...remove.slice(0, 10).map((id) => "  − " + name(id)));
+    }
+    if (!total) return setStatus(`The old logs have ${res.messages} quest messages. Your quest list already agrees with them.`);
+    if (!confirm(`The old game logs have ${res.messages} quest messages.\n\n${lines.join("\n")}\n\nChange your quest list? This changes only the list in this app. Quests that TarkovTracker shows as completed are left out.`)) return setStatus("Quest list not changed.");
+    await read(true);
+    setStatus("Quest list updated from the old game logs.");
+  } catch (e) {
+    setStatus(`Could not read the old logs: ${e.message}`, true);
+  }
 }
 const isShown = (id) => showMode() === "all" || selectedSet().has(id);
 function taskLabel(task) { return `${t(S.tasksEn, task.name, task.normalizedName)} (${S.traders[ref(task.trader)]?.name || "?"})`; }
@@ -828,6 +886,7 @@ function drawPlayer(pan) {
 // ------------------------------------------------------------------ live events from the local helper
 function onEvent(ev) {
   if (ev.type === "game") return applyGame(ev);
+  if (ev.type === "quests") return onQuests(ev);
   if (ev.type !== "position" || !S.current) return;
   // the screenshot has no map name, so it is placed on the map you have selected
   S.player = { ...ev, mapKey: S.current.key };
@@ -897,11 +956,12 @@ function fillSettings() {
   $("deleteShots").checked = !!c.deleteScreenshots;
   $("logsInput").value = c.logsDir || "";
   $("logsHint").innerHTML = c.logsDirExists ? `<span class="ok">Reading ${esc(c.logsDirActive)}</span>` : `<span class="bad">Game logs not found.</span> Type the path of the Logs folder in the game folder.`;
+  $("autoTick").checked = c.autoTick !== false;
   $("autoMap").checked = store.get("autoMap", true);
   $("autoView").checked = store.get("autoView", true);
 }
 async function saveSettings() {
-  const body = { screenshotsDir: $("shotsInput").value, deleteScreenshots: $("deleteShots").checked, logsDir: $("logsInput").value };
+  const body = { screenshotsDir: $("shotsInput").value, deleteScreenshots: $("deleteShots").checked, logsDir: $("logsInput").value, autoTick: $("autoTick").checked };
   store.set("autoMap", $("autoMap").checked);
   store.set("autoView", $("autoView").checked);
   const tok = $("tokenInput").value.trim();
@@ -911,7 +971,7 @@ async function saveSettings() {
   S.cfg = await r.json();
   S.mode = S.cfg.gameMode;
   S.progressJson = null;
-  if (S.mode !== prevMode) { await loadGameData(); populateMapSelect(); await showMap(S.current?.key); }
+  if (S.mode !== prevMode) { await loadGameData(); await loadQuests(); populateMapSelect(); await showMap(S.current?.key); }
   await loadProgress();
 }
 
@@ -936,6 +996,7 @@ async function boot() {
   }
   populateMapSelect();
   populateTaskSearch();
+  await loadQuests().catch((e) => setStatus(`Could not load the quest list: ${e.message}`, true));
   const state =await getJSON("/api/state").catch(() => ({}));
   const startKey = store.get("map", "customs");
   // a position from an earlier raid is probably on a different map
@@ -958,6 +1019,7 @@ $("showLabels").addEventListener("change", () => drawExtracts(S.current));
 document.querySelectorAll('input[name="showMode"]').forEach((r) => r.addEventListener("change", () => { store.set("showMode", showMode()); renderTasks(); drawQuestMarkers(); }));
 { const m = store.get("showMode", "selected"); const r = document.querySelector(`input[name="showMode"][value="${m}"]`); if (r) r.checked = true; }
 $("addTaskBtn").addEventListener("click", addTaskByName);
+$("pastLogsBtn").addEventListener("click", readPastLogs);
 $("addTask").addEventListener("keydown", (e) => { if (e.key === "Enter") addTaskByName(); });
 const VIEWS = [["setup", "Setup"], ["mission-h", "Mission ↔"], ["mission-v", "Mission ↕"]];
 function setView(v) {

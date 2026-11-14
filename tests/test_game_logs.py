@@ -140,7 +140,41 @@ class Tasks(unittest.TestCase):
         self.assertEqual([e for e in events if e["type"] == "task"], [])
 
 
+    def test_real_task_message(self):
+        data = (FIXTURES / "task-messages.log").read_bytes() + line("21:43:00", "x")
+        state = game_logs.GameState()
+        run(state, game_logs.EntryReader(), line("21:36:00", "Session mode: Pve"))
+        events = [e for e in run(state, game_logs.EntryReader(), data) if e["type"] == "task"]
+        self.assertEqual([(e["status"], e["id"], e["mode"]) for e in events], [("started", "657315ddab5a49b71f098853", "pve")])
+
+    def test_net_changes(self):
+        ev = lambda mode, status, task: {"mode": mode, "status": status, "id": task}
+        changes = game_logs.net_task_changes([ev("pve", "started", "a"), ev("pve", "started", "b"), ev("pve", "finished", "a"),
+                                              ev("regular", "started", "a"), ev("pve", "failed", "c"), ev("pve", "started", "c")])
+        self.assertEqual(changes, {"pve": {"started": ["b", "c"], "ended": ["a"]}, "regular": {"started": ["a"], "ended": []}})
+
+
 class Folders(unittest.TestCase):
+    def test_folders_sort_by_time_not_by_text(self):
+        import tempfile, os
+        with tempfile.TemporaryDirectory() as d:
+            for name in ("log_2026.02.26_10-03-18_1.0.2.0.43037", "log_2026.02.26_9-03-18_1.0.2.0.43037"):
+                os.mkdir(os.path.join(d, name))
+            self.assertTrue(game_logs.newest_log_folder(d).endswith("log_2026.02.26_10-03-18_1.0.2.0.43037"))
+
+    def test_task_events_of_all_sessions(self):
+        import tempfile, os
+        with tempfile.TemporaryDirectory() as d:
+            for name, mode, kind in (("log_2026.11.13_9-00-00_1", "Pve", 10), ("log_2026.11.14_10-00-00_1", "Regular", 12)):
+                os.mkdir(os.path.join(d, name))
+                with open(os.path.join(d, name, "x application_000.log"), "wb") as f:
+                    f.write(line("09:00:00", f"Session mode: {mode}"))
+                with open(os.path.join(d, name, "x push-notifications_000.log"), "wb") as f:
+                    f.write(task_note("09:30:00", kind, "aaaaaaaaaaaaaaaaaaaaaaaa 0"))
+            events = game_logs.task_events(d)
+            self.assertEqual([(e["mode"], e["status"]) for e in events], [("pve", "started"), ("regular", "finished")])
+            self.assertEqual(game_logs.task_events(d, after=events[-1]["time"]), [])
+
     def test_newest_log_folder(self):
         import tempfile, os
         with tempfile.TemporaryDirectory() as d:

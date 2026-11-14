@@ -3,3 +3,7 @@ config.json
 config.json.tmp
 node_modules/
 __pycache__/
+state.json
+state.json.tmp
+state.test.json
+state.test.json.tmp

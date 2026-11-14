@@ -1,0 +1,16 @@
+2026-02-22 21:42:30.806|1.0.2.0.43037|Info|push-notifications|Got notification | ChatMessageReceived
+{
+  "type": "new_message",
+  "eventId": "000000000000000000000000",
+  "dialogId": "000000000000000000000000",
+  "message": {
+    "_id": "000000000000000000000000",
+    "uid": "000000000000000000000000",
+    "type": 10,
+    "dt": 1771792951,
+    "text": "quest started",
+    "templateId": "657315ddab5a49b71f098853 description",
+    "hasRewards": false,
+    "maxStorageTime": 604800
+  }
+}

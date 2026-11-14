@@ -73,13 +73,45 @@ def default_logs_dir() -> str:
     return ""
 
 
-def newest_log_folder(logs_dir: str):
-    """The folder of the latest game session: Logs/log_<date>_<time>_<version>."""
+def log_folders(logs_dir: str):
+    """The session folders, Logs/log_<date>_<time>_<version>, oldest first."""
     try:
         names = [n for n in os.listdir(logs_dir) if LOG_FOLDER_RE.match(n) and os.path.isdir(os.path.join(logs_dir, n))]
     except OSError:
-        return None
-    return os.path.join(logs_dir, max(names)) if names else None
+        return []
+    # the hour has one or two digits ("9-03-18"), so the names do not sort as text
+    names.sort(key=lambda n: [int(x) for x in re.findall(r"\d+", n)])
+    return [os.path.join(logs_dir, n) for n in names]
+
+
+def newest_log_folder(logs_dir: str):
+    """The folder of the latest game session."""
+    folders = log_folders(logs_dir)
+    return folders[-1] if folders else None
+
+
+def task_events(logs_dir: str, after: float = 0.0):
+    """The task messages of all sessions later than `after`, oldest first.
+    Each is {"type": "task", "status", "id", "time", "mode"}."""
+    out = []
+    for folder in log_folders(logs_dir):
+        state = GameState()
+        # the mode is in one file and the task messages in the other: put them in time order
+        for entry in sorted(LogFollower(folder).read(), key=lambda e: e[0]):
+            out += [ev for ev in state.handle(*entry) if ev["type"] == "task" and ev["time"] > after]
+    out.sort(key=lambda ev: ev["time"])
+    return out
+
+
+def net_task_changes(events):
+    """The last status of each task, as {mode: {"started": [ids], "ended": [ids]}}."""
+    last = {}
+    for ev in events:
+        last[(ev["mode"], ev["id"])] = ev["status"]
+    out = {}
+    for (mode, task_id), status in last.items():
+        out.setdefault(mode, {"started": [], "ended": []})["started" if status == "started" else "ended"].append(task_id)
+    return out
 
 
 def entry_time(date: str, clock: str, millis: str) -> float:
@@ -232,7 +264,7 @@ class GameState:
             status = TASK_STATUS.get(msg.get("type"))
             task_id = str(msg.get("templateId") or "").split(" ")[0]
             if status and task_id:
-                events.append({"type": "task", "status": status, "id": task_id, "time": when})
+                events.append({"type": "task", "status": status, "id": task_id, "time": when, "mode": self.mode})
 
         if before != (self.mode, self.raid):
             events.append({"type": "game"})

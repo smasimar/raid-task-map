@@ -18,6 +18,9 @@ does not read the game's memory, network traffic or game files.
   and where you look.
 - **Raid tracking.** When a raid loads, the app selects the map, shows your mission
   list and starts a raid timer. After the raid it goes back to the setup panel.
+- **Automatic quest list.** A quest that you accept in the game is ticked by itself,
+  and it is removed when you complete or fail it. "Read past logs" finds the quests
+  you accepted before the app ran.
 - **Three views.** A setup panel to select quests, and two mission views that put a
   semi-transparent quest list over the map (across the top, or down the side).
 - **Progress from TarkovTracker.** Completed quests and steps disappear from the list.
@@ -49,6 +52,7 @@ it does not, type the paths in **Settings**.
 | Action | Result |
 | --- | --- |
 | Tick a quest in the setup panel | The quest shows on the map and in the mission list |
+| **Read past logs** | Reads the game's old log files and proposes the quests to tick. It changes only the list in this app |
 | "Add a task by name" | Adds a quest that is not in the list. A quest that tarkov.dev does not know yet is added as text only |
 | **View** button | Changes between Setup, Mission ↔ (list across the top) and Mission ↕ (list down the side) |
 | Click a 📍 step in the mission list | The map moves to that objective |
@@ -71,6 +75,9 @@ is the raid's map when raid tracking is on.
   found. It is usually `Documents\Escape From Tarkov\Screenshots`.
 - **The map does not change when a raid loads.** Make sure that Settings shows the logs
   folder as found, and that "Select the map when a raid loads" is ticked.
+- **"Read past logs" proposes quests that you completed.** The game deletes old logs,
+  so some completions are missing. Quests that TarkovTracker shows as completed are
+  left out; untick the others.
 - **TarkovTracker answered 401.** The token is wrong, revoked, or for a different game
   mode.
 
@@ -96,6 +103,7 @@ cd tests && npm install && npm test         page tests (Node.js and jsdom)
 | `game_logs.py` | Game log reader and raid state |
 | `index.html` | The full page: map, quest lists, settings |
 | `maps.json` | Map projection settings, from tarkov.dev |
+| `state.json` | Your quest list for each game mode. Made by the app; excluded from git |
 | `tests/fixtures` | Lines from a real game session, with IDs and addresses masked |
 
 ## Roadmap
@@ -104,7 +112,7 @@ The aim is to do the work of TarkovMonitor for this app's features, so that one 
 is sufficient.
 
 - [x] Read the game logs: map selection, mission view, raid timer, game mode
-- [ ] Tick quests automatically when you accept them in the game
+- [x] Tick quests automatically when you accept them in the game
 - [ ] Send completed and failed quests to TarkovTracker; mark steps done by hand
 - [ ] New name in all files, release package
 

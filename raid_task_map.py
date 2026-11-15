@@ -846,12 +846,22 @@ class Handler(BaseHTTPRequestHandler):
             HUB.unsubscribe(q)
 
 
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        # a browser that closes a connection early (page reload, closed tab) is not a fault
+        if isinstance(sys.exc_info()[1], (ConnectionError, TimeoutError)):
+            return
+        super().handle_error(request, client_address)
+
+
 def main():
     threading.Thread(target=screenshot_watcher, daemon=True).start()
     threading.Thread(target=log_watcher, daemon=True).start()
     threading.Thread(target=write_worker, daemon=True).start()
     try:
-        server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+        server = Server(("127.0.0.1", PORT), Handler)
     except OSError as exc:
         print(f"Could not start on port {PORT}: {exc}\nIs it already running? Use --port to select another port, for example: --port 3005")
         input("Press Enter to close.")

@@ -88,7 +88,6 @@ const dom = new JSDOM(html, {
       return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(routes[u])) };
     };
     w.EventSource = function () { w.__es = this; };
-    w.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
     w.SVGElement.prototype.getBBox = () => ({ x: 0, y: 0, width: 0, height: 0 });
     w.SVGSVGElement.prototype.createSVGRect = () => ({}); // Leaflet needs this to draw zone outlines as SVG
   },
@@ -99,35 +98,55 @@ w.addEventListener("error", (e) => errors.push(e.message));
 w.console.warn = (...a) => errors.push("warn " + a.join(" "));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const text = (sel) => [...d.querySelectorAll(sel)].map((e) => e.textContent.replace(/\s+/g, " ").trim());
+// Tasks view helpers: select an entry on the left, read the task rows on the right
+const pick = (name) => [...d.querySelectorAll("#traderList .tbtn")].find((b) => b.firstChild.textContent === name).click();
+const rows = (cls = "") => [...d.querySelectorAll("#taskLines .trow" + cls)].map((r) => r.querySelector(".tname").textContent);
+const rowOf = (name) => [...d.querySelectorAll("#taskLines .trow")].find((r) => r.querySelector(".tname").textContent === name);
 const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) process.exitCode = 1; };
 
 (async () => {
   await sleep(800);
   console.log("status:", d.getElementById("status").textContent);
   assert(d.getElementById("mapSelect").value === "customs", "starts on customs");
-  const avail = text("#otherList .task-name");
-  console.log("possible on customs:", avail);
-  assert(avail.some((x) => x.startsWith("Debut")), "Debut available");
-  assert(!avail.some((x) => x.startsWith("Checking")), "Checking locked (needs Debut complete)");
-  assert(!avail.some((x) => x.startsWith("Endgame")), "level gate");
-  assert(!avail.some((x) => x.startsWith("Jaeger Job")), "trader unlock gate");
-  assert(!avail.some((x) => x.startsWith("Old News")), "completed task hidden");
-  assert(!avail.some((x) => x.startsWith("Woods Walk")), "other-map task not listed on customs");
+  assert(d.getElementById("app").dataset.tab === "tasks" && d.getElementById("tabTasks").classList.contains("on"), "starts on the Tasks tab");
+  assert(text("#traderList .tbtn span:first-child").join() === "My quests,All traders,Jaeger,Prapor", "left list: My quests, All traders, then the traders");
+  pick("Prapor");
+  console.log("Prapor lines:", rows());
+  assert(rows(".st-available").includes("Debut"), "Debut available");
+  assert(rows(".st-locked").includes("Checking"), "Checking locked (needs Debut complete)");
+  assert(rowOf("Checking").textContent.includes("after: Debut"), "a locked task names the task it waits for");
+  assert(rows(".st-locked").includes("Endgame"), "level gate");
+  assert(!rows().includes("Old News"), "completed task hidden");
+  const line = rows();
+  assert(line.indexOf("Checking") === line.indexOf("Debut") + 1 && line.indexOf("Follow Up") === line.indexOf("Checking") + 1, "a task line shows the tasks in the order you get them");
+  assert(rowOf("Debut").style.marginLeft === rowOf("Follow Up").style.marginLeft, "a line with no split stays in one column");
+  d.getElementById("hideDone").click();
+  assert(rows(".st-done").includes("Old News"), "completed tasks show when Hide completed is off");
+  d.getElementById("hideDone").click();
+  pick("Jaeger");
+  assert(rows(".st-locked").includes("Jaeger Job"), "trader unlock gate");
+  d.getElementById("taskSearch").value = "walk";
+  d.getElementById("taskSearch").dispatchEvent(new w.Event("input"));
+  assert(rows().join() === "Woods Walk", "search finds tasks of all traders");
+  d.getElementById("taskSearch").value = "";
+  d.getElementById("taskSearch").dispatchEvent(new w.Event("input"));
   // the ticks of an earlier version move from browser storage to the helper, one time
   assert(quests.migrated.includes("regular") && quests.modes.regular.selected.includes("extraZone"), "old ticks moved to the helper");
-  assert(text("#taskList .task-name").some((x) => x.startsWith("Extra Zone")), "moved tick shows as ticked");
+  pick("My quests");
+  assert(rows(".st-active").join() === "Extra Zone", "moved tick shows under My quests");
   assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 1 && d.querySelectorAll(".leaflet-marker-pane .q-item").length === 0, "only the moved tick has a marker before ticking");
   const ex = text(".ex-icon span");
   console.log("extracts:", ex);
   assert(ex.length === 3 && ex.includes("Crossroads") && ex.includes("Boat") && !ex.some((x) => x.includes("scav")), "PMC + shared extracts only");
 
-  // tick Debut
-  const debutBox = [...d.querySelectorAll("#otherList .task")].find((x) => x.textContent.includes("Debut")).querySelector("input");
+  // tick Debut in the Prapor line
+  pick("Prapor");
+  const debutBox = rowOf("Debut").querySelector("input[type=checkbox]");
   debutBox.checked = true; debutBox.dispatchEvent(new w.Event("change"));
   await sleep(50);
-  assert(text("#taskList .task-name").some((x) => x.startsWith("Debut")), "Debut moved to ticked list");
+  assert(rowOf("Debut").classList.contains("st-active"), "ticked task shows as in progress");
+  assert(text("#traderList .tbtn").some((x) => x.startsWith("Prapor") && x.includes("2 ·")), "the trader entry counts the tasks in progress");
   assert(quests.modes.regular.selected.includes("debut"), "tick saved by the helper");
-  console.log("left objs:", text("#taskList .obj"));
   console.log("mission list:", text("#questList .qname"), text("#questList .step"));
   assert(text("#questList .step").some((x) => x.includes("Kill 5 Scavs") && x.includes("3/5")), "mission list shows steps with counts");
   assert(!text("#questList .step").some((x) => x.includes("Hand over 2 bolts")), "completed objective left out of the mission list");
@@ -145,14 +164,15 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   d.getElementById("addTaskBtn").click();
   await sleep(50);
   assert(!text("#questList .qname").includes("Woods Walk"), "other-map quest is not in the mission list");
-  assert(text("#elseList .ename").includes("Woods Walk"), "other-map quest listed under My other quests");
+  pick("My quests");
+  assert(rows().includes("Woods Walk"), "other-map quest is under My quests");
 
   // a name that tarkov.dev does not know becomes a text-only quest
   d.getElementById("addTask").value = "Brand New Quest";
   d.getElementById("addTaskBtn").click();
   await sleep(50);
   assert(text("#questList .qname").includes("Brand New Quest"), "unknown quest added as text only");
-  [...d.querySelectorAll("#elseList .row")].find((x) => x.textContent.includes("Brand New Quest")).querySelector("button").click();
+  rowOf("Brand New Quest").querySelector("button").click();
   await sleep(50);
   assert(!text("#questList .qname").includes("Brand New Quest"), "text-only quest removed");
 
@@ -161,45 +181,88 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   await sleep(50);
   assert(text("#questList .qname").includes("Nade Kills"), "any-location quest with a raid step is in the mission list");
   assert(!text("#questList .qname").includes("Gun Build") && !text("#questList .qname").includes("Arena Match"), "out-of-raid quests are not in the mission list");
-  assert(["Nade Kills", "Gun Build", "Arena Match"].every((n) => text("#elseList .ename").includes(n)), "they stay under My other quests");
+  assert(["Nade Kills", "Gun Build", "Arena Match"].every((n) => rows().includes(n)), "all of them are under My quests");
 
   // the view button cycles setup -> mission across -> mission down -> setup
   const app = d.getElementById("app"), vb = d.getElementById("viewBtn");
-  assert(app.dataset.view === "setup", "starts in the setup view");
-  vb.click(); assert(app.classList.contains("view-mission-h"), "second view: mission list across the top");
-  vb.click(); assert(app.classList.contains("view-mission-v"), "third view: mission list down the side");
-  vb.click(); assert(app.dataset.view === "setup" && !app.classList.contains("view-mission-v"), "back to the setup view");
+  // two tabs; on the Map tab the view button moves the mission list
+  d.getElementById("tabMap").click();
+  assert(app.classList.contains("tab-map") && !app.classList.contains("tab-tasks") && d.getElementById("tabMap").classList.contains("on"), "the Map tab shows the map");
+  assert(app.classList.contains("view-mission-h") && vb.textContent === "List ↔", "mission list across the top");
+  vb.click(); assert(app.classList.contains("view-mission-v") && !app.classList.contains("view-mission-h"), "mission list down the side");
+  vb.click(); assert(app.classList.contains("view-mission-h"), "and across the top again");
+  vb.click();
+  d.getElementById("tabTasks").click();
+  assert(app.dataset.tab === "tasks" && app.dataset.view === "mission-v", "the Tasks tab keeps the place of the mission list");
+  const css = d.querySelector("style").textContent;
+  assert(/#mission \{ grid-column:1;/.test(css) && /#map \{ grid-column:1;/.test(css), "the mission list lies over the map, in the same grid cell");
 
   // show-all mode draws markers for everything possible
-  d.querySelector('input[name="showMode"][value="all"]').click();
+  d.getElementById("showAll").click();
   await sleep(50);
-  assert(d.querySelector('input[name="showMode"][value="all"]').checked, "show-all mode on");
+  assert(d.getElementById("showAll").checked, "show-all mode on");
   assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 2, "show-all mode keeps the ticked markers");
-  d.querySelector('input[name="showMode"][value="selected"]').click();
+  d.getElementById("showAll").click();
   await sleep(50);
   assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 2, "ticked-only mode shows the two ticked zones");
 
-  // progress controls: hidden until "Send quest progress to TarkovTracker" is on
-  assert(d.querySelectorAll(".pbtn").length === 0, "no progress buttons while sending is off");
-  d.getElementById("settingsBtn").click();
+  // filters and sort order on the Tasks tab
+  const set = (id, value) => { const el = d.getElementById(id); if (el.type === "checkbox") el.checked = value; else el.value = value; el.dispatchEvent(new w.Event("change")); };
+  const groups = () => text("#taskLines .tgroup");
+  pick("All traders");
+  assert(groups().join() === "Jaeger,Prapor" && rows().includes("Jaeger Job") && rows().includes("Debut"), "All traders: the lines of each trader under its name");
+  set("onlyActive", true);
+  assert(rows().length > 0 && rows().length === rows(".st-active").length && !rows().includes("Endgame"), "Only accepted shows only the tasks in progress");
+  set("onlyActive", false);
+  set("mapFilter", "woods");
+  assert(rows().join() === "Meet Jaeger,Woods Walk", "the map filter shows only the tasks of that map");
+  set("mapFilter", "none");
+  assert(rows().includes("Nade Kills") && !rows().includes("Debut"), "Any location shows the tasks with no map");
+  set("mapFilter", "");
+  set("taskSort", "status");
+  assert(groups().join() === "In progress,Available,Locked", "sort by status: a heading for each status, in progress first");
+  const order = rows();
+  assert(order.indexOf("Debut") < order.indexOf("Meet Jaeger") && order.indexOf("Meet Jaeger") < order.indexOf("Endgame"), "sort by status: in progress, then available, then locked");
+  set("taskSort", "map");
+  assert(groups().join() === "Customs,Woods,Any location", "sort by map: a heading for each map, tasks with no map last");
+  set("taskSort", "name");
+  assert(rows().join() === [...rows()].sort((a, b) => a.localeCompare(b)).join() && groups().length === 0, "sort by name");
+  set("taskSort", "lines");
+  pick("My quests");
+
+  // progress controls are only on the Tasks tab; with sending off, a click changes nothing and says why
+  assert(d.querySelectorAll("#questList .pbtn, #questList input").length === 0, "the mission list on the map has no progress controls");
+  pick("My quests");
+  const step = () => [...rowOf("Debut").querySelectorAll(".tobj")].find((x) => x.textContent.includes("Kill 5 Scavs"));
+  const sbtn = (label) => [...step().querySelectorAll(".pbtn")].find((b) => b.textContent === label);
+  sbtn("✓").click();
+  assert(progressPosts.length === 0 && d.getElementById("status").textContent.includes("Send quest progress to TarkovTracker"), "with sending off, a click explains the setting");
+  assert(text("#questList .step").some((x) => x.includes("Kill 5 Scavs") && x.includes("3/5")), "and the count stays");
+  d.getElementById("tabSettings").click();
+  assert(d.getElementById("app").classList.contains("tab-settings") && d.getElementById("tabSettings").classList.contains("on"), "Settings is a tab");
   d.getElementById("writeTT").checked = true;
-  d.getElementById("settings").returnValue = "save";
-  d.getElementById("settings").dispatchEvent(new w.Event("close"));
+  d.getElementById("settingsForm").dispatchEvent(new w.Event("submit", { cancelable: true }));
   await sleep(100);
-  const debutCard = () => [...d.querySelectorAll("#questList .qcard")].find((c) => c.querySelector(".qname").textContent === "Debut");
-  const btn = (label) => [...debutCard().querySelectorAll(".pbtn")].find((b) => b.textContent === label);
-  assert(btn("+") && btn("−") && btn("✓") && btn("✓ quest"), "counted step has −, + and ✓; the quest has ✓ quest");
-  btn("+").click(); btn("+").click();
+  assert(d.getElementById("savedNote").textContent === "Saved." && routes["/api/config"].writeTT === true, "Save on the Settings tab saves");
+  d.getElementById("tabTasks").click();
+  sbtn("✓").click();
   await sleep(30);
-  assert(text("#questList .step").every((x) => !x.includes("Kill 5 Scavs")), "the step leaves the list when the count is full");
-  assert(JSON.stringify(progressPosts) === JSON.stringify([["/api/progress/objective", { id: "o1", count: 4, state: "uncompleted" }], ["/api/progress/objective", { id: "o1", count: 5, state: "completed" }]]), "each click goes to the helper with the new count");
-  const undo = [...d.querySelectorAll("#taskList .obj")].find((x) => x.textContent.includes("Kill 5 Scavs")).querySelector(".pbtn");
-  assert(undo.textContent === "↺", "a done step in the setup panel has an undo button");
+  assert(text("#questList .step").every((x) => !x.includes("Kill 5 Scavs")), "a done step leaves the mission list");
+  assert(JSON.stringify(progressPosts) === JSON.stringify([["/api/progress/objective", { id: "o1", state: "completed", count: 5 }]]), "the click goes to the helper");
+  // undo the done step, then type a count
+  const undo = [...step().querySelectorAll(".pbtn")].find((b) => b.textContent === "↺");
+  assert(undo && step().classList.contains("done"), "a done step in the Tasks view has an undo button");
   undo.click();
   await sleep(30);
   assert(progressPosts.at(-1)[1].state === "uncompleted" && text("#questList .step").some((x) => x.includes("Kill 5 Scavs")), "undo puts the step back");
+  const box = step().querySelector("input.cnt");
+  assert(box && box.max === "5", "a counted step has a box for the count");
+  box.value = "3"; box.dispatchEvent(new w.Event("change"));
+  await sleep(30);
+  assert(JSON.stringify(progressPosts.at(-1)) === JSON.stringify(["/api/progress/objective", { id: "o1", count: 3, state: "uncompleted" }]), "a typed count goes to the helper as one change");
+  assert(step().querySelector("input.cnt").value === "3" && text("#questList .step").some((x) => x.includes("3/5")), "the typed count shows in both views");
   w.confirm = () => true;
-  btn("✓ quest").click();
+  [...rowOf("Debut").querySelectorAll(".thead .pbtn")].find((b) => b.textContent === "✓ quest").click();
   assert(JSON.stringify(progressPosts.at(-1)) === JSON.stringify(["/api/progress/task", { id: "debut", state: "completed" }]), "✓ quest marks the quest as completed");
   w.__es.onmessage({ data: JSON.stringify({ type: "writes", pending: 2, error: null }) });
   assert(d.getElementById("writesNote").textContent === "2 changes to send…" && d.getElementById("writesNote").classList.contains("on"), "waiting changes show in the top bar");
@@ -208,7 +271,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   w.__es.onmessage({ data: JSON.stringify({ type: "writes", pending: 0, error: null }) });
 
   // untick Debut
-  const tb = [...d.querySelectorAll("#taskList .task")].find((x) => x.textContent.includes("Debut")).querySelector("input");
+  const tb = rowOf("Debut").querySelector("input[type=checkbox]");
   tb.checked = false; tb.dispatchEvent(new w.Event("change"));
   await sleep(50);
   assert(!text("#questList .qname").includes("Debut"), "untick removes from the mission list");
@@ -246,7 +309,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(!text("#questList .qname").includes("Follow Up"), "quest finished in the game is unticked");
   send({ type: "quests", mode: "pve", selected: ["highLevel"], custom: [] });
   await sleep(20);
-  assert(!text("#taskList .task-name").some((x) => x.startsWith("Endgame")), "the list of a different game mode is ignored");
+  assert(!rows().includes("Endgame"), "the list of a different game mode is ignored");
 
   // Read past logs: asks first, leaves out quests that TarkovTracker shows as completed
   let asked = "";
@@ -258,16 +321,17 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   w.confirm = () => true;
   d.getElementById("pastLogsBtn").click();
   await sleep(80);
-  assert(pastLogsApplied === 1 && !text("#elseList .ename").includes("Nade Kills"), "past logs: applied after a yes");
+  assert(pastLogsApplied === 1 && !rows().includes("Nade Kills"), "past logs: applied after a yes");
   assert(!list().selected.includes("doneTask"), "a completed quest from the old logs is removed again");
 
   // raid events from the game logs: map, view and timer
-  const raid = (o) => send({ type: "game", mode: "regular", session: "s", raid: { phase: "idle", scenePath: null, location: null, online: null, raidId: null, since: 0, started: null, ...o } });
+  const raid = (o) => send({ type: "game", mode: "regular", session: "s", raid: { phase: "idle", scenePath: null, location: null, online: null, raidId: null, since: 0, started: null, side: null, ...o } });
   const timer = d.getElementById("raidTimer");
+  d.getElementById("tabTasks").click();
   raid({ phase: "loading", scenePath: "maps/woods_preset.bundle" });
   await sleep(300);
   assert(d.getElementById("mapSelect").value === "woods", "raid loading selects the raid map");
-  assert(app.dataset.view === "mission-v", "raid loading shows the last mission view");
+  assert(app.dataset.tab === "map" && app.dataset.view === "mission-v", "raid loading opens the Map tab");
   assert(timer.classList.contains("on") && timer.textContent === "Loading Woods…", "timer shows the loading map");
   raid({ phase: "raid", scenePath: "maps/woods_preset.bundle", location: "Woods", started: Date.now() / 1000 - 600 });
   await sleep(50);
@@ -278,9 +342,26 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   raid({ phase: "raid", scenePath: "maps/woods_preset.bundle", location: "Woods", raidId: "ABC123", started: Date.now() / 1000 - 600 });
   await sleep(50);
   assert(d.getElementById("mapSelect").value === "customs", "a map you select during the raid stays");
+  // extracts follow the side of the raid
+  const exNames = () => text(".ex-icon span");
+  d.getElementById("mapSelect").value = "customs";
+  d.getElementById("mapSelect").dispatchEvent(new w.Event("change"));
+  await sleep(300);
+  raid({ phase: "raid", scenePath: "maps/customs_preset.bundle", location: "bigmap", online: true, raidId: "SCAV01", side: "scav", started: Date.now() / 1000 - 60 });
+  await sleep(50);
+  assert(exNames().includes("ex_scav_b") && exNames().includes("Boat") && !exNames().includes("Crossroads"), "a Scav raid shows the Scav and shared extracts");
+  assert(timer.textContent.startsWith("Customs · Scav · "), "the timer names the side");
+  const mode = d.getElementById("extractMode");
+  mode.value = "both"; mode.dispatchEvent(new w.Event("change"));
+  assert(exNames().includes("ex_scav_b") && exNames().includes("Crossroads"), "PMC and Scav shows both");
+  mode.value = "off"; mode.dispatchEvent(new w.Event("change"));
+  assert(exNames().length === 0, "None shows no extracts");
+  mode.value = "auto"; mode.dispatchEvent(new w.Event("change"));
   raid({});
   await sleep(50);
-  assert(app.dataset.view === "setup" && !timer.classList.contains("on"), "raid end goes back to setup and hides the timer");
+  assert(exNames().includes("Crossroads") && !exNames().includes("ex_scav_b"), "after the raid the PMC extracts are back");
+  assert(d.querySelector("#settings #extractMode") && d.querySelector("#settings #showAll") && !d.querySelector("aside #showQuests"), "the map options are on the Settings tab");
+  assert(app.dataset.tab === "tasks" && !timer.classList.contains("on"), "raid end goes back to the Tasks tab and hides the timer");
   send({ type: "game", mode: "pve", session: "s", raid: { phase: "idle" } });
   await sleep(20);
   assert(d.getElementById("status").textContent.includes("no TarkovTracker token"), "warns when the game mode has no token");

@@ -14,16 +14,19 @@ does not read the game's memory, network traffic or game files.
 - **Your position.** Press the screenshot key in a raid; a marker shows where you are
   and where you look.
 - **Raid tracking.** When a raid loads, the app selects the map, shows your mission
-  list and starts a raid timer. After the raid it goes back to the setup panel.
+  list and starts a raid timer. After the raid it goes back to the Tasks tab.
 - **Automatic quest list.** A quest that you accept in the game is ticked by itself,
   and it is removed when you complete or fail it. "Read past logs" finds the quests
   you accepted before the app ran.
-- **Three views.** A setup panel to select quests, and two mission views that put a
-  semi-transparent quest list over the map (across the top, or down the side).
+- **Tasks tab.** A full page for your quest list: "My quests", and one entry for
+  each trader that shows the trader's task lines in the order you get them, with the
+  state of each task (completed, in progress, available, locked).
+- **Map tab.** The map with a semi-transparent quest list over it (across the top,
+  or down the side).
 - **Progress from TarkovTracker.** Completed quests and steps disappear from the list.
 - **Progress to TarkovTracker (optional).** Quests that you complete or fail in the
-  game are sent to TarkovTracker. You can mark steps and counts by hand on the mission
-  cards. Fast clicks on one step are sent as one change, and changes that cannot be
+  game are sent to TarkovTracker. You can mark steps and counts by hand on the Tasks
+  tab. Fast clicks on one step are sent as one change, and changes that cannot be
   sent are kept and sent later.
 - **PvP and PvE.** Each game mode has its own token and its own quest list. The app
   follows the mode that the game runs in.
@@ -40,7 +43,7 @@ does not read the game's memory, network traffic or game files.
 1. Download or clone this repository.
 2. Double-click `Start Raid Task Map.bat`. A console window opens, and your browser
    opens <http://localhost:3000>. Keep the console window open while you play.
-3. Click **Settings** and paste a TarkovTracker API token. Create one on
+3. Open the **Settings** tab and paste a TarkovTracker API token. Create one on
    tarkovtracker.org → Settings → API Tokens. The token decides the game mode: a
    `PVP_` token is for PvP progress, a `PVE_` token is for PvE progress. To use two
    modes, paste one token for each.
@@ -56,21 +59,31 @@ it does not, type the paths in **Settings**.
 
 | Action | Result |
 | --- | --- |
-| Tick a quest in the setup panel | The quest shows on the map and in the mission list |
+| Tick a task on the Tasks tab | The quest shows on the map and in the mission list |
+| Click a task name on the Tasks tab | Shows or hides its steps |
+| **Only accepted**, **Map** and **Sort** on the Tasks tab | Show only the tasks you have, or the tasks of one map; put the tasks in order of task line, status, map or name |
+| Type a number in the box of a counted step | Sets the count, for example 7 of 10 kills |
 | **Read past logs** | Reads the game's old log files and proposes the quests to tick. It changes only the list in this app |
 | "Add a task by name" | Adds a quest that is not in the list. A quest that tarkov.dev does not know yet is added as text only |
-| **View** button | Changes between Setup, Mission ↔ (list across the top) and Mission ↕ (list down the side) |
+| **Tasks** / **Map** / **Settings** tabs | Change between the task list, the map and the settings |
+| **List ↔** / **List ↕** button on the Map tab | Puts the mission list across the top or down the side of the map |
 | Click a 📍 step in the mission list | The map moves to that objective |
-| **−** / **+** / **✓** on a step | Changes the count of the step, or marks it done. Shown when sending to TarkovTracker is on |
-| **✓ quest** on a mission card | Marks the quest as completed on TarkovTracker |
-| **↺** on a done step in the setup panel | Marks the step as not done |
+| **✓** on a step, on the Tasks tab | Marks the step done. It needs "Send quest progress to TarkovTracker" to be on |
+| **✓ quest** on a task, on the Tasks tab | Marks the quest as completed on TarkovTracker |
+| **↺** on a done step or a completed task | Marks it as not done |
 | Mouse over a marker | Shows the quest and the step |
 | Screenshot key in a raid | Moves your position marker |
 | **⌖ Reset view** | Puts the full map back in the window |
-| **↻ Progress** | Reads your progress from TarkovTracker now (otherwise every 2 minutes) |
+| **↻ Refresh progress** on the Settings tab | Reads your progress from TarkovTracker now (otherwise every 2 minutes) |
 
 Map markers: yellow diamonds are objective zones, orange dots are possible quest-item
-locations, green boxes are PMC extracts, cyan boxes are shared extracts.
+locations, green boxes are PMC extracts, orange boxes are Scav extracts, cyan boxes are
+shared extracts.
+
+The Settings tab selects what the map shows. With extracts on "Automatic", the app
+shows Scav extracts in a Scav raid. It tells the side from the game logs (the game asks
+for the insurance cost only before a PMC raid), and the raid timer shows "PMC" or
+"Scav". If it is wrong, select the side by hand.
 
 The screenshot file has no map name in it. Your marker goes on the selected map, which
 is the raid's map when raid tracking is on.

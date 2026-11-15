@@ -10,9 +10,18 @@
   :root { --bg:#14171a; --panel:#1d2227; --line:#30363d; --text:#e6e6e6; --muted:#9aa4ad; --accent:#e5e200; --pmc:#00e599; --shared:#00e4e5; --danger:#ff6b6b; }
   * { box-sizing: border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  #app { display:grid; grid-template-columns: 320px 1fr; grid-template-rows: auto 1fr; height:100%; }
-  #app.view-mission-h, #app.view-mission-v { grid-template-columns: 0 1fr; }
-  #app.view-mission-h aside, #app.view-mission-v aside { display:none; }
+  /* the map always has the full area, so it keeps its size; the Tasks view lies on top of it */
+  #app { display:grid; grid-template-columns: 1fr; grid-template-rows: auto 1fr; height:100%; }
+  #app:not(.tab-tasks) aside { display:none; }
+  #app:not(.tab-map) .maptool { display:none; }
+  #tabs { display:flex; margin-right:10px; filter:drop-shadow(0 1px 0 #000); }
+  .tab { all:unset; box-sizing:border-box; cursor:pointer; height:30px; padding:0 30px 0 18px; margin-right:-12px; display:flex; align-items:center; gap:7px;
+    font-size:13px; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; color:#c5cbce;
+    background:linear-gradient(#2b3236, #1f2529); clip-path:polygon(0 0, calc(100% - 16px) 0, 100% 100%, 0 100%); }
+  .tab:first-child { border-radius:3px 0 0 3px; }
+  .tab:hover { color:#fff; background:linear-gradient(#374045, #272e33); }
+  .tab.on { position:relative; z-index:1; color:#101214; font-weight:700; background:linear-gradient(#f1f3f4, #b9c0c4); }
+  .tab svg { width:14px; height:14px; flex:none; fill:currentColor; }
   header { grid-column: 1 / -1; grid-row:1; display:flex; gap:10px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
   header h1 { font-size:15px; margin:0 8px 0 0; font-weight:600; }
   select, button, input[type=text], input[type=password] { background:#0f1215; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font:inherit; }
@@ -29,10 +38,41 @@
   .pbtn { all:unset; cursor:pointer; display:inline-block; text-indent:0; min-width:14px; text-align:center; padding:0 3px; margin-left:3px; border:1px solid var(--line); border-radius:4px; color:var(--muted); font-size:11px; line-height:15px; }
   .pbtn:hover { color:var(--accent); border-color:var(--accent); }
   #raidTimer.low { color:var(--danger); border-color:var(--danger); }
-  aside { grid-column:1; grid-row:2; overflow:auto; background:var(--panel); border-right:1px solid var(--line); padding:10px 12px; }
-  #map { grid-column:2; grid-row:2; background:#0c0e10; min-width:0; min-height:0; }
+  aside { grid-column:1; grid-row:2; z-index:1200; min-height:0; display:flex; flex-direction:column; background:var(--bg); }
+  #map { grid-column:1; grid-row:2; background:#0c0e10; min-width:0; min-height:0; }
+  #tvTop { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); }
+  #tvTop label { display:inline-flex; gap:5px; align-items:center; white-space:nowrap; }
+  #tvTop .grp { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #taskSearch { width:220px; }
+  #tvBody { flex:1; min-height:0; display:flex; }
+  #traderList { flex:none; width:210px; overflow:auto; padding:8px; background:var(--panel); border-right:1px solid var(--line); }
+  .tbtn { all:unset; box-sizing:border-box; display:flex; justify-content:space-between; gap:8px; width:100%; padding:5px 8px; border-radius:6px; cursor:pointer; }
+  .tbtn:hover { background:#262c33; }
+  .tbtn.on { background:#2c333b; color:var(--accent); }
+  .tbtn .n { color:var(--muted); font-size:12px; white-space:nowrap; }
+  .tbtn.sep { margin-top:8px; }
+  #taskLines { flex:1; min-width:0; overflow:auto; padding:10px 16px 40px; }
+  .tgroup { margin:14px 0 4px; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-weight:600; }
+  #taskLines h2 { font-size:13px; margin:0 0 8px; color:var(--muted); font-weight:600; }
+  .trow { border-left:3px solid var(--line); padding:3px 8px; margin:2px 0; max-width:900px; }
+  .trow.root { margin-top:10px; }
+  .trow.st-active { border-left-color:var(--accent); background:#1d2227; }
+  .trow.st-available { border-left-color:var(--pmc); }
+  .trow.st-done { opacity:.55; }
+  .trow.st-locked .tname { color:var(--muted); }
+  .thead { display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; }
+  .tname { font-weight:600; cursor:pointer; }
+  .tname:hover { color:var(--accent); }
+  .tmeta { color:var(--muted); font-size:12px; }
+  .tstat { font-size:11px; padding:0 6px; border:1px solid var(--line); border-radius:9px; color:var(--muted); white-space:nowrap; }
+  .st-active .tstat { color:var(--accent); border-color:var(--accent); }
+  .st-available .tstat { color:var(--pmc); border-color:var(--pmc); }
+  .tobj { font-size:12.5px; margin:2px 0 2px 24px; }
+  .tobj.done { color:var(--muted); text-decoration:line-through; }
+  .tobj.done .pbtn, .tobj.done .cnt { text-decoration:none; display:inline-block; }
+  .cnt { width:52px; padding:1px 4px; margin-left:6px; background:#0f1215; color:var(--text); border:1px solid var(--line); border-radius:4px; font:inherit; font-size:12px; }
   /* mission list: semi-transparent cards over the map; only the cards take the mouse */
-  #mission { grid-column:2; grid-row:2; z-index:1000; display:none; pointer-events:none; min-width:0; min-height:0; padding:8px; overflow:hidden; }
+  #mission { grid-column:1; grid-row:2; z-index:1000; display:none; pointer-events:none; min-width:0; min-height:0; padding:8px; overflow:hidden; }
   #app.view-mission-h #mission, #app.view-mission-v #mission { display:block; }
   #questList { display:flex; gap:6px; overflow-y:auto; scrollbar-width:thin; }
   /* across the top: columns packed like masonry, so a short card leaves no gap below it */
@@ -78,6 +118,7 @@
   .ex-icon span { font-size:12px; font-weight:600; text-shadow:0 0 3px #000, 0 0 3px #000, 0 0 2px #000; }
   .ex-pmc .box { background:var(--pmc); } .ex-pmc span { color:var(--pmc); }
   .ex-shared .box { background:var(--shared); } .ex-shared span { color:var(--shared); }
+  .ex-scav .box { background:#ffa94d; } .ex-scav span { color:#ffa94d; }
   .player svg { filter: drop-shadow(0 0 3px #000); }
   .map-label { color:#ffffffb0; font-weight:600; white-space:nowrap; text-shadow:0 0 3px #000; pointer-events:none; }
   .leaflet-container { background:#0c0e10; font:inherit; }
@@ -87,10 +128,11 @@
   .leaflet-overlay-pane svg.dim-base g.base-layer { opacity:.2; }
   .leaflet-overlay-pane svg.floor-only g { display:none; }
   .leaflet-overlay-pane svg.floor-only g.floor-shown, .leaflet-overlay-pane svg.floor-only g.floor-shown g { display:inline; }
-  dialog { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; width:min(560px, 92vw); }
-  dialog::backdrop { background:#000a; }
-  dialog label { display:block; margin:10px 0 3px; color:var(--muted); font-size:12px; }
-  dialog input[type=text], dialog input[type=password] { width:100%; }
+  #settings { grid-column:1; grid-row:2; z-index:1200; min-height:0; overflow:auto; background:var(--bg); padding:18px 24px 40px; }
+  #app:not(.tab-settings) #settings { display:none; }
+  #settingsForm { max-width:640px; }
+  #settings label { display:block; margin:12px 0 3px; color:var(--muted); font-size:12px; }
+  #settings input[type=text], #settings input[type=password] { width:100%; }
   .hint { font-size:12px; color:var(--muted); margin-top:3px; }
   .ok { color:var(--pmc); } .bad { color:var(--danger); }
   details summary { cursor:pointer; color:var(--muted); font-size:12px; margin-top:6px; }
@@ -100,62 +142,66 @@
 <div id="app">
   <header>
     <h1>Raid Task Map</h1>
-    <select id="mapSelect" title="Map"></select>
-    <select id="floorSelect" title="Floor"></select>
-    <select id="styleSelect" title="Map style"></select>
-    <button id="resetViewBtn" title="Put the full map back in the window">⌖ Reset view</button>
-    <button id="refreshBtn" title="Reload progress from TarkovTracker">↻ Progress</button>
-    <button id="viewBtn" title="Change the view: setup panel → mission list across the top → mission list down the side"></button>
-    <button id="settingsBtn">Settings</button>
+    <div id="tabs">
+      <button id="tabTasks" class="tab" title="Your quest list and the task lines of each trader"><svg viewBox="0 0 16 16"><path d="M2 2h3v3H2zM7 2.5h7v2H7zM2 6.5h3v3H2zM7 7h7v2H7zM2 11h3v3H2zM7 11.5h7v2H7z"/></svg>Tasks</button>
+      <button id="tabMap" class="tab" title="The map with your mission list"><svg viewBox="0 0 16 16"><path d="M8 1a5 5 0 0 0-5 5c0 3.6 5 9 5 9s5-5.400 5-9a5 5 0 0 0-5-5zm0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>Map</button>
+      <button id="tabSettings" class="tab" title="Tokens, folders and options"><svg viewBox="0 0 16 16"><path d="M6.700 1h2.600l.4 1.800 1.300.6 1.600-1 1.800 1.800-1 1.600.6 1.300 1.800.4v2.600l-1.800.4-.6 1.300 1 1.600-1.800 1.800-1.600-1-1.300.6-.4 1.800H6.700l-.4-1.800-1.300-.6-1.600 1-1.800-1.800 1-1.600-.6-1.300L.2 9.300V6.700L2 6.300l.6-1.300-1-1.600 1.800-1.800 1.600 1 1.300-.6zM8 5.500a2.500 2.500 0 1 0 0 5 2.500 2.500 0 0 0 0-5z"/></svg>Settings</button>
+    </div>
+    <select id="mapSelect" class="maptool" title="Map"></select>
+    <select id="floorSelect" class="maptool" title="Floor"></select>
+    <select id="styleSelect" class="maptool" title="Map style"></select>
+    <button id="resetViewBtn" class="maptool" title="Put the full map back in the window">⌖ Reset view</button>
+    <button id="viewBtn" class="maptool" title="Put the mission list across the top or down the side of the map"></button>
     <div id="raidTimer" title="Raid state, read from the game's log files"></div>
     <div id="writesNote" title="Progress changes that wait to be sent to TarkovTracker"></div>
     <div id="status">Starting…</div>
   </header>
   <aside>
-    <div class="section" id="profileBox"></div>
-    <div class="section">
-      <h2>Show</h2>
-      <label class="row"><input type="checkbox" id="showQuests" checked> Quest objectives</label>
-      <label class="row"><input type="checkbox" id="showExtracts" checked> PMC extracts</label>
-      <label class="row"><input type="checkbox" id="showLabels" checked> Extract names</label>
-    </div>
-    <div class="section">
-      <h2 id="tasksTitle">Tasks on this map</h2>
-      <label class="row"><input type="radio" name="showMode" value="selected" checked> Show only tasks I've ticked</label>
-      <label class="row"><input type="radio" name="showMode" value="all"> Show every possible task</label>
-      <div class="row" style="margin:8px 0 4px">
-        <input type="text" id="addTask" list="allTasks" placeholder="Add a task by name…" style="flex:1">
+    <div id="tvTop">
+      <div id="profileBox"></div>
+      <input type="text" id="taskSearch" placeholder="Search all tasks…">
+      <label><input type="checkbox" id="hideDone" checked> Hide completed</label>
+      <label title="Show only the tasks you have in the game"><input type="checkbox" id="onlyActive"> Only accepted</label>
+      <label>Map <select id="mapFilter" title="Show only the tasks of one map"></select></label>
+      <label>Sort <select id="taskSort" title="The order of the tasks">
+        <option value="lines">Task lines</option><option value="status">Status</option><option value="map">Map</option><option value="name">Name</option>
+      </select></label>
+      <div class="grp">
+        <input type="text" id="addTask" list="allTasks" placeholder="Add a quest by name…" title="For a quest that is not in the lists yet. It is added as text only.">
         <button id="addTaskBtn">Add</button>
+        <datalist id="allTasks"></datalist>
+        <button id="pastLogsBtn" title="Find the quests you accepted before this app ran, from the game's old log files">Read past logs</button>
       </div>
-      <datalist id="allTasks"></datalist>
-      <div class="hint" style="margin-bottom:6px">Tick the tasks you have in-game. A task that you accept while this app runs is ticked automatically, and it drops off when it is complete. Click a task or a 📍 objective to jump to it.</div>
-      <button id="pastLogsBtn" title="Find the quests you accepted before this app ran, from the game's old log files" style="margin-bottom:8px">Read past logs</button>
-      <div id="taskList"></div>
-      <details id="otherBox" style="margin-top:12px">
-        <summary id="otherTitle"></summary>
-        <div class="hint">Worked out from your TarkovTracker progress (completed tasks, level, traders). Tasks unlocked by trader dialogue can't be told apart, so this list has extras — tick only the ones you really have.</div>
-        <div id="otherList"></div>
-      </details>
-      <details id="elseBox" style="margin-top:12px">
-        <summary id="elseTitle"></summary>
-        <div class="hint">Ticked tasks that are not on this map. "Any location" tasks also show in the mission list. "Not in a raid" tasks (build a weapon, hand over items, Arena) do not.</div>
-        <div id="elseList"></div>
-      </details>
+    </div>
+    <div id="tvBody">
+      <nav id="traderList"></nav>
+      <div id="taskLines"></div>
     </div>
   </aside>
-  <div id="map"></div>
-  <div id="mission"><div id="questList"></div></div>
-</div>
-
-<dialog id="settings">
-  <form method="dialog" id="settingsForm">
-    <h3 style="margin-top:0">Settings</h3>
+  <section id="settings">
+  <form id="settingsForm">
     <label for="tokenInput">TarkovTracker.org API token</label>
     <input type="password" id="tokenInput" placeholder="PVP_… or PVE_…  (leave empty to keep the current one)" autocomplete="off">
     <div class="hint" id="tokenHint"></div>
     <div class="row" id="modeRow" style="margin-top:6px"><label for="modeSelect" style="margin:0">Show game mode</label> <select id="modeSelect"></select></div>
     <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="writeTT"> Send quest progress to TarkovTracker</label>
     <div class="hint" id="writeHint"></div>
+    <div class="row" style="margin-top:10px">
+      <button type="button" id="refreshBtn">↻ Refresh progress</button>
+      <span class="hint" style="margin:0">Reads your progress from TarkovTracker now. The app also reads it every 2 minutes.</span>
+    </div>
+    <label>On the map</label>
+    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="showQuests" checked> Quest objectives</label>
+    <div class="row" style="font-size:14px">Extracts
+      <select id="extractMode">
+        <option value="auto">Automatic: Scav extracts in a Scav raid, PMC extracts in all other cases</option>
+        <option value="pmc">PMC</option><option value="scav">Scav</option><option value="both">PMC and Scav</option><option value="off">None</option>
+      </select>
+    </div>
+    <div class="hint">Shared extracts show with each selection. The app tells a Scav raid from the game logs; the raid timer shows "PMC" or "Scav". If it is wrong, select the side by hand.</div>
+    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="showLabels" checked> Extract names</label>
+    <label class="row" style="color:var(--text);font-size:14px" title="Also draw the tasks that you can have but did not tick"><input type="checkbox" id="showAll"> Every possible task, not only the ticked tasks</label>
+    <div class="hint">These four options change the map at once; they do not need Save.</div>
     <label for="shotsInput">EFT screenshots folder</label>
     <input type="text" id="shotsInput">
     <div class="hint" id="shotsHint"></div>
@@ -165,7 +211,7 @@
     <div class="hint" id="logsHint"></div>
     <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoTick"> Tick a quest when you accept it in the game; untick it when it ends</label>
     <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoMap"> Select the map when a raid loads</label>
-    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoView"> Show the mission list during a raid, and the setup panel after it</label>
+    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoView"> Open the Map tab when a raid loads, and go back to the Tasks tab after it</label>
     <details class="hint" id="about" style="margin-top:12px">
       <summary>About, credits and licenses</summary>
       <p><b>Raid Task Map</b> is free software under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU General Public License, version 3</a>. It comes with no warranty.</p>
@@ -175,11 +221,16 @@
       <p>Not affiliated with or approved by Battlestate Games. Escape from Tarkov is a trademark of Battlestate Games Limited. This app reads only the game's log files and screenshots.</p>
     </details>
     <div class="row" style="justify-content:flex-end;margin-top:14px">
-      <button value="cancel" formnovalidate>Cancel</button>
-      <button id="saveSettings" value="save">Save</button>
+      <span class="hint" id="savedNote"></span>
+      <button type="button" id="cancelSettings" title="Put the saved values back">Cancel</button>
+      <button type="submit" id="saveSettings">Save</button>
     </div>
   </form>
-</dialog>
+  </section>
+  <div id="map"></div>
+  <div id="mission"><div id="questList"></div></div>
+</div>
+
 
 <script>
 "use strict";
@@ -200,6 +251,7 @@ const S = {
   player: null, playerMarker: null, markersByKey: new Map(),
   game: null, raidAutoKey: null, viewAuto: false,
   sel: new Set(), custom: [],
+  tvToggled: new Set(), // tasks opened or closed by a click in the Tasks view
 };
 const store = {
   // "tqm." is the prefix of the app's first name; it stays so that saved settings are not lost
@@ -404,7 +456,7 @@ function tasksForMap(mc) {
 // because the helper also changes it when the game logs show a quest start or end.
 const selectedSet = () => S.sel;
 const customQuests = () => S.custom;
-const showMode = () => document.querySelector('input[name="showMode"]:checked').value;
+const showMode = () => ($("showAll").checked ? "all" : "selected");
 function useQuests(m) { S.sel = new Set(m?.selected || []); S.custom = [...(m?.custom || [])]; }
 const postJSON = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 async function questOp(op) {
@@ -426,6 +478,14 @@ const setCustom = (name, on) => questOp(on ? { addCustom: [name] } : { removeCus
 // ------------------------------------------------------------------ progress changes, sent to TarkovTracker by the helper
 const MODE_NAMES = { regular: "PvP", pve: "PvE", "pvp-season": "PvP season" };
 const canWrite = () => !!(S.cfg?.hasToken && S.cfg.writeTT && S.cfg.canWrite !== false);
+// false, with the reason in the status line, when progress cannot be changed
+function writeReady() {
+  if (canWrite()) return true;
+  setStatus(!S.cfg?.hasToken ? "Add a TarkovTracker token in Settings to change progress."
+    : !S.cfg.writeTT ? 'To change progress, tick "Send quest progress to TarkovTracker" in Settings.'
+    : 'The TarkovTracker token has no "Write progress" permission. Create a new token and paste it in Settings.', true);
+  return false;
+}
 async function sendProgress(kind, body) {
   try {
     const r = await postJSON("/api/progress/" + kind, body);
@@ -434,36 +494,46 @@ async function sendProgress(kind, body) {
     setStatus(`Could not save the progress: ${e.message}`, true);
   }
 }
-// The helper holds fast clicks on one step for a few seconds and sends one change with the last value.
+// The helper holds fast changes to one step for a few seconds and sends one change with the last value.
 function setObjective(obj, patch) {
+  if (!writeReady()) return renderTasks();
   const prog = S.objDone?.get(obj.id) || { id: obj.id };
   if ("count" in patch) prog.count = patch.count;
   if ("state" in patch) prog.complete = patch.state === "completed";
-  S.objDone?.set(obj.id, prog); // show the click at once; the helper sends the same values back
+  S.objDone?.set(obj.id, prog); // show the change at once; the helper sends the same values back
   renderTasks(); drawQuestMarkers();
   sendProgress("objective", { id: obj.id, ...patch });
 }
+// Controls for one step on the Tasks tab. A counted step has a box to type the count in (for example 7 of 10).
 function progressButtons(obj) {
   const box = document.createElement("span");
-  if (!canWrite()) return box;
-  const prog = S.objDone?.get(obj.id), total = obj.count > 1 ? obj.count : 0, now = prog?.count || 0;
+  const prog = S.objDone?.get(obj.id), total = obj.count > 1 ? obj.count : 0, now = Math.min(prog?.count || 0, total || 0);
   const add = (label, title, patch) => {
     const b = document.createElement("button");
     b.type = "button"; b.className = "pbtn"; b.textContent = label; b.title = title;
     b.addEventListener("click", (e) => { e.stopPropagation(); setObjective(obj, patch); });
     box.appendChild(b);
   };
-  if (prog?.complete) { add("↺", "Not done", { state: "uncompleted", ...(total ? { count: 0 } : {}) }); return box; }
   if (total) {
-    if (now > 0) add("−", "One less", { count: now - 1, state: "uncompleted" });
-    add("+", "One more", { count: Math.min(total, now + 1), state: now + 1 >= total ? "completed" : "uncompleted" });
+    const inp = document.createElement("input");
+    inp.type = "number"; inp.className = "cnt"; inp.min = 0; inp.max = total; inp.value = prog?.complete ? total : now;
+    inp.title = `How many are done, 0 to ${total}`;
+    inp.addEventListener("click", (e) => e.stopPropagation());
+    inp.addEventListener("change", () => {
+      const n = Math.max(0, Math.min(total, Math.round(Number(inp.value) || 0)));
+      setObjective(obj, { count: n, state: n >= total ? "completed" : "uncompleted" });
+    });
+    box.appendChild(inp);
+    box.insertAdjacentHTML("beforeend", ` <span class="muted">/ ${total}</span>`);
   }
+  if (prog?.complete) { add("↺", "Not done", { state: "uncompleted", ...(total ? { count: 0 } : {}) }); return box; }
   add("✓", "Step done", { state: "completed", ...(total ? { count: total } : {}) });
   return box;
 }
-function completeTask(task) {
-  if (!confirm(`Mark "${taskName(task)}" as completed on TarkovTracker?`)) return;
-  sendProgress("task", { id: task.id, state: "completed" });
+function setTaskState(task, state) {
+  if (!writeReady()) return;
+  if (state === "completed" && !confirm(`Mark "${taskName(task)}" as completed on TarkovTracker?`)) return;
+  sendProgress("task", { id: task.id, state });
 }
 function onWrites(ev) {
   const el = $("writesNote");
@@ -538,69 +608,173 @@ function addTaskByName() {
   }
   $("addTask").value = "";
   setSelected(task.id, true);
-  const mc = S.current;
-  if (mc && !objectivesOnMap(task, mc).length && !(task.map && mc.ids.has(ref(task.map)))) setStatus(`Added "${taskLabel(task)}" — it has nothing on ${mc.displayName}.`);
 }
 
-// ------------------------------------------------------------------ sidebar
+// ------------------------------------------------------------------ Tasks view (full page, no map)
 function renderProfile(error) {
-  const p = S.progress;
-  const box = $("profileBox");
+  const p = S.progress, box = $("profileBox");
   if (!p) {
-    box.innerHTML = `<h2>TarkovTracker</h2><div class="${error ? "bad" : "muted"}">${esc(error || "Not loaded yet")}</div>` +
-      (S.cfg && !S.cfg.hasToken ? `<div class="hint">Open <b>Settings</b> and paste your TarkovTracker.org token.</div>` : "");
+    box.innerHTML = `<span class="${error ? "bad" : "muted"}">${esc(error || "Progress not loaded yet")}</span>` +
+      (S.cfg && !S.cfg.hasToken ? ` <span class="hint">Open <b>Settings</b> and paste your TarkovTracker.org token.</span>` : "");
     return;
   }
-  const modeName = { regular: "PvP", pve: "PvE", "pvp-season": "Seasonal" }[S.mode] || S.mode;
-  box.innerHTML = `<h2>TarkovTracker · ${esc(modeName)}</h2>
-    <div><b>${esc(p.displayName || "")}</b> · level ${esc(p.playerLevel)} · ${esc(p.pmcFaction)}</div>
-    <div class="muted">${S.available.length} tasks available in total</div>`;
+  box.innerHTML = `<b>${esc(p.displayName || "")}</b> <span class="muted">· ${esc(MODE_NAMES[S.mode] || S.mode)} · level ${esc(p.playerLevel)} · ${esc(p.pmcFaction)}</span>`;
 }
-
-function taskCard(it, selected) {
-  const div = document.createElement("div");
-  div.className = "task" + (selected || showMode() === "all" ? "" : " hidden-task");
-  div.innerHTML = `<div class="task-head"><input type="checkbox" ${selected ? "checked" : ""} title="I have this task">
-    <div class="task-name">${esc(it.name)} <span class="trader">· ${esc(it.trader)}</span></div>
-    <a href="${esc(it.task.wikiLink || "#")}" target="_blank" rel="noopener" title="Wiki" class="muted" style="text-decoration:none">↗</a></div>`;
-  div.querySelector("input").addEventListener("change", (e) => setSelected(it.task.id, e.target.checked));
-  div.querySelector(".task-name").addEventListener("click", () => {
-    const first = it.objs.find((o) => !o.done && o.positions.length);
-    if (first) focusPos(first.positions[0].pos, `${it.task.id}:${first.obj.id}:0`);
-  });
-  if (selected || showMode() === "all") for (const o of it.objs) {
-    const od = document.createElement("div");
-    od.className = "obj" + (o.done ? " done" : "") + (o.positions.length && !o.done ? " has-pos" : "");
-    const cnt = o.total > 1 && !o.done ? ` <span class="muted">${o.count || 0}/${o.total}</span>` : "";
-    od.innerHTML = `${o.positions.length && !o.done ? '<span class="pin">📍</span> ' : "• "}${esc(o.text)}${cnt}`;
-    if (o.positions.length && !o.done) od.addEventListener("click", () => focusPos(o.positions[0].pos, `${it.task.id}:${o.obj.id}:0`));
-    od.appendChild(progressButtons(o.obj));
-    div.appendChild(od);
+// done = completed or failed on TarkovTracker; active = ticked (you have it in the game);
+// available = you can take it; locked = something is still missing
+function taskStatus(task, available) {
+  if (S.finished?.has(task.id)) return "done";
+  if (S.sel.has(task.id)) return "active";
+  return available.has(task.id) ? "available" : "locked";
+}
+// The tasks of one trader as lines: a task that follows one task stays in the same line,
+// and the line splits (one step to the right) where a task opens more than one task.
+function traderLines(traderId) {
+  const tasks = S.tasks.filter((x) => ref(x.trader) === traderId);
+  const ids = new Set(tasks.map((x) => x.id));
+  const order = (a, b) => (a.minPlayerLevel || 0) - (b.minPlayerLevel || 0) || taskName(a).localeCompare(taskName(b));
+  const kids = new Map(), roots = [];
+  for (const x of [...tasks].sort(order)) {
+    const parent = (x.taskRequirements || []).map((r) => ref(r.task)).find((id) => ids.has(id) && id !== x.id);
+    if (parent) kids.set(parent, [...(kids.get(parent) || []), x]); else roots.push(x);
   }
-  return div;
+  const out = [], seen = new Set();
+  const walk = (task, depth, root) => {
+    if (seen.has(task.id)) return;
+    seen.add(task.id);
+    out.push({ task, depth, root });
+    const next = kids.get(task.id) || [];
+    for (const k of next) walk(k, next.length > 1 ? depth + 1 : depth, false);
+  };
+  for (const r of roots) walk(r, 0, true);
+  for (const x of tasks) walk(x, 0, true); // tasks in a loop of requirements, if the data has one
+  return out;
+}
+function taskRow({ task, depth, root }, available, withTrader) {
+  const st = taskStatus(task, available);
+  const open = st === "active" ? !S.tvToggled.has(task.id) : S.tvToggled.has(task.id);
+  const row = document.createElement("div");
+  row.className = `trow st-${st}` + (root ? " root" : "");
+  row.style.marginLeft = `${depth * 22}px`;
+  const maps = taskMaps(task).map((m) => m.displayName).join(" / ");
+  const waits = st !== "locked" ? [] : (task.taskRequirements || []).map((r) => S.tasksById.get(ref(r.task))).filter((x) => x && !S.finished?.has(x.id)).slice(0, 2).map(taskName);
+  const meta = [withTrader ? S.traders[ref(task.trader)]?.name : "", task.minPlayerLevel > 1 ? `level ${task.minPlayerLevel}` : "", maps, waits.length ? `after: ${waits.join(", ")}` : ""].filter(Boolean).join(" · ");
+  const label = { done: "completed", active: "in progress", available: "available", locked: "locked" }[st];
+  row.innerHTML = `<div class="thead">${st === "done" ? "" : `<input type="checkbox" ${st === "active" ? "checked" : ""} title="I have this task in the game">`}
+    <span class="tname" title="Show or hide the steps">${esc(taskName(task))}</span><span class="tstat">${label}</span><span class="tmeta">${esc(meta)}</span>
+    <a href="${esc(task.wikiLink || "#")}" target="_blank" rel="noopener" title="Wiki" class="muted" style="text-decoration:none">↗</a></div>`;
+  const head = row.querySelector(".thead");
+  row.querySelector("input")?.addEventListener("change", (e) => setSelected(task.id, e.target.checked));
+  row.querySelector(".tname").addEventListener("click", () => { S.tvToggled.has(task.id) ? S.tvToggled.delete(task.id) : S.tvToggled.add(task.id); renderTaskView(); });
+  const btn = (text, title, state) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "pbtn"; b.textContent = text; b.title = title;
+    b.addEventListener("click", () => setTaskState(task, state));
+    head.insertBefore(b, head.lastElementChild);
+  };
+  if (st === "done") btn("↺ not completed", "Mark the quest as not completed on TarkovTracker", "uncompleted");
+  else if (st === "active") btn("✓ quest", "Mark the quest as completed on TarkovTracker", "completed");
+  if (open) for (const obj of task.objectives || []) {
+    const done = st === "done" || !!S.objDone?.get(obj.id)?.complete;
+    const od = document.createElement("div");
+    od.className = "tobj" + (done ? " done" : "");
+    od.innerHTML = `• ${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}`;
+    if (st !== "done") od.appendChild(progressButtons(obj));
+    row.appendChild(od);
+  }
+  return row;
+}
+function renderTaskView() {
+  const nav = $("traderList"), main = $("taskLines");
+  if (!nav || !main) return;
+  const available = new Set((S.available || []).map((x) => x.id));
+  const mine = [...S.sel].map((id) => S.tasksById.get(id)).filter((x) => x && !S.finished?.has(x.id));
+  const traders = Object.values(S.traders).filter((tr) => S.tasks.some((x) => ref(x.trader) === tr.id)).sort((a, b) => a.name.localeCompare(b.name));
+  let cur = store.get("tvTrader", "mine");
+  if (cur !== "mine" && cur !== "all" && !traders.some((tr) => tr.id === cur)) cur = "mine";
+  // left: My quests, then one entry for each trader
+  nav.innerHTML = "";
+  const entry = (key, name, count, title, cls) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "tbtn" + (key === cur ? " on" : "") + (cls || ""); b.title = title;
+    b.innerHTML = `<span>${esc(name)}</span><span class="n">${esc(count)}</span>`;
+    b.addEventListener("click", () => { store.set("tvTrader", key); $("taskSearch").value = ""; renderTaskView(); });
+    nav.appendChild(b);
+  };
+  entry("mine", "My quests", mine.length + S.custom.length, "The quests you have in the game");
+  entry("all", "All traders", S.tasks.length, "The tasks of all traders");
+  traders.forEach((tr, i) => {
+    const own = S.tasks.filter((x) => ref(x.trader) === tr.id);
+    const active = own.filter((x) => S.sel.has(x.id) && !S.finished?.has(x.id)).length, open = own.filter((x) => available.has(x.id) && !S.sel.has(x.id)).length;
+    entry(tr.id, tr.name, `${active} · ${open}`, `${active} in progress · ${open} more available`, i ? "" : " sep");
+  });
+  // right: the task rows
+  main.innerHTML = "";
+  const hideDone = $("hideDone").checked, find = $("taskSearch").value.trim().toLowerCase();
+  const title = (text) => main.insertAdjacentHTML("beforeend", `<h2>${esc(text)}</h2>`);
+  const note = (text) => main.insertAdjacentHTML("beforeend", `<div class="muted">${text}</div>`);
+  if (!S.progress) note(`<span class="bad">Progress not loaded.</span> Your ticked tasks show without progress.`);
+  const only = $("onlyActive").checked, mapKey = $("mapFilter").value, sort = $("taskSort").value;
+  const traderName = (task) => S.traders[ref(task.trader)]?.name || "";
+  const byName = (a, b) => taskName(a).localeCompare(taskName(b));
+  let rows, withTrader = true, heading;
+  if (find) {
+    rows = S.tasks.filter((x) => taskName(x).toLowerCase().includes(find)).sort(byName).slice(0, 200).map((task) => ({ task, depth: 0 }));
+    heading = "Search";
+  } else if (cur === "mine") {
+    rows = mine.sort((a, b) => traderName(a).localeCompare(traderName(b)) || byName(a, b)).map((task) => ({ task, depth: 0, group: traderName(task) }));
+    heading = "My quests";
+  } else if (cur === "all") {
+    rows = traders.flatMap((tr) => traderLines(tr.id).map((r) => ({ ...r, group: tr.name })));
+    heading = "All traders";
+  } else {
+    rows = traderLines(cur);
+    withTrader = false;
+    heading = S.traders[cur].name;
+  }
+  // filters
+  const status = (task) => taskStatus(task, available);
+  rows = rows.filter(({ task }) => {
+    if (hideDone && !find && S.finished?.has(task.id)) return false;
+    if (only && status(task) !== "active") return false;
+    if (!mapKey) return true;
+    const maps = taskMaps(task);
+    return mapKey === "none" ? !maps.length : maps.some((m) => m.key === mapKey);
+  });
+  // order: the task lines, or one flat list with a heading for each status or map
+  if (sort !== "lines") {
+    const STATUS = { active: ["0", "In progress"], available: ["1", "Available"], locked: ["2", "Locked"], done: ["3", "Completed"] };
+    const mapOf = (task) => {
+      const maps = taskMaps(task);
+      const m = maps.find((x) => x.key === mapKey) || maps[0]; // with a map filter, each task sorts under that map
+      return m ? m.displayName : "";
+    };
+    const key = (task) => (sort === "status" ? STATUS[status(task)][0] : sort === "map" ? (mapOf(task) ? "0" + mapOf(task) : "1") : "");
+    const group = (task) => (sort === "status" ? STATUS[status(task)][1] : sort === "map" ? mapOf(task) || "Any location" : undefined);
+    rows = rows.map(({ task }) => ({ task, depth: 0, group: group(task) }))
+      .sort((a, b) => key(a.task).localeCompare(key(b.task)) || byName(a.task, b.task));
+  }
+  title(`${heading} · ${rows.length + (cur === "mine" && !find ? S.custom.length : 0)} task${rows.length === 1 ? "" : "s"}`);
+  if (!rows.length) note(cur === "mine" && !find && !only && !mapKey
+    ? (S.custom.length ? "" : "No quests yet. Select a trader on the left and tick the tasks you have in the game. A task that you accept while this app runs is ticked automatically.")
+    : "No tasks for these filters.");
+  let last;
+  for (const r of rows) {
+    if (r.group !== undefined && r.group !== last) { last = r.group; main.insertAdjacentHTML("beforeend", `<div class="tgroup">${esc(r.group)}</div>`); }
+    main.appendChild(taskRow(r.group !== undefined ? { ...r, root: false } : r, available, withTrader));
+  }
+  if (cur === "mine" && !find) for (const name of S.custom) {
+    const row = document.createElement("div");
+    row.className = "trow st-active";
+    row.innerHTML = `<div class="thead"><button class="pbtn" title="Remove from my quests">×</button><span class="tname">${esc(name)}</span><span class="tmeta">not in the tarkov.dev data: text only</span></div>`;
+    row.querySelector("button").addEventListener("click", () => setCustom(name, false));
+    main.appendChild(row);
+  }
 }
 
 function renderTasks() {
   renderQuestPanel();
-  const list = $("taskList"), other = $("otherList");
-  const mc = S.current;
-  list.innerHTML = ""; other.innerHTML = "";
-  $("otherBox").style.display = "none";
-  if (!mc) return;
-  if (!S.progress) list.innerHTML = `<div class="hint bad">Progress not loaded — your ticked tasks are shown without progress.</div>`;
-  const sel = selectedSet();
-  const items = tasksForMap(mc);
-  const mine = items.filter((i) => sel.has(i.task.id));
-  const rest = items.filter((i) => !sel.has(i.task.id));
-  const shownCount = showMode() === "all" ? items.length : mine.length;
-  $("tasksTitle").textContent = `Tasks on ${mc.displayName} · ${shownCount} shown`;
-  if (!mine.length) list.innerHTML += `<div class="muted">You haven't ticked any task on this map yet${rest.length ? " — open &quot;Possible tasks&quot; below or add one by name" : ""}.</div>`;
-  for (const it of mine) list.appendChild(taskCard(it, true));
-  if (rest.length) {
-    $("otherBox").style.display = "";
-    $("otherTitle").textContent = `Possible tasks on this map (${rest.length}) — tick to add`;
-    for (const it of rest) other.appendChild(taskCard(it, false));
-  }
+  renderTaskView();
 }
 
 function taskMaps(task) {
@@ -637,8 +811,7 @@ function renderQuestPanel() {
     card.innerHTML = `<div class="qhead"><span class="qname">${esc(name)}</span><span class="trader">not in tarkov.dev data</span></div>`;
     box.appendChild(card);
   }
-  if (!box.children.length) box.innerHTML = `<div class="qcard muted">No ticked quests on ${esc(cur?.displayName || "this map")}. Change to the Setup view to tick tasks.</div>`;
-  renderElsewhere(other, any, custom);
+  if (!box.children.length) box.innerHTML = `<div class="qcard muted">No ticked quests on ${esc(cur?.displayName || "this map")}. Open the Tasks tab to tick tasks.</div>`;
 }
 // Objective types that are done in a raid. The other types (buildWeapon, giveItem, giveQuestItem,
 // sellItem, taskStatus, traderLevel, traderStanding, skill, experience, ...) are done in the menus.
@@ -671,40 +844,11 @@ function missionCard(task, here) {
     st.className = "step" + (go ? " go" : "") + (elsewhere ? " elsewhere" : "");
     st.innerHTML = `${go ? "📍 " : "• "}${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}`;
     if (go) st.addEventListener("click", () => focusPos(mo.positions[0].pos, `${task.id}:${obj.id}:0`));
-    st.appendChild(progressButtons(obj));
     card.appendChild(st);
   }
   if (!open) card.insertAdjacentHTML("beforeend", `<div class="step muted">• All steps done</div>`);
-  if (canWrite()) {
-    const b = document.createElement("button");
-    b.type = "button"; b.className = "pbtn"; b.textContent = "✓ quest"; b.title = "Mark the quest as completed";
-    b.addEventListener("click", () => completeTask(task));
-    card.querySelector(".qhead").appendChild(b);
-  }
   return card;
 }
-// Left panel: ticked quests that are not on the current map, with a remove button
-function renderElsewhere(other, any, custom) {
-  const list = $("elseList");
-  if (!list) return;
-  list.innerHTML = "";
-  const rows = [
-    ...other.map(({ task, maps }) => ({ name: taskName(task), where: maps.map((m) => m.displayName).join(" / "), remove: () => setSelected(task.id, false) })),
-    ...any.map(({ task }) => ({ name: taskName(task), where: hasRaidStep(task) ? "any location" : "not in a raid", remove: () => setSelected(task.id, false) })),
-    ...custom.map((name) => ({ name, where: "not in tarkov.dev data", remove: () => setCustom(name, false) })),
-  ];
-  $("elseBox").style.display = rows.length ? "" : "none";
-  $("elseTitle").textContent = `My other quests (${rows.length})`;
-  for (const r of rows) {
-    const div = document.createElement("div");
-    div.className = "row";
-    div.innerHTML = `<button class="qx" title="Remove from my quests">×</button><span><span class="ename">${esc(r.name)}</span> <span class="trader">· ${esc(r.where)}</span></span>`;
-    div.querySelector("button").addEventListener("click", r.remove);
-    list.appendChild(div);
-  }
-}
-
-// ------------------------------------------------------------------ map (same projection as tarkov.dev)
 function applyRotation(latLng, rotation) {
   if (!latLng.lng && !latLng.lat) return L.latLng(0, 0);
   if (!rotation) return latLng;
@@ -880,25 +1024,28 @@ function drawLabels(mc) {
 
 function drawExtracts(mc) {
   S.layers.extracts.clearLayers();
-  if (!$("showExtracts").checked) return;
+  // "auto": Scav extracts when the logs show a Scav raid, PMC extracts in all other cases
+  const mode = $("extractMode").value;
+  const side = mode === "auto" ? (S.game?.raid?.side === "scav" ? "scav" : "pmc") : mode;
+  if (side === "off") return;
   const seen = new Set();
   for (const ex of mc.primary.extracts || []) {
     const faction = ex.faction || "shared";
-    if (faction === "scav" || !ex.position) continue;
+    if (!ex.position || (faction !== "shared" && side !== "both" && faction !== side)) continue;
     const name = t(S.mapsEn, ex.name, ex.name);
-    if (seen.has(name)) continue;
-    seen.add(name);
-    const cls = faction === "pmc" ? "ex-pmc" : "ex-shared";
+    if (seen.has(faction + name)) continue;
+    seen.add(faction + name);
+    const cls = "ex-" + faction;
     const showName = $("showLabels").checked;
     const m = L.marker(pos(ex.position), {
       zIndexOffset: 500, riseOnHover: true, title: name,
       icon: L.divIcon({ className: "", iconSize: null, html: `<div class="ex-icon ${cls}"><div class="box"></div>${showName ? `<span>${esc(name)}</span>` : ""}</div>` }),
     });
     const extra = (ex.switches || []).length ? `<div class="muted">Needs a switch/condition</div>` : "";
-    m.bindPopup(`<b>${esc(name)}</b><div class="muted">${faction === "pmc" ? "PMC extract" : "Shared extract (PMC & Scav)"}</div>${extra}`);
+    m.bindPopup(`<b>${esc(name)}</b><div class="muted">${{ pmc: "PMC extract", scav: "Scav extract" }[faction] || "Shared extract (PMC & Scav)"}</div>${extra}`);
     m.addTo(S.layers.extracts);
     if (ex.outline?.length) {
-      const poly = L.polygon(ex.outline.map(pos), { color: faction === "pmc" ? "#00e599" : "#00e4e5", weight: 1, fillOpacity: 0.15, interactive: false });
+      const poly = L.polygon(ex.outline.map(pos), { color: { pmc: "#00e599", scav: "#ffa94d" }[faction] || "#00e4e5", weight: 1, fillOpacity: 0.15, interactive: false });
       m.on("mouseover", () => poly.addTo(S.layers.extracts));
       m.on("mouseout", () => poly.remove());
     }
@@ -994,9 +1141,9 @@ async function applyGame(g) {
     setStatus(`The game runs in ${MODE_NAMES[g.mode] || g.mode} mode, but there is no TarkovTracker token for that mode. Add one in Settings.`, true);
   if (idle) {
     S.raidAutoKey = null;
-    if (S.viewAuto) { S.viewAuto = false; setView("setup"); }
+    if (S.viewAuto) { S.viewAuto = false; setTab("tasks"); }
   } else {
-    if (wasIdle && store.get("autoView", true) && $("app").dataset.view === "setup") { S.viewAuto = true; setView(store.get("missionView", "mission-h")); }
+    if (wasIdle && store.get("autoView", true) && $("app").dataset.tab === "tasks") { S.viewAuto = true; setTab("map"); }
     const { mc } = raidMap(g.raid);
     // once for each raid, so you can still look at a different map during the raid
     if (mc && store.get("autoMap", true) && S.raidAutoKey !== mc.key) {
@@ -1004,6 +1151,7 @@ async function applyGame(g) {
       if (S.current?.key !== mc.key) await showMap(mc.key);
     }
   }
+  if ((prev?.raid?.side || null) !== (g.raid?.side || null) && S.current && S.layers.extracts) drawExtracts(S.current);
   updateRaidTimer();
 }
 const clock = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
@@ -1013,7 +1161,8 @@ function updateRaidTimer() {
   el.classList.remove("low");
   if (phase === "idle") return;
   const { api, mc } = raidMap(raid);
-  const name = mc ? mc.displayName : api ? t(S.mapsEn, api.name, api.normalizedName) : "";
+  const side = { pmc: " · PMC", scav: " · Scav" }[raid.side] || "";
+  const name = (mc ? mc.displayName : api ? t(S.mapsEn, api.name, api.normalizedName) : "") + side;
   if (phase === "loading") el.textContent = `Loading ${name}…`.replace(" …", "…");
   else if (phase === "starting") el.textContent = `${name} · raid starts…`;
   else {
@@ -1071,6 +1220,9 @@ async function applyConfig(cfg) {
 
 function populateMapSelect() {
   $("mapSelect").innerHTML = S.mapCfgs.map((m) => `<option value="${m.key}">${esc(m.displayName)}</option>`).join("");
+  $("mapFilter").innerHTML = `<option value="">All maps</option>` + S.mapCfgs.map((m) => `<option value="${m.key}">${esc(m.displayName)}</option>`).join("") + `<option value="none">Any location</option>`;
+  $("mapFilter").value = store.get("mapFilter", "");
+  if ($("mapFilter").selectedIndex < 0) $("mapFilter").value = "";
 }
 
 // ------------------------------------------------------------------ boot
@@ -1097,7 +1249,7 @@ async function boot() {
   if (state.position && Date.now() / 1000 - (state.position.time || 0) < 600) S.player = { ...state.position, mapKey: startKey };
   await showMap(startKey);
   if (state.game) await applyGame(state.game);
-  if (S.cfg.hasToken) await loadProgress(); else { renderProfile(); renderTasks(); setStatus("Add your TarkovTracker token in Settings.", true); $("settingsBtn").click(); }
+  if (S.cfg.hasToken) await loadProgress(); else { renderProfile(); renderTasks(); setStatus("Add your TarkovTracker token in Settings.", true); setTab("settings"); }
   connectEvents();
   getJSON("/api/writes").then(onWrites).catch(() => {});
   setInterval(() => { if (S.cfg.hasToken && document.visibilityState === "visible") loadProgress(); }, POLL_MS);
@@ -1108,30 +1260,62 @@ $("styleSelect").addEventListener("change", async (e) => { S.baseStyle = e.targe
 $("floorSelect").addEventListener("change", (e) => showFloor(Number(e.target.value)));
 $("refreshBtn").addEventListener("click", () => loadProgress(true));
 $("resetViewBtn").addEventListener("click", () => { if (S.lmap && S.current) S.lmap.fitBounds(getBounds(S.current.bounds)); });
-$("showQuests").addEventListener("change", drawQuestMarkers);
-$("showExtracts").addEventListener("change", () => drawExtracts(S.current));
-$("showLabels").addEventListener("change", () => drawExtracts(S.current));
-document.querySelectorAll('input[name="showMode"]').forEach((r) => r.addEventListener("change", () => { store.set("showMode", showMode()); renderTasks(); drawQuestMarkers(); }));
-{ const m = store.get("showMode", "selected"); const r = document.querySelector(`input[name="showMode"][value="${m}"]`); if (r) r.checked = true; }
+$("showQuests").checked = store.get("showQuests", true);
+$("showQuests").addEventListener("change", () => { store.set("showQuests", $("showQuests").checked); drawQuestMarkers(); });
+$("extractMode").value = store.get("extractMode", "auto");
+$("extractMode").addEventListener("change", () => { store.set("extractMode", $("extractMode").value); if (S.current) drawExtracts(S.current); });
+$("showLabels").checked = store.get("showLabels", true);
+$("showLabels").addEventListener("change", () => { store.set("showLabels", $("showLabels").checked); if (S.current) drawExtracts(S.current); });
+$("showAll").checked = store.get("showMode", "selected") === "all";
+$("showAll").addEventListener("change", () => { store.set("showMode", showMode()); drawQuestMarkers(); });
+$("hideDone").checked = store.get("hideDone", true);
+$("hideDone").addEventListener("change", () => { store.set("hideDone", $("hideDone").checked); renderTaskView(); });
+$("taskSearch").addEventListener("input", renderTaskView);
+$("onlyActive").checked = store.get("onlyActive", false);
+$("onlyActive").addEventListener("change", () => { store.set("onlyActive", $("onlyActive").checked); renderTaskView(); });
+$("taskSort").value = store.get("taskSort", "lines");
+$("taskSort").addEventListener("change", () => { store.set("taskSort", $("taskSort").value); renderTaskView(); });
+$("mapFilter").addEventListener("change", () => { store.set("mapFilter", $("mapFilter").value); renderTaskView(); });
 $("addTaskBtn").addEventListener("click", addTaskByName);
 $("pastLogsBtn").addEventListener("click", readPastLogs);
 $("addTask").addEventListener("keydown", (e) => { if (e.key === "Enter") addTaskByName(); });
-const VIEWS = [["setup", "Setup"], ["mission-h", "Mission ↔"], ["mission-v", "Mission ↕"]];
+// Two tabs: the map, and the task list. The map tab has two places for the mission list.
+function setTab(tab) {
+  tab = ["tasks", "settings"].includes(tab) ? tab : "map";
+  if (tab === "settings" && S.cfg) { fillSettings(); $("savedNote").textContent = ""; }
+  $("app").classList.remove("tab-map", "tab-tasks", "tab-settings");
+  $("app").classList.add("tab-" + tab);
+  $("app").dataset.tab = tab;
+  $("tabMap").classList.toggle("on", tab === "map");
+  $("tabTasks").classList.toggle("on", tab === "tasks");
+  $("tabSettings").classList.toggle("on", tab === "settings");
+  if (tab !== "settings") store.set("tab", tab); // a reload opens Tasks or Map, not Settings
+  setTimeout(() => S.lmap?.invalidateSize(), 50);
+}
+const VIEWS = [["mission-h", "List ↔"], ["mission-v", "List ↕"]];
 function setView(v) {
   const i = Math.max(0, VIEWS.findIndex((x) => x[0] === v));
   $("app").classList.remove(...VIEWS.map((x) => "view-" + x[0]));
   $("app").classList.add("view-" + VIEWS[i][0]);
   $("app").dataset.view = VIEWS[i][0];
-  $("viewBtn").textContent = "View: " + VIEWS[i][1];
+  $("viewBtn").textContent = VIEWS[i][1];
   store.set("view", VIEWS[i][0]);
-  if (VIEWS[i][0] !== "setup") store.set("missionView", VIEWS[i][0]);
   setTimeout(() => S.lmap?.invalidateSize(), 50);
 }
-setView(store.get("view", "setup"));
-$("viewBtn").addEventListener("click", () => S.viewAuto = false);
+setView(store.get("view", "mission-h"));
+setTab(store.get("tab", "tasks"));
+// a tab that you select by hand stays after the raid
+$("tabMap").addEventListener("click", () => { S.viewAuto = false; setTab("map"); });
+$("tabTasks").addEventListener("click", () => { S.viewAuto = false; setTab("tasks"); });
+$("tabSettings").addEventListener("click", () => setTab("settings"));
+$("settingsForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  await saveSettings();
+  fillSettings();
+  $("savedNote").textContent = "Saved.";
+});
+$("cancelSettings").addEventListener("click", () => { fillSettings(); $("savedNote").textContent = ""; });
 $("viewBtn").addEventListener("click", () => setView(VIEWS[(VIEWS.findIndex((x) => x[0] === $("app").dataset.view) + 1) % VIEWS.length][0]));
-$("settingsBtn").addEventListener("click", () => { if (S.cfg) fillSettings(); $("settings").showModal(); });
-$("settings").addEventListener("close", () => { if ($("settings").returnValue === "save") saveSettings(); });
 boot();
 </script>
 </body>

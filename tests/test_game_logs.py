@@ -84,6 +84,57 @@ class Raids(unittest.TestCase):
         self.assertEqual((r["phase"], r["scenePath"], r["location"], r["online"], r["raidId"]),
                          ("raid", "maps/shoreline_preset.bundle", "Shoreline", True, "M63BLT"))
         self.assertEqual(r["started"], game_logs.entry_time("2026-11-14", "20:15:47", "776"))
+        self.assertEqual(r["side"], "pmc")
+
+    STATUS = "TRACE-NetworkGameCreate profileStatus: 'Profileid: {}, Status: Busy, RaidMode: Online, Ip: 0.0.0.0, Port: 1, Location: Woods, Sid: x, GameMode: deathmatch, shortId: {}'"
+
+    def side(self, lines):
+        state = game_logs.GameState()
+        run(state, game_logs.EntryReader(), b"".join(lines))
+        return state.raid["side"]
+
+    def test_scav_raid_uses_a_different_profile(self):
+        menu = line("09:59:00", "SelectProfile ProfileId:aaaa AccountId:1")
+        load = line("10:00:00", "scene preset path:maps/woods_preset.bundle")
+        go = line("10:01:00", "GameStarting:1 real:1") + line("10:01:12", "GameStarted:1 real:1")
+        self.assertEqual(self.side([menu, load, line("10:00:20", self.STATUS.format("aaaa", "ABC123")), go]), "pmc")
+        self.assertEqual(self.side([menu, load, line("10:00:20", self.STATUS.format("bbbb", "ABC124")), go]), "scav")
+
+    def test_side_from_the_countdown_when_the_profile_is_not_known(self):
+        load = line("10:00:00", "scene preset path:maps/woods_preset.bundle") + line("10:00:20", self.STATUS.format("bbbb", "ABC125"))
+        self.assertEqual(self.side([load, line("10:01:00", "GameStarting:1 real:1"), line("10:01:12", "GameStarted:1 real:1")]), "pmc")
+        self.assertEqual(self.side([load, line("10:01:00", "GameStarting:1 real:1"), line("10:01:00", "GameStarted:1 real:1")]), "scav")
+        self.assertEqual(self.side([load, line("10:01:00", "GameStarted:1 real:1")]), "scav")
+
+    BACKEND = "2026-11-14 {}.000|1.3.0.2.48779|Info|backend|---> Request HTTPS, id [12]: URL: https://gw-pve.example.com{}. \n"
+
+    def test_insurance_request_tells_pmc_from_scav_in_a_local_raid(self):
+        load = line("10:00:30", "scene preset path:maps/woods_preset.bundle")
+        go = line("10:01:00", "GameStarting:1 real:1") + line("10:01:00", "GameStarted:1 real:1")
+        back = line("10:20:00", "PrepareSelectedProfileLocally ProfileId:aaaa AccountId:1")
+        insurance = self.BACKEND.format("10:00:10", game_logs.INSURANCE_REQUEST).encode()
+        other = self.BACKEND.format("10:00:10", "/client/raid/configuration").encode()
+        self.assertEqual(self.side([insurance, load, go]), "pmc")
+        self.assertEqual(self.side([other, load, go]), "scav")
+        # the request of one raid does not count for the next raid
+        again = line("10:30:30", "scene preset path:maps/woods_preset.bundle") + line("10:31:00", "GameStarted:1 real:1")
+        self.assertEqual(self.side([insurance, load, go, back, self.BACKEND.format("10:30:00", "/client/raid/configuration").encode(), again]), "scav")
+
+    def test_follower_puts_the_three_logs_in_time_order(self):
+        import tempfile, os
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "x application_000.log"), "wb") as f:
+                f.write(line("10:00:30", "scene preset path:maps/woods_preset.bundle") + line("10:01:00", "GameStarted:1 real:1"))
+            with open(os.path.join(d, "x backend_000.log"), "wb") as f:
+                f.write(self.BACKEND.format("10:00:10", game_logs.INSURANCE_REQUEST).encode())
+            state = game_logs.GameState()
+            for entry in game_logs.LogFollower(d).read():
+                state.handle(*entry)
+            self.assertEqual(state.raid["side"], "pmc")
+
+    def test_local_raid_has_no_side_without_the_backend_log(self):
+        self.assertIsNone(self.side([line("10:00:00", "scene preset path:maps/woods_preset.bundle"),
+                                     line("10:01:00", "GameStarting:1 real:1"), line("10:01:00", "GameStarted:1 real:1")]))
 
     def test_match_over_ends_the_raid(self):
         state, reader = game_logs.GameState(), game_logs.EntryReader()

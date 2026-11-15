@@ -9,3 +9,5 @@ state.test.json
 state.test.json.tmp
 config.test.json
 config.test.json.tmp
+# local tool settings
+.claude/

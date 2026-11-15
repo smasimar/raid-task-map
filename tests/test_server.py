@@ -208,6 +208,25 @@ class Writes(unittest.TestCase):
         self.assertEqual(app.QUESTS.pending_count(), 0)
         self.assertIn("Unknown task", app.WRITES["error"])
 
+    def test_refused_notice_goes_after_a_time_or_the_next_change(self):
+        self.answer = (400, b'{"success": false, "error": "Unknown task"}', {})
+        app.QUESTS.queue_task("pve", "not-a-task", "completed")
+        app.send_writes(self.request)
+        app.clear_refused(app.time.time())
+        self.assertIn("Unknown task", app.WRITES["error"])          # still inside the show time
+        app.clear_refused(app.time.time() + app.REFUSED_SHOW + 1)
+        self.assertIsNone(app.WRITES["error"])                      # gone after the show time
+        app.QUESTS.queue_task("pve", "not-a-task", "completed")
+        app.send_writes(self.request)
+        self.answer = (200, b'{"success": true}', {})
+        app.QUESTS.queue_task("pve", "a", "completed")
+        app.send_writes(self.request)
+        self.assertIsNone(app.WRITES["error"])                      # gone with the next change
+        # a fault that the user can act on stays
+        app.WRITES["error"] = "TarkovTracker daily write limit reached. The changes are kept and sent later."
+        app.clear_refused(app.time.time() + 1000)
+        self.assertIn("limit", app.WRITES["error"])
+
     def test_no_token_for_the_mode_sends_nothing(self):
         app.QUESTS.queue_task("regular", "a", "completed")
         app.send_writes(self.request)

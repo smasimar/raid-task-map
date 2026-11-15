@@ -530,7 +530,15 @@ def token_permissions(token: str):
 
 
 WRITE_DELAY = 3.0     # seconds without a new change before the changes are sent, so fast clicks make one write
-WRITES = {"error": None, "retryAt": 0.0, "remaining": None, "backoff": 30.0}
+REFUSED_SHOW = 30.0   # seconds that the notice of a refused change stays in the top bar
+WRITES = {"error": None, "retryAt": 0.0, "remaining": None, "backoff": 30.0, "errorUntil": 0.0}
+
+
+def clear_refused(now: float | None = None) -> None:
+    """Remove the notice of a refused change: the user can do nothing about it, and the
+    Status tab keeps the line. With a time, only when the notice is older than REFUSED_SHOW."""
+    if (WRITES["error"] or "").startswith("TarkovTracker refused") and (now is None or now >= WRITES.get("errorUntil", 0.0)):
+        WRITES["error"] = None
 
 
 def status_report() -> dict:
@@ -568,6 +576,7 @@ def send_writes(request=tt_request) -> bool:
     """
     ok = True
     sent_any = False
+    clear_refused()   # a new change: the old notice goes
     for mode, pending in QUESTS.pending().items():
         token = token_for(mode)
         if not token:
@@ -595,7 +604,7 @@ def send_writes(request=tt_request) -> bool:
                 sent_any = True
             elif status in (400, 404, 413):
                 note("tracker", f"change refused and dropped ({status}): {_error_text(answer) or path}", err=True)
-                WRITES["error"] = f"TarkovTracker refused a change: {_error_text(answer) or status}"
+                WRITES.update({"error": f"TarkovTracker refused a change: {_error_text(answer) or status}", "errorUntil": time.time() + REFUSED_SHOW})
             elif status == 429:
                 try:
                     wait = float(low.get("retry-after") or 600)
@@ -634,6 +643,7 @@ def write_worker():
             if enabled and QUESTS.pending_count() and now - QUESTS.changed >= WRITE_DELAY and now >= WRITES["retryAt"]:
                 send_writes()
                 HUB.publish({"type": "progress"})
+            clear_refused(now)
             if WRITES["error"] != last_error:
                 last_error = WRITES["error"]
                 if last_error and "refused" not in last_error:

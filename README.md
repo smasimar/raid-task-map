@@ -154,9 +154,6 @@ cd tests; npm install; npm test             page tests (Node.js and jsdom)
 | `state.json` | Your task list for each game mode, and the changes waiting to be sent. Made by the app; excluded from git |
 | `tests/fixtures` | Log lines from a real game session, with IDs and addresses masked |
 
-Planned: a release package with one `.exe`, so that Python does not have to be
-installed.
-
 ## Credits and licenses
 
 - This app is licensed under [GPL-3.0](LICENSE).

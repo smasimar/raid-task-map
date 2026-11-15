@@ -20,7 +20,7 @@ you ticked is kept by the app, on your PC.
 
 ## Features
 
-The page has three tabs: Tasks, Map and Settings.
+The page has four tabs: Tasks, Map, Status and Settings.
 
 - The Tasks tab is where you tick tasks. Its left column has "My tasks" and one entry
   for each trader; the tasks of the selected entry show on the right, each with a tick
@@ -47,6 +47,9 @@ The page has three tabs: Tasks, Map and Settings.
 - Optionally, the app also sends progress to TarkovTracker: the tasks you complete or
   fail in the game, and the steps and counts (for example 7 of 10 kills) that you mark
   by hand on the Tasks tab.
+- The Status tab shows whether TarkovTracker, the game data, the game logs and the
+  screenshots folder are working, how many log lines the app has read, how many
+  changes wait to be sent, and a list of what the app did.
 - PvP and PvE each have their own task list.
 
 ## Requirements

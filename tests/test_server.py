@@ -88,6 +88,31 @@ class Quests(unittest.TestCase):
         self.assertEqual(self.q.public()["migrated"], ["pve"])
 
 
+class Status(unittest.TestCase):
+    def test_note_goes_to_the_activity_list(self):
+        before = len(app.ACTIVITY)
+        app.note("task", "finished in the game", taskId="abc", status="finished")
+        item = app.ACTIVITY[-1]
+        self.assertEqual((item["kind"], item["text"], item["err"], item["taskId"]), ("task", "finished in the game", False, "abc"))
+        self.assertEqual(len(app.ACTIVITY), min(before + 1, app.ACTIVITY.maxlen))
+
+    def test_raid_text(self):
+        raid = dict(app.game_logs.new_raid(), scenePath="maps/woods_preset.bundle")
+        self.assertEqual(app.raid_text(dict(raid, phase="loading"), "idle"), "loading woods")
+        self.assertEqual(app.raid_text(dict(raid, phase="raid", side="scav"), "starting"), "raid started on woods · Scav · local")
+        self.assertEqual(app.raid_text(dict(raid, phase="raid", side="pmc", online=True, location="Woods"), "starting"), "raid started on Woods · PMC · online")
+        self.assertEqual(app.raid_text(dict(raid, phase="idle"), "raid"), "raid ended")
+        self.assertEqual(app.raid_text(dict(raid, phase="idle"), "idle"), "not in a raid")
+
+    def test_status_report_has_no_token_text(self):
+        import json
+        report = app.status_report()
+        for key in ("logLines", "logsFound", "shotsFound", "trackerOk", "writes", "activity", "mode", "hasToken", "canWrite"):
+            self.assertIn(key, report)
+        for token in app.CONFIG["tokens"].values():
+            self.assertNotIn(token, json.dumps(report))
+
+
 class Tokens(unittest.TestCase):
     def test_old_single_token_moves_to_its_mode(self):
         import json, tempfile

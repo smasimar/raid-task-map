@@ -24,6 +24,7 @@ import queue
 import re
 import sys
 import threading
+from collections import deque
 import time
 import urllib.error
 import urllib.parse
@@ -184,6 +185,35 @@ class EventHub:
 
 
 HUB = EventHub()
+
+# --------------------------------------------------------------------------- status and activity
+# What the Status tab shows: counters of the watchers, and the last lines of what the app did.
+STATS = {"logLines": 0, "logSeen": None, "logFiles": 0, "session": None, "logsFound": False,
+         "shotsFound": False, "shotTime": None,
+         "trackerTime": None, "trackerOk": None, "trackerError": None}
+ACTIVITY = deque(maxlen=200)
+
+
+def note(kind: str, text: str, err: bool = False, when: float = None, **extra):
+    """One line for the console and for the activity list on the Status tab.
+    `when` is the time of the thing itself, if it is not now (a line from the game logs)."""
+    print(f"[{kind}] {text}")
+    item = {"time": when or time.time(), "kind": kind, "text": text, "err": bool(err), **extra}
+    ACTIVITY.append(item)
+    HUB.publish({"type": "activity", **item})
+
+
+def raid_text(raid: dict, before: str) -> str:
+    place = raid["location"] or (raid["scenePath"] or "").rsplit("/", 1)[-1].replace("_preset.bundle", "").replace(".bundle", "")
+    if raid["phase"] == "loading":
+        return f"loading {place}".rstrip()
+    if raid["phase"] == "starting":
+        return f"raid starts on {place}".rstrip()
+    if raid["phase"] == "raid":
+        parts = [f"raid started on {place}".rstrip(), {"pmc": "PMC", "scav": "Scav"}.get(raid["side"]),
+                 "local" if raid["online"] is None else "online" if raid["online"] else "local"]
+        return " · ".join(x for x in parts if x)
+    return "raid ended" if before != "idle" else "not in a raid"
 
 
 # --------------------------------------------------------------------------- task list
@@ -361,14 +391,15 @@ def screenshot_watcher():
                     # first scan of this folder: existing files are history, not new positions
                     seen = names
                     current_dir = folder
-                    print(f"[screenshots] watching {folder}")
+                    note("screenshots", f"watching {folder}")
                 else:
                     for name in sorted(names - seen):
                         pos = parse_screenshot(name)
                         if pos:
                             pos.update({"type": "position", "filename": name, "time": time.time()})
                             HUB.publish(pos)
-                            print(f"[screenshots] position {pos['x']:.1f}, {pos['z']:.1f} from {name}")
+                            STATS["shotTime"] = pos["time"]
+                            note("position", f"{pos['x']:.1f}, {pos['z']:.1f} from a screenshot")
                             if delete_after:
                                 try:
                                     time.sleep(0.5)
@@ -378,9 +409,10 @@ def screenshot_watcher():
                     seen = names
             elif current_dir != folder:
                 current_dir = folder
-                print(f"[screenshots] folder not found: {folder!r}")
+                note("screenshots", f"folder not found: {folder!r}", err=True)
+            STATS["shotsFound"] = bool(folder) and d.is_dir()
         except Exception as exc:
-            print(f"[screenshots] error: {exc}")
+            note("screenshots", f"error: {exc}", err=True)
         time.sleep(0.5)
 
 
@@ -412,12 +444,23 @@ def log_watcher():
             if first:
                 follower = game_logs.LogFollower(folder) if folder else None
                 state = game_logs.GameState()
-                print(f"[logs] reading {folder}" if folder else f"[logs] no game logs found in {base!r}")
+                STATS.update({"logLines": 0, "logSeen": None, "logFiles": 0, "logsFound": bool(folder),
+                              "session": os.path.basename(folder) if folder else None})
+                if folder:
+                    note("logs", f"reading {os.path.basename(folder)}")
+                else:
+                    note("logs", f"no game logs found in {base!r}", err=True)
             if follower:
                 with CONFIG_LOCK:
                     auto_tick = bool(CONFIG.get("autoTick", True))
                     write_tt = bool(CONFIG.get("writeTT"))
-                for entry in follower.read():
+                entries = follower.read()
+                if entries:
+                    STATS["logLines"] += len(entries)
+                    STATS["logFiles"] = len(follower.offsets)
+                    # lines that were in the files at the start count with their own time
+                    STATS["logSeen"] = entries[-1][0] if first else time.time()
+                for entry in entries:
                     for ev in state.handle(*entry):
                         # logTime stops a message from being applied again after a restart
                         if ev["type"] != "task" or ev["time"] <= QUESTS.log_time():
@@ -430,20 +473,24 @@ def log_watcher():
                             QUESTS.apply_task_event(ev, active_mode())
                         else:
                             QUESTS.apply(mode, log_time=ev["time"])
-                        print(f"[logs] task {ev['status']}: {ev['id']}")
+                        note("task", f"{ev['status']} in the game", when=ev["time"], taskId=ev["id"], status=ev["status"])
                 if use_game_mode(state.mode):
-                    print(f"[logs] the game runs in {state.mode} mode: showing that mode")
+                    note("logs", f"the game runs in {state.mode} mode: showing that mode")
                     HUB.publish({"type": "config"})
                 state.expire(time.time())
             snap = state.snapshot()
             snap["session"] = os.path.basename(folder) if folder else None
             if snap != published:
+                before = published["raid"] if published else {"phase": "idle", "side": None}
+                if not published or published["mode"] != snap["mode"]:
+                    note("logs", f"game mode: {snap['mode'] or 'not known yet'}")
+                r = snap["raid"]
+                if not published or (before["phase"], before["side"]) != (r["phase"], r["side"]):
+                    note("raid", raid_text(r, before["phase"]), raid=dict(r))
                 published = snap
                 HUB.publish({"type": "game", **snap})
-                r = snap["raid"]
-                print(f"[logs] mode {snap['mode']}, raid {r['phase']} {r['location'] or r['scenePath'] or ''}".rstrip())
         except Exception as exc:
-            print(f"[logs] error: {exc}")
+            note("logs", f"error: {exc}", err=True)
         time.sleep(1)
 
 
@@ -484,6 +531,21 @@ def token_permissions(token: str):
 
 WRITE_DELAY = 3.0     # seconds without a new change before the changes are sent, so fast clicks make one write
 WRITES = {"error": None, "retryAt": 0.0, "remaining": None, "backoff": 30.0}
+
+
+def status_report() -> dict:
+    """All that the Status tab shows, apart from what the page knows itself."""
+    mode = active_mode()
+    token = token_for(mode)
+    perms = TOKEN_INFO.get(token)   # only what is known already: no request is made here
+    with CONFIG_LOCK:
+        write_tt = bool(CONFIG.get("writeTT"))
+    position = HUB.state.get("position") or {}
+    return {**STATS, "now": time.time(), "mode": mode, "hasToken": bool(token), "writeTT": write_tt,
+            "canWrite": None if perms is None else "WP" in perms,
+            "writes": writes_status(), "game": HUB.state.get("game"),
+            "shotTime": STATS["shotTime"] or position.get("time"),
+            "logsDir": logs_dir(), "activity": list(ACTIVITY)}
 
 
 def writes_status() -> dict:
@@ -532,7 +594,7 @@ def send_writes(request=tt_request) -> bool:
             if status == 200:
                 sent_any = True
             elif status in (400, 404, 413):
-                print(f"[tracker] change refused and dropped ({status}): {path}: {_error_text(answer)}")
+                note("tracker", f"change refused and dropped ({status}): {_error_text(answer) or path}", err=True)
                 WRITES["error"] = f"TarkovTracker refused a change: {_error_text(answer) or status}"
             elif status == 429:
                 try:
@@ -549,6 +611,9 @@ def send_writes(request=tt_request) -> bool:
                 return False
             for kind, item_id, value in items:
                 QUESTS.sent(mode, kind, item_id, value)
+            if status == 200:
+                left = f" · {WRITES['remaining']} writes left today" if WRITES["remaining"] is not None else ""
+                note("tracker", f"sent {len(items)} change{'' if len(items) == 1 else 's'}{left}")
     if sent_any:
         WRITES.update({"backoff": 30.0, "retryAt": 0.0})
         if ok and not QUESTS.pending_count():
@@ -560,6 +625,7 @@ def send_writes(request=tt_request) -> bool:
 
 def write_worker():
     last = None
+    last_error = None
     while True:
         try:
             with CONFIG_LOCK:
@@ -568,12 +634,16 @@ def write_worker():
             if enabled and QUESTS.pending_count() and now - QUESTS.changed >= WRITE_DELAY and now >= WRITES["retryAt"]:
                 send_writes()
                 HUB.publish({"type": "progress"})
+            if WRITES["error"] != last_error:
+                last_error = WRITES["error"]
+                if last_error and "refused" not in last_error:
+                    note("tracker", last_error, err=True)
             status = writes_status()
             if status != last:
                 last = status
                 HUB.publish(status)
         except Exception as exc:
-            print(f"[tracker] error: {exc}")
+            note("tracker", f"error: {exc}", err=True)
         time.sleep(0.5)
 
 
@@ -670,6 +740,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, QUESTS.public())
         if path == "/api/writes":
             return self._json(200, writes_status())
+        if path == "/api/status":
+            return self._json(200, status_report())
         if path == "/api/progress":
             return self._progress(force="force=1" in query.split("&"))
         if path == "/api/events":
@@ -765,6 +837,12 @@ class Handler(BaseHTTPRequestHandler):
                 for mode, c in changes.items():
                     QUESTS.apply(mode, add=c["started"], remove=c["ended"], log_time=latest)
             return self._json(200, {"changes": changes, "messages": len(events), "applied": bool(data.get("apply"))})
+        if path == "/api/open-logs":
+            folder = logs_dir()
+            if not folder or not os.path.isdir(folder) or not hasattr(os, "startfile"):
+                return self._json(404, {"error": "The game's Logs folder was not found."})
+            os.startfile(folder)  # opens the folder in Windows Explorer
+            return self._json(200, {"opened": folder})
         if path == "/api/test-task":
             # lets you check the automatic ticks without the game
             if data.get("status") not in ("started", "finished", "failed") or not isinstance(data.get("id"), str):
@@ -802,14 +880,17 @@ class Handler(BaseHTTPRequestHandler):
             age = time.time() - PROGRESS_CACHE["time"]
             if cached and age < (PROGRESS_FORCE_AGE if force else PROGRESS_MIN_AGE):
                 return send(cached)
+            STATS["trackerTime"] = time.time()
             try:
                 status, body, headers = tt_request("/progress", token, PROGRESS_CACHE["etag"] if cached else None)
                 if status == 304 and not cached:
                     status, body, headers = tt_request("/progress", token)
             except Exception as exc:
+                STATS.update({"trackerOk": False, "trackerError": f"not reachable: {exc}"})
                 if cached:
                     return send(cached, stale=True)
                 return self._json(502, {"error": f"Could not reach TarkovTracker: {exc}"})
+            STATS.update({"trackerOk": status in (200, 304), "trackerError": None if status in (200, 304) else f"answer {status}"})
             if status == 304:
                 PROGRESS_CACHE["time"] = time.time()
                 return send(cached)

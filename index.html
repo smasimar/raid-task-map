@@ -130,6 +130,27 @@
   .leaflet-overlay-pane svg.floor-only g.floor-shown, .leaflet-overlay-pane svg.floor-only g.floor-shown g { display:inline; }
   #settings { grid-column:1; grid-row:2; z-index:1200; min-height:0; overflow:auto; background:var(--bg); padding:18px 24px 40px; }
   #app:not(.tab-settings) #settings { display:none; }
+  #statusTab { grid-column:1; grid-row:2; z-index:1200; min-height:0; overflow:auto; background:var(--bg); padding:18px 24px 40px; }
+  #app:not(.tab-status) #statusTab { display:none; }
+  #statusTab .wrap { max-width:860px; }
+  #statCards { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:16px; }
+  .scard { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 12px; }
+  .scard .k { font-size:12px; color:var(--muted); }
+  .scard .v { font-size:20px; font-weight:600; font-variant-numeric:tabular-nums; }
+  #statusTab h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 6px; font-weight:600; }
+  #connRows { border:1px solid var(--line); border-radius:8px; margin-bottom:16px; }
+  .conn { display:flex; align-items:center; gap:10px; padding:7px 12px; border-top:1px solid var(--line); font-size:13px; }
+  .conn:first-child { border-top:0; }
+  .conn .dot { width:8px; height:8px; border-radius:50%; flex:none; background:var(--muted); }
+  .conn .name { width:120px; flex:none; font-weight:600; }
+  .conn .detail { flex:1; min-width:0; color:var(--muted); overflow-wrap:anywhere; }
+  .conn .pill { font-size:11px; padding:1px 8px; border:1px solid var(--line); border-radius:9px; color:var(--muted); white-space:nowrap; }
+  .conn.good .dot { background:var(--pmc); } .conn.good .pill { color:var(--pmc); border-color:var(--pmc); }
+  .conn.wait .dot { background:var(--accent); } .conn.wait .pill { color:var(--accent); border-color:var(--accent); }
+  .conn.fail .dot { background:var(--danger); } .conn.fail .pill { color:var(--danger); border-color:var(--danger); }
+  #activity { border:1px solid var(--line); border-radius:8px; padding:8px 12px; font:12px/1.7 ui-monospace, Consolas, monospace; color:var(--muted); max-height:340px; overflow:auto; }
+  #activity b { color:var(--text); font-weight:400; }
+  #activity .err { color:var(--danger); }
   #settingsForm { max-width:640px; }
   #settings label { display:block; margin:12px 0 3px; color:var(--muted); font-size:12px; }
   #settings input[type=text], #settings input[type=password] { width:100%; }
@@ -145,6 +166,7 @@
     <div id="tabs">
       <button id="tabTasks" class="tab" title="Your task list and the task lines of each trader"><svg viewBox="0 0 16 16"><path d="M2 2h3v3H2zM7 2.5h7v2H7zM2 6.5h3v3H2zM7 7h7v2H7zM2 11h3v3H2zM7 11.5h7v2H7z"/></svg>Tasks</button>
       <button id="tabMap" class="tab" title="The map with your mission list"><svg viewBox="0 0 16 16"><path d="M8 1a5 5 0 0 0-5 5c0 3.6 5 9 5 9s5-5.400 5-9a5 5 0 0 0-5-5zm0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>Map</button>
+      <button id="tabStatus" class="tab" title="Connections, counters and what the app did"><svg viewBox="0 0 16 16"><path d="M1 9h3l2-6 3 10 2-6h4v2h-2.600l-2.400 7.200-3-10L5.400 11H1z"/></svg>Status</button>
       <button id="tabSettings" class="tab" title="Tokens, folders and options"><svg viewBox="0 0 16 16"><path d="M6.700 1h2.600l.4 1.800 1.300.6 1.600-1 1.800 1.800-1 1.600.6 1.300 1.800.4v2.600l-1.800.4-.6 1.300 1 1.600-1.800 1.800-1.600-1-1.300.6-.4 1.800H6.700l-.4-1.800-1.300-.6-1.600 1-1.800-1.800 1-1.600-.6-1.300L.2 9.300V6.700L2 6.300l.6-1.300-1-1.600 1.800-1.800 1.600 1 1.300-.6zM8 5.500a2.500 2.500 0 1 0 0 5 2.500 2.500 0 0 0 0-5z"/></svg>Settings</button>
     </div>
     <select id="mapSelect" class="maptool" title="Map"></select>
@@ -227,6 +249,18 @@
     </div>
   </form>
   </section>
+  <section id="statusTab"><div class="wrap">
+    <div id="statCards"></div>
+    <h2>Connections</h2>
+    <div id="connRows"></div>
+    <div class="row" style="margin-bottom:6px">
+      <h2 style="margin:0">Activity</h2>
+      <span style="margin-left:auto"></span>
+      <button type="button" id="copyActivity" title="Copy the activity lines">Copy</button>
+      <button type="button" id="openLogs" title="Open the game's Logs folder in Windows Explorer">Open logs folder</button>
+    </div>
+    <div id="activity"></div>
+  </div></section>
   <div id="map"></div>
   <div id="mission"><div id="questList"></div></div>
 </div>
@@ -252,6 +286,7 @@ const S = {
   game: null, raidAutoKey: null, viewAuto: false,
   sel: new Set(), custom: [],
   tvToggled: new Set(), // tasks opened or closed by a click in the Tasks view
+  status: null, activity: [], dataError: null,
 };
 const store = {
   // "tqm." is the prefix of the app's first name; it stays so that saved settings are not lost
@@ -1111,6 +1146,7 @@ function onEvent(ev) {
   if (ev.type === "game") return applyGame(ev);
   if (ev.type === "quests") return onQuests(ev);
   if (ev.type === "writes") return onWrites(ev);
+  if (ev.type === "activity") return onActivity(ev);
   if (ev.type === "progress") return S.cfg?.hasToken && loadProgress();
   if (ev.type === "config") return getJSON("/api/config").then(applyConfig);
   if (ev.type !== "position" || !S.current) return;
@@ -1173,6 +1209,82 @@ function updateRaidTimer() {
   }
 }
 setInterval(updateRaidTimer, 1000);
+
+// ------------------------------------------------------------------ Status tab
+const hhmmss = (sec) => (sec ? new Date(sec * 1000).toLocaleTimeString() : "");
+function activityLine(a) {
+  let text = a.text;
+  if (a.taskId) { const task = S.tasksById.get(a.taskId); text = `${a.status || ""}: ${task ? taskName(task) : a.taskId}`; }
+  if (a.raid && a.raid.phase !== "idle") {
+    const { api, mc } = raidMap(a.raid);
+    const name = mc ? mc.displayName : api ? t(S.mapsEn, api.name, api.normalizedName) : "";
+    const side = { pmc: " · PMC", scav: " · Scav" }[a.raid.side] || "";
+    if (name) text = { loading: `loading ${name}`, starting: `raid starts on ${name}`, raid: `raid started on ${name}${side}` }[a.raid.phase] || text;
+  }
+  return `${hhmmss(a.time)} ${a.kind} ${text}`;
+}
+function renderActivity() {
+  const box = $("activity");
+  if (!box) return;
+  const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 4;
+  box.innerHTML = S.activity.length
+    ? S.activity.map((a) => { const [time, kind, ...rest] = activityLine(a).split(" "); return `<div class="${a.err ? "err" : ""}">${esc(time)} <b>${esc(kind)}</b> ${esc(rest.join(" "))}</div>`; }).join("")
+    : `<div>Nothing yet.</div>`;
+  if (atEnd) box.scrollTop = box.scrollHeight;
+}
+function renderStatus() {
+  const st = S.status;
+  if (!st) return;
+  const card = (k, v) => `<div class="scard"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`;
+  const left = st.writes?.remaining;
+  $("statCards").innerHTML = card("Game mode", MODE_NAMES[st.game?.mode] || MODE_NAMES[st.mode] || "Not known")
+    + card("Log lines read", (st.logLines || 0).toLocaleString())
+    + card("Changes waiting", String(st.writes?.pending ?? 0))
+    + card("Writes left today", left === null || left === undefined ? "Not known" : String(left));
+  const row = (cls, name, detail, pill) => `<div class="conn ${cls}"><span class="dot"></span><span class="name">${esc(name)}</span><span class="detail">${esc(detail)}</span><span class="pill">${esc(pill)}</span></div>`;
+  const rows = [];
+  // TarkovTracker
+  if (!st.hasToken) rows.push(row("", "TarkovTracker", "No token. Add one on the Settings tab.", "No token"));
+  else if (st.trackerOk === false) rows.push(row("fail", "TarkovTracker", `Last try ${hhmmss(st.trackerTime)}: ${st.trackerError || "no answer"}`, "Not reachable"));
+  else {
+    const rights = st.canWrite === true ? "read and write" : st.canWrite === false ? "read only" : "read";
+    const sending = st.writeTT ? (st.writes?.error ? ` · ${st.writes.error}` : "") : " · sending is off";
+    rows.push(row(st.writes?.error && st.writeTT ? "wait" : st.trackerOk ? "good" : "", "TarkovTracker",
+      `${MODE_NAMES[st.mode] || st.mode} token · ${rights}${sending}${st.trackerTime ? " · last read " + hhmmss(st.trackerTime) : ""}`, st.trackerOk ? "Connected" : "Not read yet"));
+  }
+  // game data, which this page loads itself
+  rows.push(S.dataError ? row("fail", "Game data", `tarkov.dev: ${S.dataError}`, "Not loaded")
+    : row(S.tasks.length ? "good" : "", "Game data", `tarkov.dev · ${S.tasks.length} tasks · ${S.mapCfgs.length} maps`, S.tasks.length ? "Loaded" : "Loading"));
+  // game logs
+  rows.push(st.logsFound ? row("good", "Game logs", `${st.session} · ${st.logFiles} file${st.logFiles === 1 ? "" : "s"}`, "Reading")
+    : row("fail", "Game logs", st.logsDir ? `No session folder in ${st.logsDir}` : "The game's Logs folder was not found. Type its path on the Settings tab.", "Not found"));
+  // screenshots
+  rows.push(!st.shotsFound ? row("fail", "Screenshots", "The screenshots folder was not found. Type its path on the Settings tab.", "Not found")
+    : row(st.shotTime ? "good" : "wait", "Screenshots", st.shotTime ? `Last position ${hhmmss(st.shotTime)}` : "No position yet. Press your screenshot key in a raid.", st.shotTime ? "Watching" : "Waiting"));
+  // the game: a raid in progress, or a new log line in the last 5 minutes
+  const raid = st.game?.raid, inRaid = raid && raid.phase !== "idle";
+  const quiet = st.logSeen ? Math.max(0, Math.round((st.now - st.logSeen) / 60)) : null;
+  if (inRaid) rows.push(row("good", "Game", $("raidTimer").textContent || "In a raid", "In a raid"));
+  else if (quiet !== null && quiet < 5) rows.push(row("good", "Game", `Last log line ${hhmmss(st.logSeen)}`, "Running"));
+  else rows.push(row("", "Game", quiet === null ? "No log line yet" : `No log line for ${quiet} minutes`, "Not running"));
+  $("connRows").innerHTML = rows.join("");
+}
+async function loadStatus() {
+  try {
+    S.status = await getJSON("/api/status");
+    S.activity = S.status.activity || [];
+    renderStatus(); renderActivity();
+  } catch (e) {
+    $("connRows").innerHTML = `<div class="conn fail"><span class="dot"></span><span class="name">App</span><span class="detail">${esc(e.message)}</span><span class="pill">No answer</span></div>`;
+  }
+}
+function onActivity(ev) {
+  S.activity.push(ev);
+  if (S.activity.length > 200) S.activity.shift();
+  if ($("app").dataset.tab === "status") renderActivity();
+}
+// the counters change without an event, so the open Status tab asks again every 2 seconds
+setInterval(() => { if ($("app").dataset.tab === "status" && document.visibilityState === "visible") loadStatus(); }, 2000);
 
 // ------------------------------------------------------------------ settings
 function fillSettings() {
@@ -1237,6 +1349,7 @@ async function boot() {
   try {
     await loadGameData();
   } catch (e) {
+    S.dataError = e.message;
     setStatus(`Could not load game data from tarkov.dev: ${e.message}`, true);
     return;
   }
@@ -1281,15 +1394,17 @@ $("pastLogsBtn").addEventListener("click", readPastLogs);
 $("addTask").addEventListener("keydown", (e) => { if (e.key === "Enter") addTaskByName(); });
 // Two tabs: the map, and the task list. The map tab has two places for the mission list.
 function setTab(tab) {
-  tab = ["tasks", "settings"].includes(tab) ? tab : "map";
+  tab = ["tasks", "settings", "status"].includes(tab) ? tab : "map";
+  if (tab === "status") loadStatus();
   if (tab === "settings" && S.cfg) { fillSettings(); $("savedNote").textContent = ""; }
-  $("app").classList.remove("tab-map", "tab-tasks", "tab-settings");
+  $("app").classList.remove("tab-map", "tab-tasks", "tab-settings", "tab-status");
   $("app").classList.add("tab-" + tab);
   $("app").dataset.tab = tab;
   $("tabMap").classList.toggle("on", tab === "map");
   $("tabTasks").classList.toggle("on", tab === "tasks");
   $("tabSettings").classList.toggle("on", tab === "settings");
-  if (tab !== "settings") store.set("tab", tab); // a reload opens Tasks or Map, not Settings
+  $("tabStatus").classList.toggle("on", tab === "status");
+  if (tab === "tasks" || tab === "map") store.set("tab", tab); // a reload opens Tasks or Map
   setTimeout(() => S.lmap?.invalidateSize(), 50);
 }
 const VIEWS = [["mission-h", "List ↔"], ["mission-v", "List ↕"]];
@@ -1308,6 +1423,15 @@ setTab(store.get("tab", "tasks"));
 $("tabMap").addEventListener("click", () => { S.viewAuto = false; setTab("map"); });
 $("tabTasks").addEventListener("click", () => { S.viewAuto = false; setTab("tasks"); });
 $("tabSettings").addEventListener("click", () => setTab("settings"));
+$("tabStatus").addEventListener("click", () => setTab("status"));
+$("copyActivity").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(S.activity.map(activityLine).join("\n")); setStatus("Activity lines copied."); }
+  catch { setStatus("Could not copy. Select the lines and copy them by hand.", true); }
+});
+$("openLogs").addEventListener("click", async () => {
+  const r = await postJSON("/api/open-logs", {});
+  if (!r.ok) setStatus((await r.json().catch(() => ({}))).error || "Could not open the folder.", true);
+});
 $("settingsForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   await saveSettings();

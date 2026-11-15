@@ -42,6 +42,12 @@ const routes = {
   "/maps.json": mapsCfg,
   "/api/config": { hasToken: true, tokenHint: "PVP_…abcd", gameMode: "regular", screenshotsDir: "C:/s", screenshotsDirExists: true, deleteScreenshots: false, logsDir: "", logsDirActive: "C:/g/Logs", logsDirExists: true, autoTick: true, tokens: { regular: "PVP_…abcd" }, writeTT: false, canWrite: null },
   "/api/writes": { type: "writes", pending: 0, error: null },
+  "/api/status": { logLines: 4812, logSeen: Date.now() / 1000 - 30, logFiles: 3, session: "log_2026.11.15_6-56-39", logsFound: true, shotsFound: true, shotTime: null,
+    trackerTime: Date.now() / 1000 - 5, trackerOk: true, trackerError: null, now: Date.now() / 1000, mode: "regular", hasToken: true, writeTT: true, canWrite: true,
+    writes: { type: "writes", pending: 2, error: null, remaining: "93" }, game: { mode: "regular", raid: { phase: "idle" } }, logsDir: "C:/g/Logs",
+    activity: [{ time: 1, kind: "raid", text: "loading Woods", err: false, raid: { phase: "loading", scenePath: "maps/woods_preset.bundle" } },
+               { time: 2, kind: "task", text: "finished in the game", err: false, taskId: "debut", status: "finished" },
+               { time: 3, kind: "tracker", text: "TarkovTracker not reachable", err: true }] },
   "/api/state": { position: null, game: null },
   "/api/progress": progress,
   "https://json.tarkov.dev/regular/tasks": { data: { tasks } },
@@ -205,6 +211,25 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   d.getElementById("showAll").click();
   await sleep(50);
   assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 2, "ticked-only mode shows the two ticked zones");
+
+  // Status tab: counters, connections and the activity lines
+  d.getElementById("tabStatus").click();
+  await sleep(50);
+  assert(d.getElementById("app").classList.contains("tab-status") && d.getElementById("tabStatus").classList.contains("on"), "Status is a tab");
+  assert(text("#statCards .v").join("|") === "PvP|4,812|2|93", "status cards: mode, log lines, changes waiting, writes left");
+  const conn = (name) => [...d.querySelectorAll("#connRows .conn")].find((c) => c.querySelector(".name").textContent === name);
+  assert(conn("TarkovTracker").classList.contains("good") && conn("TarkovTracker").textContent.includes("read and write"), "TarkovTracker row shows the token rights");
+  assert(conn("Game data").textContent.includes("tasks") && conn("Game logs").textContent.includes("3 files"), "game data and game logs rows");
+  assert(conn("Screenshots").classList.contains("wait") && conn("Game").querySelector(".pill").textContent === "Running", "screenshots wait for a position; the game runs");
+  const act = text("#activity div");
+  assert(act[0].endsWith("raid loading Woods") && act[1].endsWith("task finished: Debut"), "activity lines name the map and the task");
+  assert(d.querySelector("#activity div.err").textContent.includes("not reachable"), "a fault line is marked");
+  w.__es.onmessage({ data: JSON.stringify({ type: "activity", time: 4, kind: "position", text: "280.9, -274.3 from a screenshot", err: false }) });
+  assert(text("#activity div").length === 4, "a new activity line shows at once");
+  routes["/api/status"].trackerOk = false; routes["/api/status"].trackerError = "not reachable: timed out";
+  await w.eval("loadStatus()");
+  assert(conn("TarkovTracker").classList.contains("fail") && conn("TarkovTracker").querySelector(".pill").textContent === "Not reachable", "a failed read shows as not reachable");
+  d.getElementById("tabTasks").click();
 
   // filters and sort order on the Tasks tab
   const set = (id, value) => { const el = d.getElementById(id); if (el.type === "checkbox") el.checked = value; else el.value = value; el.dispatchEvent(new w.Event("change")); };

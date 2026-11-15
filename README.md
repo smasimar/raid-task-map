@@ -1,160 +1,177 @@
 # Raid Task Map
 
-A small local companion for Escape from Tarkov. It shows the quests you select, the
-extracts, and your position on an interactive map, and it follows your raids through
-the game's log files.
+A small local companion for Escape from Tarkov. You tick the tasks you have in the
+game, and the app shows where their steps are, the extracts and your position on an
+interactive map. It reads the game's log files to select the raid's map, time the raid
+and tick the tasks you accept.
 
-It runs on your PC as a local web page. It reads only log files and screenshots. It
-does not read the game's memory, network traffic or game files.
+It runs on your PC as a local web page. It reads two things: the game's log files, and
+the names of your screenshots (the game writes your position into the file name of
+each screenshot). It does not read the game's memory or network traffic, and it does
+not change any game file.
+
+The game's license agreement does not give permission for tools that read its log
+files or screenshots. Use this app at your own risk.
+
+Task progress is kept on [TarkovTracker.org](https://tarkovtracker.org), a free
+website that tracks which tasks and task steps you have completed. The app reads your
+progress from there and, if you allow it, sends your progress there. The list of tasks
+you ticked is kept by the app, on your PC.
 
 ## Features
 
-- **Quest map.** Objective zones, quest-item locations and extracts for the quests you
-  tick, with floors for maps that have more than one level.
-- **Your position.** Press the screenshot key in a raid; a marker shows where you are
-  and where you look.
-- **Raid tracking.** When a raid loads, the app selects the map, shows your mission
-  list and starts a raid timer. After the raid it goes back to the Tasks tab.
-- **Automatic quest list.** A quest that you accept in the game is ticked by itself,
-  and it is removed when you complete or fail it. "Read past logs" finds the quests
-  you accepted before the app ran.
-- **Tasks tab.** A full page for your quest list: "My quests", and one entry for
-  each trader that shows the trader's task lines in the order you get them, with the
-  state of each task (completed, in progress, available, locked).
-- **Map tab.** The map with a semi-transparent quest list over it (across the top,
-  or down the side).
-- **Progress from TarkovTracker.** Completed quests and steps disappear from the list.
-- **Progress to TarkovTracker (optional).** Quests that you complete or fail in the
-  game are sent to TarkovTracker. You can mark steps and counts by hand on the Tasks
-  tab. Fast clicks on one step are sent as one change, and changes that cannot be
-  sent are kept and sent later.
-- **PvP and PvE.** Each game mode has its own token and its own quest list. The app
-  follows the mode that the game runs in.
+The page has three tabs: Tasks, Map and Settings.
+
+- The Tasks tab is where you tick tasks. Its left column has "My tasks" and one entry
+  for each trader; the tasks of the selected entry show on the right, each with a tick
+  box. "My tasks" lists the tasks you have ticked. A trader's entry shows the trader's
+  task lines (chains of tasks, where each task opens the next) and the state of each
+  task: completed, in progress, available or locked.
+- The Map tab shows one map at a time, which you select in the top bar. It shows
+  objective zones, the locations of items that a task needs, and extracts for your
+  ticked tasks, with a floor selector for maps that have more than one level. Your
+  ticked tasks for the selected map are listed over the map, semi-transparent, across
+  the top or down the side. This list is called the mission list.
+- Press your screenshot key in a raid and a marker shows where you are and which way
+  you are looking.
+- A task that you accept in the game is ticked automatically, and it is unticked when
+  you complete or fail it. "Read past logs" on the Tasks tab finds the tasks you
+  accepted before the app was running, shows them, and ticks them if you agree.
+- When a raid loads, the app selects the raid's map and opens the Map tab, and after
+  the raid it goes back to the Tasks tab. You can turn off the map selection and the
+  tab change in Settings. A timer in the top bar shows the time in the raid and the
+  time left.
+- The app shows Scav extracts in a Scav raid and PMC extracts otherwise.
+- The app reads your progress from TarkovTracker, so completed tasks drop off "My
+  tasks" and the mission list, and completed steps drop off the mission list.
+- Optionally, the app also sends progress to TarkovTracker: the tasks you complete or
+  fail in the game, and the steps and counts (for example 7 of 10 kills) that you mark
+  by hand on the Tasks tab.
+- PvP and PvE each have their own task list.
 
 ## Requirements
 
 - Windows 10 or 11
 - [Python 3.9 or later](https://www.python.org/downloads/) (tick "Add python.exe to
-  PATH" during setup). No other packages are necessary.
-- A [TarkovTracker.org](https://tarkovtracker.org) account, for quest progress
+  PATH" during setup). The app uses only what comes with Python.
+- A [TarkovTracker.org](https://tarkovtracker.org) account. Without one, the map and
+  the task list still work, but the app does not know what you have completed.
 
 ## Setup
 
 1. Download or clone this repository.
-2. Double-click `Start Raid Task Map.bat`. A console window opens, and your browser
-   opens <http://localhost:3000>. Keep the console window open while you play.
-3. Open the **Settings** tab and paste a TarkovTracker API token. Create one on
-   tarkovtracker.org → Settings → API Tokens. The token decides the game mode: a
-   `PVP_` token is for PvP progress, a `PVE_` token is for PvE progress. To use two
-   modes, paste one token for each.
-4. Optional: tick **Send quest progress to TarkovTracker**. The token then needs the
-   "Write progress" permission. With this on, you do not need TarkovMonitor for quest
-   tracking.
-5. In the game, bind a key to **Screenshot** (Settings → Controls).
+2. Open a terminal in that folder and run `py raid_task_map.py`. Your browser opens
+   <http://localhost:3000>. Keep the terminal open while you play; press Ctrl+C or
+   close it to stop the app.
+3. Create an API token on tarkovtracker.org → Settings → API Tokens, with permission
+   to read your progress. A token is a key that lets the app use your TarkovTracker
+   account. Open the app's **Settings** tab, paste the token and click **Save**. You
+   can skip this step if you have no account.
+4. Optional: tick **Send task progress to TarkovTracker** and click **Save**. The
+   token then needs the "Write progress" permission too. With this on, you do not need
+   TarkovMonitor (the tarkov.dev app that updates TarkovTracker from the game logs),
+   so you can close it.
+5. In the game's own settings (Settings → Controls), bind a key to **Screenshot**.
+6. On the Tasks tab, tick the tasks you have in the game, or click **Read past logs**
+   to let the app propose them.
 
-The app finds the game's `Logs` folder and your screenshots folder automatically. If
-it does not, type the paths in **Settings**.
+TarkovTracker makes each token for one game mode, and the token's prefix shows which:
+`PVP_` or `PVE_`. To use both modes, paste and save one token, then paste and save the
+other in the same box; the app keeps both. While the game is running, the app shows
+the mode the game is in. When the game is not running, the **Game mode** selector on
+the Settings tab selects the mode.
+
+The app finds the game's `Logs` folder and your screenshots folder automatically. The
+Settings tab shows each folder as found or not found; if one is not found, type its
+path there.
 
 ## Use
 
-| Action | Result |
-| --- | --- |
-| Tick a task on the Tasks tab | The quest shows on the map and in the mission list |
-| Click a task name on the Tasks tab | Shows or hides its steps |
-| **Only accepted**, **Map** and **Sort** on the Tasks tab | Show only the tasks you have, or the tasks of one map; put the tasks in order of task line, status, map or name |
-| Type a number in the box of a counted step | Sets the count, for example 7 of 10 kills |
-| **Read past logs** | Reads the game's old log files and proposes the quests to tick. It changes only the list in this app |
-| "Add a task by name" | Adds a quest that is not in the list. A quest that tarkov.dev does not know yet is added as text only |
-| **Tasks** / **Map** / **Settings** tabs | Change between the task list, the map and the settings |
-| **List ↔** / **List ↕** button on the Map tab | Puts the mission list across the top or down the side of the map |
-| Click a 📍 step in the mission list | The map moves to that objective |
-| **✓** on a step, on the Tasks tab | Marks the step done. It needs "Send quest progress to TarkovTracker" to be on |
-| **✓ quest** on a task, on the Tasks tab | Marks the quest as completed on TarkovTracker |
-| **↺** on a done step or a completed task | Marks it as not done |
-| Mouse over a marker | Shows the quest and the step |
-| Screenshot key in a raid | Moves your position marker |
-| **⌖ Reset view** | Puts the full map back in the window |
-| **↻ Refresh progress** on the Settings tab | Reads your progress from TarkovTracker now (otherwise every 2 minutes) |
+- **Tasks tab.** Tick the tasks you have in the game. Click a task name to see its
+  steps. The search box, the filters and **Sort** narrow and order the list.
+- **Map tab.** Select a map in the top bar. Click a step marked 📍 in the mission list
+  to move the map to it. The **List ↔** / **List ↕** button moves the mission list.
+- **In a raid.** Press your screenshot key to move your position marker (a blue
+  arrow). The marker goes on the selected map.
+- **Progress.** With "Send task progress to TarkovTracker" on, the Tasks tab lets you
+  type the count of a step (for example 7 of 10 kills), mark a step or a task as done
+  with **✓**, and undo that with **↺**.
 
-Map markers: yellow diamonds are objective zones, orange dots are possible quest-item
-locations, green boxes are PMC extracts, orange boxes are Scav extracts, cyan boxes are
-shared extracts.
+Map markers: yellow diamonds are objective zones, orange dots are possible task-item
+locations, green boxes are PMC extracts, orange boxes are Scav extracts, and cyan boxes
+are extracts that both PMCs and Scavs can use.
 
-The Settings tab selects what the map shows. With extracts on "Automatic", the app
-shows Scav extracts in a Scav raid. It tells the side from the game logs (the game asks
-for the insurance cost only before a PMC raid), and the raid timer shows "PMC" or
-"Scav". If it is wrong, select the side by hand.
-
-The screenshot file has no map name in it. Your marker goes on the selected map, which
-is the raid's map when raid tracking is on.
+The app works out from the game logs whether a raid is a PMC raid or a Scav raid, and
+shows the extracts for that side. If it gets this wrong, select PMC or Scav in the
+**Extracts** setting on the Settings tab.
 
 ## Troubleshooting
 
-- **"Port 3000 in use".** Start the app on a different port:
-  `py raid_task_map.py --port 3005`
-- **The marker does not move.** Make sure that Settings shows the screenshots folder as
-  found. It is usually `Documents\Escape From Tarkov\Screenshots`.
-- **The map does not change when a raid loads.** Make sure that Settings shows the logs
+- **`py` is not recognized.** Python is not installed. Install it from the link in
+  Requirements.
+- **The terminal says "Could not start on port 3000".** Start the app on a different
+  port: `py raid_task_map.py --port 3005`
+- **The marker does not move.** Check that Settings shows the screenshots folder as
+  found. It is usually `Documents\Escape From Tarkov\Screenshots`. Check also that the
+  Map tab shows the map you are on, because the marker goes on the selected map.
+- **The map does not change when a raid loads.** Check that Settings shows the logs
   folder as found, and that "Select the map when a raid loads" is ticked.
-- **"Read past logs" proposes quests that you completed.** The game deletes old logs,
-  so some completions are missing. Quests that TarkovTracker shows as completed are
-  left out; untick the others.
-- **"TarkovTracker daily write limit reached".** A free account can send 100 changes
-  each day. The app keeps your changes and sends them after the limit resets at
-  00:00 UTC.
-- **TarkovTracker answered 401.** The token is wrong, revoked, or for a different game
-  mode.
+- **"Read past logs" proposes tasks that you completed.** The game deletes old logs,
+  so some completions are missing from them. The app leaves out the tasks that
+  TarkovTracker shows as completed. Untick any other completed task yourself.
+- **The top bar says "TarkovTracker daily write limit reached".** A free account can
+  send 100 changes each day. The app keeps your changes and sends them after the limit
+  resets at 00:00 UTC.
+- **The top bar says "TarkovTracker answered 401".** The token is wrong, revoked, or
+  for a different game mode.
 
 ## Privacy
 
 - The app listens only on `127.0.0.1` and refuses requests from other sites.
 - Your tokens are stored in `config.json` next to the app, in plain text. Do not share
   that file. It is excluded from git.
+- Your ticked tasks are stored in `state.json` next to the app.
 - The app contacts only `tarkov.dev` (maps and game data), `unpkg.com` (the Leaflet
   map library) and `api.tarkovtracker.org` (your progress).
+- The app deletes a screenshot only if you tick "Delete each screenshot after reading
+  its position" in Settings. This is off by default.
 
 ## Development
 
 ```
 py -3 raid_task_map.py --no-browser      start without opening the browser
 py -3 -m unittest discover tests            server and log-reader tests
-cd tests && npm install && npm test         page tests (Node.js and jsdom)
+cd tests; npm install; npm test             page tests (Node.js and jsdom)
 ```
 
 | File | Purpose |
 | --- | --- |
-| `raid_task_map.py` | Local server: static page, TarkovTracker proxy, screenshot and log watchers, live events |
+| `raid_task_map.py` | Local server: static page, TarkovTracker proxy, screenshot and log watchers. It sends your position, the raid state and list changes to the open page |
 | `game_logs.py` | Game log reader and raid state |
-| `index.html` | The full page: map, quest lists, settings |
+| `index.html` | The full page: map, task lists, settings |
 | `maps.json` | Map projection settings, from tarkov.dev |
-| `state.json` | Your quest list for each game mode, and the changes that wait to be sent. Made by the app; excluded from git |
-| `tests/fixtures` | Lines from a real game session, with IDs and addresses masked |
+| `config.json` | Your settings and tokens. Made by the app; excluded from git |
+| `state.json` | Your task list for each game mode, and the changes waiting to be sent. Made by the app; excluded from git |
+| `tests/fixtures` | Log lines from a real game session, with IDs and addresses masked |
 
-## Roadmap
-
-The aim is to do the work of TarkovMonitor for this app's features, so that one app
-is sufficient.
-
-- [x] Read the game logs: map selection, mission view, raid timer, game mode
-- [x] Tick quests automatically when you accept them in the game
-- [x] Send completed and failed quests to TarkovTracker; mark steps done by hand
-- [x] New name in all files; credits and licenses in the app
-- [ ] Release package (one `.exe`, no Python install)
+Planned: a release package with one `.exe`, so that Python does not have to be
+installed.
 
 ## Credits and licenses
 
-- **This app:** [GPL-3.0](LICENSE).
-- **Log patterns and raid state logic** are ported from
+- This app is licensed under [GPL-3.0](LICENSE).
+- The log patterns and the raid state logic are ported from
   [TarkovMonitor](https://github.com/the-hideout/TarkovMonitor) (GPL-3.0).
-- **Maps:** [tarkov.dev](https://tarkov.dev) and their authors, mainly Shebuka,
-  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). The maps are
-  loaded from tarkov.dev when the app runs; none are included here. Their license
-  forbids commercial use and use in cheat software.
-- **Game data:** the [tarkov.dev](https://tarkov.dev) API. `maps.json` is from the
-  tarkov-dev project (MIT).
-- **Quest progress:** [TarkovTracker.org](https://tarkovtracker.org).
-- **Map library:** [Leaflet](https://leafletjs.com) (BSD 2-Clause), loaded from unpkg.com.
+- The maps are from [tarkov.dev](https://tarkov.dev) and their authors, mainly
+  Shebuka, under
+  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). They are
+  loaded from tarkov.dev when the app runs; none are included in this repository.
+  Their license forbids commercial use and use in cheat software.
+- The game data comes from the [tarkov.dev](https://tarkov.dev) API. `maps.json` is
+  from the tarkov-dev project (MIT).
+- Task progress comes from [TarkovTracker.org](https://tarkovtracker.org).
+- The map library is [Leaflet](https://leafletjs.com) (BSD 2-Clause), loaded from
+  unpkg.com.
 
 This project is not affiliated with or approved by Battlestate Games. Escape from
-Tarkov is a trademark of Battlestate Games Limited. The game's license agreement does
-not give permission for tools that read its files; use this app at your own risk.
+Tarkov is a trademark of Battlestate Games Limited.

@@ -109,7 +109,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   console.log("status:", d.getElementById("status").textContent);
   assert(d.getElementById("mapSelect").value === "customs", "starts on customs");
   assert(d.getElementById("app").dataset.tab === "tasks" && d.getElementById("tabTasks").classList.contains("on"), "starts on the Tasks tab");
-  assert(text("#traderList .tbtn span:first-child").join() === "My quests,All traders,Jaeger,Prapor", "left list: My quests, All traders, then the traders");
+  assert(text("#traderList .tbtn span:first-child").join() === "My tasks,All traders,Jaeger,Prapor", "left list: My tasks, All traders, then the traders");
   pick("Prapor");
   console.log("Prapor lines:", rows());
   assert(rows(".st-available").includes("Debut"), "Debut available");
@@ -132,8 +132,8 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   d.getElementById("taskSearch").dispatchEvent(new w.Event("input"));
   // the ticks of an earlier version move from browser storage to the helper, one time
   assert(quests.migrated.includes("regular") && quests.modes.regular.selected.includes("extraZone"), "old ticks moved to the helper");
-  pick("My quests");
-  assert(rows(".st-active").join() === "Extra Zone", "moved tick shows under My quests");
+  pick("My tasks");
+  assert(rows(".st-active").join() === "Extra Zone", "moved tick shows under My tasks");
   assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 1 && d.querySelectorAll(".leaflet-marker-pane .q-item").length === 0, "only the moved tick has a marker before ticking");
   const ex = text(".ex-icon span");
   console.log("extracts:", ex);
@@ -164,8 +164,8 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   d.getElementById("addTaskBtn").click();
   await sleep(50);
   assert(!text("#questList .qname").includes("Woods Walk"), "other-map quest is not in the mission list");
-  pick("My quests");
-  assert(rows().includes("Woods Walk"), "other-map quest is under My quests");
+  pick("My tasks");
+  assert(rows().includes("Woods Walk"), "other-map quest is under My tasks");
 
   // a name that tarkov.dev does not know becomes a text-only quest
   d.getElementById("addTask").value = "Brand New Quest";
@@ -181,7 +181,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   await sleep(50);
   assert(text("#questList .qname").includes("Nade Kills"), "any-location quest with a raid step is in the mission list");
   assert(!text("#questList .qname").includes("Gun Build") && !text("#questList .qname").includes("Arena Match"), "out-of-raid quests are not in the mission list");
-  assert(["Nade Kills", "Gun Build", "Arena Match"].every((n) => rows().includes(n)), "all of them are under My quests");
+  assert(["Nade Kills", "Gun Build", "Arena Match"].every((n) => rows().includes(n)), "all of them are under My tasks");
 
   // the view button cycles setup -> mission across -> mission down -> setup
   const app = d.getElementById("app"), vb = d.getElementById("viewBtn");
@@ -228,15 +228,15 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   set("taskSort", "name");
   assert(rows().join() === [...rows()].sort((a, b) => a.localeCompare(b)).join() && groups().length === 0, "sort by name");
   set("taskSort", "lines");
-  pick("My quests");
+  pick("My tasks");
 
   // progress controls are only on the Tasks tab; with sending off, a click changes nothing and says why
   assert(d.querySelectorAll("#questList .pbtn, #questList input").length === 0, "the mission list on the map has no progress controls");
-  pick("My quests");
+  pick("My tasks");
   const step = () => [...rowOf("Debut").querySelectorAll(".tobj")].find((x) => x.textContent.includes("Kill 5 Scavs"));
   const sbtn = (label) => [...step().querySelectorAll(".pbtn")].find((b) => b.textContent === label);
   sbtn("✓").click();
-  assert(progressPosts.length === 0 && d.getElementById("status").textContent.includes("Send quest progress to TarkovTracker"), "with sending off, a click explains the setting");
+  assert(progressPosts.length === 0 && d.getElementById("status").textContent.includes("Send task progress to TarkovTracker"), "with sending off, a click explains the setting");
   assert(text("#questList .step").some((x) => x.includes("Kill 5 Scavs") && x.includes("3/5")), "and the count stays");
   d.getElementById("tabSettings").click();
   assert(d.getElementById("app").classList.contains("tab-settings") && d.getElementById("tabSettings").classList.contains("on"), "Settings is a tab");
@@ -262,8 +262,8 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(JSON.stringify(progressPosts.at(-1)) === JSON.stringify(["/api/progress/objective", { id: "o1", count: 3, state: "uncompleted" }]), "a typed count goes to the helper as one change");
   assert(step().querySelector("input.cnt").value === "3" && text("#questList .step").some((x) => x.includes("3/5")), "the typed count shows in both views");
   w.confirm = () => true;
-  [...rowOf("Debut").querySelectorAll(".thead .pbtn")].find((b) => b.textContent === "✓ quest").click();
-  assert(JSON.stringify(progressPosts.at(-1)) === JSON.stringify(["/api/progress/task", { id: "debut", state: "completed" }]), "✓ quest marks the quest as completed");
+  [...rowOf("Debut").querySelectorAll(".thead .pbtn")].find((b) => b.textContent === "✓ task").click();
+  assert(JSON.stringify(progressPosts.at(-1)) === JSON.stringify(["/api/progress/task", { id: "debut", state: "completed" }]), "✓ task marks the quest as completed");
   w.__es.onmessage({ data: JSON.stringify({ type: "writes", pending: 2, error: null }) });
   assert(d.getElementById("writesNote").textContent === "2 changes to send…" && d.getElementById("writesNote").classList.contains("on"), "waiting changes show in the top bar");
   w.__es.onmessage({ data: JSON.stringify({ type: "writes", pending: 2, error: "TarkovTracker daily write limit reached." }) });
@@ -302,11 +302,11 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   send(questPost(w, { mode: "regular", add: ["needsActive"] }));
   send({ type: "quests", mode: "regular", selected: list().selected, custom: list().custom, note: { status: "started", id: "needsActive" } });
   await sleep(50);
-  assert(text("#questList .qname").includes("Follow Up"), "quest started in the game is ticked");
-  assert(d.getElementById("status").textContent.includes("Quest started in the game: Follow Up"), "status names the started quest");
+  assert(text("#questList .qname").includes("Follow Up"), "task started in the game is ticked");
+  assert(d.getElementById("status").textContent.includes("Task started in the game: Follow Up"), "status names the started quest");
   questPost(w, { mode: "regular", remove: ["needsActive"] });
   await sleep(50);
-  assert(!text("#questList .qname").includes("Follow Up"), "quest finished in the game is unticked");
+  assert(!text("#questList .qname").includes("Follow Up"), "task finished in the game is unticked");
   send({ type: "quests", mode: "pve", selected: ["highLevel"], custom: [] });
   await sleep(20);
   assert(!rows().includes("Endgame"), "the list of a different game mode is ignored");

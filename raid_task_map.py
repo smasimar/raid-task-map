@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Raid Task Map - a local quest map and quest tracker for Escape from Tarkov.
+Raid Task Map - a local task map and task tracker for Escape from Tarkov.
 
 What it does
   * Serves a map page at http://localhost:3000
   * Reads your progress from TarkovTracker.org (api.tarkovtracker.org) with your API token,
     and sends your changes there when you set that on
   * Watches the EFT screenshots folder: every new screenshot moves your marker on the map
-  * Reads the game's log files: raid map and timer, quests started, completed and failed
+  * Reads the game's log files: raid map and timer, tasks started, completed and failed
 
 Only the Python standard library is used. Run:  python raid_task_map.py
 
@@ -186,12 +186,12 @@ class EventHub:
 HUB = EventHub()
 
 
-# --------------------------------------------------------------------------- quest list
+# --------------------------------------------------------------------------- task list
 
 class QuestList:
-    """The quests you have in the game, for each game mode. Kept in state.json.
+    """The tasks you have in the game, for each game mode. Kept in state.json.
 
-    selected: task ids. custom: names of quests that are not in the tarkov.dev data.
+    selected: task ids. custom: names of tasks that are not in the tarkov.dev data.
     logTime: the time of the last task message from the game logs that was applied,
     so a restart does not apply the same messages again.
     """
@@ -206,7 +206,7 @@ class QuestList:
             try:
                 self.data.update(json.loads(path.read_text(encoding="utf-8")))
             except Exception as exc:
-                print(f"[quests] could not read {path.name}: {exc}")
+                print(f"[tasks] could not read {path.name}: {exc}")
 
     def _mode(self, mode: str) -> dict:
         return self.data["modes"].setdefault(mode, {"selected": [], "custom": []})
@@ -868,7 +868,7 @@ def main():
         sys.exit(1)
     server.daemon_threads = True
     url = f"http://localhost:{PORT}/"
-    print(f"{APP_NAME} running at {url}  (close this window to stop)")
+    print(f"{APP_NAME} running at {url}  (press Ctrl+C to stop)")
     if "--no-browser" not in sys.argv:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     try:

@@ -143,7 +143,7 @@
   <header>
     <h1>Raid Task Map</h1>
     <div id="tabs">
-      <button id="tabTasks" class="tab" title="Your quest list and the task lines of each trader"><svg viewBox="0 0 16 16"><path d="M2 2h3v3H2zM7 2.5h7v2H7zM2 6.5h3v3H2zM7 7h7v2H7zM2 11h3v3H2zM7 11.5h7v2H7z"/></svg>Tasks</button>
+      <button id="tabTasks" class="tab" title="Your task list and the task lines of each trader"><svg viewBox="0 0 16 16"><path d="M2 2h3v3H2zM7 2.5h7v2H7zM2 6.5h3v3H2zM7 7h7v2H7zM2 11h3v3H2zM7 11.5h7v2H7z"/></svg>Tasks</button>
       <button id="tabMap" class="tab" title="The map with your mission list"><svg viewBox="0 0 16 16"><path d="M8 1a5 5 0 0 0-5 5c0 3.6 5 9 5 9s5-5.400 5-9a5 5 0 0 0-5-5zm0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>Map</button>
       <button id="tabSettings" class="tab" title="Tokens, folders and options"><svg viewBox="0 0 16 16"><path d="M6.700 1h2.600l.4 1.800 1.300.6 1.600-1 1.800 1.800-1 1.600.6 1.300 1.800.4v2.600l-1.800.4-.6 1.300 1 1.600-1.800 1.800-1.600-1-1.300.6-.4 1.800H6.700l-.4-1.800-1.300-.6-1.600 1-1.800-1.800 1-1.600-.6-1.300L.2 9.300V6.700L2 6.300l.6-1.300-1-1.600 1.800-1.800 1.600 1 1.300-.6zM8 5.500a2.500 2.500 0 1 0 0 5 2.500 2.500 0 0 0 0-5z"/></svg>Settings</button>
     </div>
@@ -167,10 +167,10 @@
         <option value="lines">Task lines</option><option value="status">Status</option><option value="map">Map</option><option value="name">Name</option>
       </select></label>
       <div class="grp">
-        <input type="text" id="addTask" list="allTasks" placeholder="Add a quest by name…" title="For a quest that is not in the lists yet. It is added as text only.">
+        <input type="text" id="addTask" list="allTasks" placeholder="Add a task by name…" title="Ticks a task by its name. A task that is not in the game data yet is added as plain text, with no steps or markers.">
         <button id="addTaskBtn">Add</button>
         <datalist id="allTasks"></datalist>
-        <button id="pastLogsBtn" title="Find the quests you accepted before this app ran, from the game's old log files">Read past logs</button>
+        <button id="pastLogsBtn" title="Find the tasks you accepted before this app ran, from the game's old log files">Read past logs</button>
       </div>
     </div>
     <div id="tvBody">
@@ -183,25 +183,25 @@
     <label for="tokenInput">TarkovTracker.org API token</label>
     <input type="password" id="tokenInput" placeholder="PVP_… or PVE_…  (leave empty to keep the current one)" autocomplete="off">
     <div class="hint" id="tokenHint"></div>
-    <div class="row" id="modeRow" style="margin-top:6px"><label for="modeSelect" style="margin:0">Show game mode</label> <select id="modeSelect"></select></div>
-    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="writeTT"> Send quest progress to TarkovTracker</label>
+    <div class="row" id="modeRow" style="margin-top:6px"><label for="modeSelect" style="margin:0">Game mode</label> <select id="modeSelect" title="While the game is running, the app uses the game's mode"></select></div>
+    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="writeTT"> Send task progress to TarkovTracker</label>
     <div class="hint" id="writeHint"></div>
     <div class="row" style="margin-top:10px">
       <button type="button" id="refreshBtn">↻ Refresh progress</button>
       <span class="hint" style="margin:0">Reads your progress from TarkovTracker now. The app also reads it every 2 minutes.</span>
     </div>
     <label>On the map</label>
-    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="showQuests" checked> Quest objectives</label>
+    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="showQuests" checked> Task objectives</label>
     <div class="row" style="font-size:14px">Extracts
       <select id="extractMode">
-        <option value="auto">Automatic: Scav extracts in a Scav raid, PMC extracts in all other cases</option>
+        <option value="auto">Automatic (Scav extracts in a Scav raid, PMC extracts otherwise)</option>
         <option value="pmc">PMC</option><option value="scav">Scav</option><option value="both">PMC and Scav</option><option value="off">None</option>
       </select>
     </div>
-    <div class="hint">Shared extracts show with each selection. The app tells a Scav raid from the game logs; the raid timer shows "PMC" or "Scav". If it is wrong, select the side by hand.</div>
+    <div class="hint">Extracts that PMCs and Scavs share are shown with every choice except None. The app works out from the game logs whether a raid is a Scav raid, and the raid timer shows "PMC" or "Scav". If it gets this wrong, select PMC or Scav in the list above.</div>
     <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="showLabels" checked> Extract names</label>
-    <label class="row" style="color:var(--text);font-size:14px" title="Also draw the tasks that you can have but did not tick"><input type="checkbox" id="showAll"> Every possible task, not only the ticked tasks</label>
-    <div class="hint">These four options change the map at once; they do not need Save.</div>
+    <label class="row" style="color:var(--text);font-size:14px" title="Also draw the tasks that you can have but did not tick"><input type="checkbox" id="showAll"> Markers for every task that is available to you, not only the ticked ones</label>
+    <div class="hint">The four options above apply straight away, without Save.</div>
     <label for="shotsInput">EFT screenshots folder</label>
     <input type="text" id="shotsInput">
     <div class="hint" id="shotsHint"></div>
@@ -209,16 +209,16 @@
     <label for="logsInput">EFT logs folder</label>
     <input type="text" id="logsInput" placeholder="Leave empty to find it automatically">
     <div class="hint" id="logsHint"></div>
-    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoTick"> Tick a quest when you accept it in the game; untick it when it ends</label>
+    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoTick"> Tick a task when you accept it in the game, and untick it when you complete or fail it</label>
     <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoMap"> Select the map when a raid loads</label>
     <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoView"> Open the Map tab when a raid loads, and go back to the Tasks tab after it</label>
     <details class="hint" id="about" style="margin-top:12px">
       <summary>About, credits and licenses</summary>
       <p><b>Raid Task Map</b> is free software under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU General Public License, version 3</a>. It comes with no warranty.</p>
-      <p>Maps: <a href="https://tarkov.dev" target="_blank" rel="noopener">tarkov.dev</a> and their authors (Shebuka and others), <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>. Not for commercial use and not for use in cheat software.<br>
-      Game data: the tarkov.dev API. Quest progress: <a href="https://tarkovtracker.org" target="_blank" rel="noopener">TarkovTracker.org</a>.<br>
+      <p>Maps: <a href="https://tarkov.dev" target="_blank" rel="noopener">tarkov.dev</a> and their authors (Shebuka and others), <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>. Their license does not allow commercial use or use in cheat software.<br>
+      Game data: the tarkov.dev API. Task progress: <a href="https://tarkovtracker.org" target="_blank" rel="noopener">TarkovTracker.org</a>.<br>
       Game log reading is ported from <a href="https://github.com/the-hideout/TarkovMonitor" target="_blank" rel="noopener">TarkovMonitor</a> (GPL-3.0). Map library: <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a> (BSD 2-Clause).</p>
-      <p>Not affiliated with or approved by Battlestate Games. Escape from Tarkov is a trademark of Battlestate Games Limited. This app reads only the game's log files and screenshots.</p>
+      <p>Not affiliated with or approved by Battlestate Games. Escape from Tarkov is a trademark of Battlestate Games Limited. This app reads only the game's log files and the names of your screenshots. The game's license agreement does not give permission for tools that do this; use the app at your own risk.</p>
     </details>
     <div class="row" style="justify-content:flex-end;margin-top:14px">
       <span class="hint" id="savedNote"></span>
@@ -321,7 +321,7 @@ async function loadProgress(force) {
       drawQuestMarkers();
     }
     const time = new Date().toLocaleTimeString();
-    if (stale) setStatus(`TarkovTracker not reachable — showing the last saved progress (${time})`, true);
+    if (stale) setStatus(`TarkovTracker can't be reached. Showing the last progress it sent (${time}).`, true);
     else setStatus(`${S.available.length} tasks available · progress checked ${time}`);
   } catch (e) {
     setStatus(e.message, true);
@@ -452,8 +452,8 @@ function tasksForMap(mc) {
   res.sort((a, b) => a.trader.localeCompare(b.trader) || a.name.localeCompare(b.name));
   return res;
 }
-// The quest list is kept by the local helper (state.json), one list for each game mode,
-// because the helper also changes it when the game logs show a quest start or end.
+// The task list is kept by the local helper (state.json), one list for each game mode,
+// because the helper also changes it when the game logs show a task start or end.
 const selectedSet = () => S.sel;
 const customQuests = () => S.custom;
 const showMode = () => ($("showAll").checked ? "all" : "selected");
@@ -470,7 +470,7 @@ async function questOp(op) {
     const r = await postJSON("/api/quests", { mode: S.mode, ...op });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `${r.status} ${r.statusText}`);
   } catch (e) {
-    setStatus(`Could not save the quest list: ${e.message}`, true);
+    setStatus(`Could not save the task list: ${e.message}`, true);
   }
 }
 const setSelected = (id, on) => questOp(on ? { add: [id] } : { remove: [id] });
@@ -482,7 +482,7 @@ const canWrite = () => !!(S.cfg?.hasToken && S.cfg.writeTT && S.cfg.canWrite !==
 function writeReady() {
   if (canWrite()) return true;
   setStatus(!S.cfg?.hasToken ? "Add a TarkovTracker token in Settings to change progress."
-    : !S.cfg.writeTT ? 'To change progress, tick "Send quest progress to TarkovTracker" in Settings.'
+    : !S.cfg.writeTT ? 'To change progress, tick "Send task progress to TarkovTracker" in Settings.'
     : 'The TarkovTracker token has no "Write progress" permission. Create a new token and paste it in Settings.', true);
   return false;
 }
@@ -560,7 +560,7 @@ function onQuests(ev) {
   renderTasks(); drawQuestMarkers();
   if (ev.note) {
     const task = S.tasksById.get(ev.note.id);
-    setStatus(`Quest ${ev.note.status} in the game: ${task ? taskLabel(task) : "not in the tarkov.dev data (" + ev.note.id + ")"}`);
+    setStatus(`Task ${ev.note.status} in the game: ${task ? taskLabel(task) : "not in the tarkov.dev data (" + ev.note.id + ")"}`);
   }
   pruneFinished();
 }
@@ -581,10 +581,10 @@ async function readPastLogs() {
       lines.push(`${mode}: tick ${add.length}, untick ${remove.length}`);
       if (here) lines.push(...add.slice(0, 20).map((id) => "  + " + name(id)), ...(add.length > 20 ? [`  … and ${add.length - 20} more`] : []), ...remove.slice(0, 10).map((id) => "  − " + name(id)));
     }
-    if (!total) return setStatus(`The old logs have ${res.messages} quest messages. Your quest list already agrees with them.`);
-    if (!confirm(`The old game logs have ${res.messages} quest messages.\n\n${lines.join("\n")}\n\nChange your quest list? This changes only the list in this app. Quests that TarkovTracker shows as completed are left out.`)) return setStatus("Quest list not changed.");
+    if (!total) return setStatus(`The old logs have ${res.messages} task messages. Your task list already agrees with them.`);
+    if (!confirm(`The old game logs have ${res.messages} task messages.\n\n${lines.join("\n")}\n\nChange your task list? This changes only the list in this app. Tasks that TarkovTracker shows as completed are left out.`)) return setStatus("Task list not changed.");
     await read(true);
-    setStatus("Quest list updated from the old game logs.");
+    setStatus("Task list updated from the old game logs.");
   } catch (e) {
     setStatus(`Could not read the old logs: ${e.message}`, true);
   }
@@ -600,10 +600,10 @@ function addTaskByName() {
   if (!v) return;
   const task = S.tasks.find((x) => taskLabel(x) === v) || S.tasks.find((x) => t(S.tasksEn, x.name, "").toLowerCase() === v.toLowerCase());
   if (!task) {
-    // new quests can be in the game before they are in the tarkov.dev data
+    // new tasks can be in the game before they are in the tarkov.dev data
     $("addTask").value = "";
     setCustom(v, true);
-    setStatus(`"${v}" is not in the tarkov.dev data — added to the quest list as text only.`, true);
+    setStatus(`"${v}" is not in the tarkov.dev data, so it was added to the task list as text only.`, true);
     return;
   }
   $("addTask").value = "";
@@ -672,8 +672,8 @@ function taskRow({ task, depth, root }, available, withTrader) {
     b.addEventListener("click", () => setTaskState(task, state));
     head.insertBefore(b, head.lastElementChild);
   };
-  if (st === "done") btn("↺ not completed", "Mark the quest as not completed on TarkovTracker", "uncompleted");
-  else if (st === "active") btn("✓ quest", "Mark the quest as completed on TarkovTracker", "completed");
+  if (st === "done") btn("↺ not completed", "Mark the task as not completed on TarkovTracker", "uncompleted");
+  else if (st === "active") btn("✓ task", "Mark the task as completed on TarkovTracker", "completed");
   if (open) for (const obj of task.objectives || []) {
     const done = st === "done" || !!S.objDone?.get(obj.id)?.complete;
     const od = document.createElement("div");
@@ -692,7 +692,7 @@ function renderTaskView() {
   const traders = Object.values(S.traders).filter((tr) => S.tasks.some((x) => ref(x.trader) === tr.id)).sort((a, b) => a.name.localeCompare(b.name));
   let cur = store.get("tvTrader", "mine");
   if (cur !== "mine" && cur !== "all" && !traders.some((tr) => tr.id === cur)) cur = "mine";
-  // left: My quests, then one entry for each trader
+  // left: My tasks, then one entry for each trader
   nav.innerHTML = "";
   const entry = (key, name, count, title, cls) => {
     const b = document.createElement("button");
@@ -701,7 +701,7 @@ function renderTaskView() {
     b.addEventListener("click", () => { store.set("tvTrader", key); $("taskSearch").value = ""; renderTaskView(); });
     nav.appendChild(b);
   };
-  entry("mine", "My quests", mine.length + S.custom.length, "The quests you have in the game");
+  entry("mine", "My tasks", mine.length + S.custom.length, "The tasks you have in the game");
   entry("all", "All traders", S.tasks.length, "The tasks of all traders");
   traders.forEach((tr, i) => {
     const own = S.tasks.filter((x) => ref(x.trader) === tr.id);
@@ -723,7 +723,7 @@ function renderTaskView() {
     heading = "Search";
   } else if (cur === "mine") {
     rows = mine.sort((a, b) => traderName(a).localeCompare(traderName(b)) || byName(a, b)).map((task) => ({ task, depth: 0, group: traderName(task) }));
-    heading = "My quests";
+    heading = "My tasks";
   } else if (cur === "all") {
     rows = traders.flatMap((tr) => traderLines(tr.id).map((r) => ({ ...r, group: tr.name })));
     heading = "All traders";
@@ -756,8 +756,8 @@ function renderTaskView() {
   }
   title(`${heading} · ${rows.length + (cur === "mine" && !find ? S.custom.length : 0)} task${rows.length === 1 ? "" : "s"}`);
   if (!rows.length) note(cur === "mine" && !find && !only && !mapKey
-    ? (S.custom.length ? "" : "No quests yet. Select a trader on the left and tick the tasks you have in the game. A task that you accept while this app runs is ticked automatically.")
-    : "No tasks for these filters.");
+    ? (S.custom.length ? "" : "No tasks yet. Select a trader on the left and tick the tasks you have in the game. A task that you accept while this app runs is ticked automatically.")
+    : "No tasks match these filters.");
   let last;
   for (const r of rows) {
     if (r.group !== undefined && r.group !== last) { last = r.group; main.insertAdjacentHTML("beforeend", `<div class="tgroup">${esc(r.group)}</div>`); }
@@ -766,7 +766,7 @@ function renderTaskView() {
   if (cur === "mine" && !find) for (const name of S.custom) {
     const row = document.createElement("div");
     row.className = "trow st-active";
-    row.innerHTML = `<div class="thead"><button class="pbtn" title="Remove from my quests">×</button><span class="tname">${esc(name)}</span><span class="tmeta">not in the tarkov.dev data: text only</span></div>`;
+    row.innerHTML = `<div class="thead"><button class="pbtn" title="Remove from my tasks">×</button><span class="tname">${esc(name)}</span><span class="tmeta">not in the tarkov.dev data: text only</span></div>`;
     row.querySelector("button").addEventListener("click", () => setCustom(name, false));
     main.appendChild(row);
   }
@@ -788,7 +788,7 @@ function taskMaps(task) {
   return S.mapCfgs.filter((mc) => [...mc.ids].some((id) => ids.has(id)));
 }
 const taskName = (task) => t(S.tasksEn, task.name, task.normalizedName);
-// Mission list: ticked quests on the current map, then "any location" quests, then text-only quests.
+// Mission list: ticked tasks on the current map, then "any location" tasks, then text-only tasks.
 // Completed steps are left out to keep the cards short.
 function renderQuestPanel() {
   const box = $("questList"), cur = S.current;
@@ -811,7 +811,7 @@ function renderQuestPanel() {
     card.innerHTML = `<div class="qhead"><span class="qname">${esc(name)}</span><span class="trader">not in tarkov.dev data</span></div>`;
     box.appendChild(card);
   }
-  if (!box.children.length) box.innerHTML = `<div class="qcard muted">No ticked quests on ${esc(cur?.displayName || "this map")}. Open the Tasks tab to tick tasks.</div>`;
+  if (!box.children.length) box.innerHTML = `<div class="qcard muted">No ticked tasks on ${esc(cur?.displayName || "this map")}. Open the Tasks tab to tick tasks.</div>`;
 }
 // Objective types that are done in a raid. The other types (buildWeapon, giveItem, giveQuestItem,
 // sellItem, taskStatus, traderLevel, traderStanding, skill, experience, ...) are done in the menus.
@@ -1069,7 +1069,7 @@ function drawQuestMarkers() {
         const m = L.marker(pos(p.pos), { icon, riseOnHover: true, zIndexOffset: offFloor ? 900 : 1000, opacity: offFloor ? 0.4 : 1 });
         const cnt = o.total > 1 ? ` (${o.count || 0}/${o.total})` : "";
         m.bindTooltip(`<b>${esc(it.name)}</b> <span class="muted">· ${esc(it.trader)}</span><div style="margin-top:4px">${esc(o.text)}${cnt}</div>` +
-          (p.kind === "item" ? `<div class="muted">Possible quest item location</div>` : "") +
+          (p.kind === "item" ? `<div class="muted">Possible task item location</div>` : "") +
           `<div class="muted" style="font-size:11px">${esc(floorName)} · elevation ${p.pos.y?.toFixed?.(1) ?? "?"}</div>`, { direction: "top", offset: [0, -10], opacity: 1, className: "q-tip" });
         if (p.outline?.length) {
           const poly = L.polygon(p.outline.map(pos), { color: "#e5e200", weight: 1, opacity: offFloor ? 0.4 : 1, fillOpacity: offFloor ? 0.05 : 0.15, interactive: false }).addTo(S.layers.quests);
@@ -1124,7 +1124,7 @@ function onEvent(ev) {
 function connectEvents() {
   const es = new EventSource("/api/events");
   es.onmessage = (m) => { try { onEvent(JSON.parse(m.data)); } catch (e) { console.warn(e); } };
-  es.onerror = () => setStatus("Lost connection to the local helper — is the Raid Task Map console window still open?", true);
+  es.onerror = () => setStatus("Lost the connection to the app. Is raid_task_map.py still running?", true);
 }
 
 // ------------------------------------------------------------------ game state from the log files
@@ -1188,7 +1188,7 @@ function fillSettings() {
   $("writeTT").checked = !!c.writeTT;
   $("writeHint").innerHTML = c.writeTT && c.canWrite === false
     ? `<span class="bad">The ${MODE_NAMES[c.gameMode] || c.gameMode} token has no write permission.</span> Create a token with "Write progress" on tarkovtracker.org.`
-    : `Completed and failed quests from the game logs, and the steps you mark by hand. The token needs the "Write progress" permission. While the game runs, the mode follows the game.`;
+    : `Sends the tasks you complete or fail in the game, and the steps you mark by hand. The token needs the "Write progress" permission.`;
   $("shotsInput").value = c.screenshotsDir || "";
   $("shotsHint").innerHTML = c.screenshotsDirExists ? `<span class="ok">Folder found.</span> Bind a screenshot key in EFT (Settings → Controls).` : `<span class="bad">Folder not found.</span> It is usually Documents\\Escape From Tarkov\\Screenshots.`;
   $("deleteShots").checked = !!c.deleteScreenshots;
@@ -1230,7 +1230,7 @@ async function boot() {
   try {
     S.cfg = await getJSON("/api/config");
   } catch (e) {
-    setStatus("Run Start Raid Task Map.bat and open http://localhost:3000. The page does not work when you open it as a file.", true);
+    setStatus("Run raid_task_map.py and open http://localhost:3000. The page does not work when you open it as a file.", true);
     return;
   }
   S.mode = S.cfg.gameMode;
@@ -1242,7 +1242,7 @@ async function boot() {
   }
   populateMapSelect();
   populateTaskSearch();
-  await loadQuests().catch((e) => setStatus(`Could not load the quest list: ${e.message}`, true));
+  await loadQuests().catch((e) => setStatus(`Could not load the task list: ${e.message}`, true));
   const state =await getJSON("/api/state").catch(() => ({}));
   const startKey = store.get("map", "customs");
   // a position from an earlier raid is probably on a different map

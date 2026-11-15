@@ -125,6 +125,9 @@
   .ex-pmc .box { background:var(--pmc); } .ex-pmc span { color:var(--pmc); }
   .ex-shared .box { background:var(--shared); } .ex-shared span { color:var(--shared); }
   .ex-scav .box { background:#ffa94d; } .ex-scav span { color:#ffa94d; }
+  .ex-need { filter:saturate(.3); opacity:.8; }   /* an extract with a special requirement */
+  .exneed { color:var(--accent); }
+  .keynote { color:var(--accent); white-space:nowrap; text-decoration:none; display:inline-block; text-indent:0; }
   .player svg { filter: drop-shadow(0 0 3px #000); }
   .map-label { color:#ffffffb0; font-weight:600; white-space:nowrap; text-shadow:0 0 3px #000; pointer-events:none; }
   .leaflet-container { background:#0c0e10; font:inherit; }
@@ -344,6 +347,30 @@ async function getJSON(url) {
   return body;
 }
 function t(dict, key, fallback) { const v = dict[key]; return v ? v : (fallback ?? key); }
+const itemName = (id, fallback) => S.itemsEn?.[`${ref(id)} Name`] || fallback;
+// Keys that a step or a task needs. requiredKeys: [[a, b], [c]] = (a or b) and c. neededKeys: [{map, keys}].
+function keyText(groups) {
+  return (groups || []).map((g) => [...new Set((Array.isArray(g) ? g : g.keys || []).map((k) => itemName(k, "a key")))].join(" or ")).filter(Boolean).join(", ");
+}
+const keyNote = (groups) => { const text = keyText(groups); return text ? ` <span class="keynote" title="Key that this step needs">🔑 ${esc(text)}</span>` : ""; };
+// What an extract needs. tarkov.dev gives the item to pay or to carry (transferItem). The other
+// rules are not in the data: they come from the extract's name and from this small list.
+const EXTRACT_NEEDS = {
+  EXFIL_vent: ["no backpack"], "Hole Exfill": ["no backpack"], lab_Vent: ["no backpack"],
+  "ZB-014": ["ZB-014 key"], Cellars: ["Factory emergency exit key"], "Gate 0": ["Factory emergency exit key"], "Gate m": ["Factory emergency exit key"],
+  ex_customs_pmc_zb1013: ["power on", "Factory emergency exit key"], EXFIL_Bunker_D2: ["power on"],
+  ex_interchange_pmc_saferoom: ["power on", "Object #11SR keycard"],
+};
+function extractNeeds(ex, name) {
+  const needs = [];
+  const item = ex.transferItem;
+  if (item) needs.push((item.count > 1 ? `${Number(item.count).toLocaleString("en-US")} ` : "") + itemName(item.item, "an item"));
+  if (/alpinist|redrebel/i.test(ex.name)) needs.push("Red Rebel ice pick", "Paracord", "no body armor");
+  if (/\(flare\)/i.test(name)) needs.push("green flare");
+  if (/co-?op/i.test(name) || /coop/i.test(ex.name)) needs.push("a PMC and a Scav together");
+  needs.push(...(EXTRACT_NEEDS[ex.name] || []));
+  return needs;
+}
 
 async function loadGameData() {
   const m = S.mode;
@@ -373,6 +400,13 @@ async function loadGameData() {
     mc.displayName = mc.primary ? t(S.mapsEn, mc.primary.name, mc.key) : mc.key;
   }
   S.mapCfgs = S.mapCfgs.filter((mc) => mc.primary);
+  // item names (keys, extract payments): a large file, so the page does not wait for it
+  getJSON(`${JSON_API}/${m}/items_en`).then((d) => {
+    if (S.mode !== m) return;
+    S.itemsEn = d.data || {};
+    renderTasks();
+    if (S.current && S.layers.extracts) drawExtracts(S.current);
+  }).catch(() => {});
   S.mapCfgs.sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
@@ -732,7 +766,8 @@ function taskRow({ task, depth, root }, available, withTrader) {
   row.style.marginLeft = `${depth * 22}px`;
   const maps = taskMaps(task).map((m) => m.displayName).join(" / ");
   const waits = st !== "locked" ? [] : (task.taskRequirements || []).map((r) => S.tasksById.get(ref(r.task))).filter((x) => x && !S.finished?.has(x.id)).slice(0, 2).map(taskName);
-  const meta = [withTrader ? S.traders[ref(task.trader)]?.name : "", task.minPlayerLevel > 1 ? `level ${task.minPlayerLevel}` : "", maps, waits.length ? `after: ${waits.join(", ")}` : ""].filter(Boolean).join(" · ");
+  const keys = keyText(task.neededKeys);
+  const meta = [withTrader ? S.traders[ref(task.trader)]?.name : "", task.minPlayerLevel > 1 ? `level ${task.minPlayerLevel}` : "", maps, keys ? `🔑 ${keys}` : "", waits.length ? `after: ${waits.join(", ")}` : ""].filter(Boolean).join(" · ");
   const label = { done: "completed", active: "in progress", available: "available", locked: "locked" }[st];
   row.innerHTML = `<div class="thead">${st === "done" ? "" : `<input type="checkbox" ${st === "active" ? "checked" : ""} title="I have this task in the game">`}
     <span class="tname" title="Show or hide the steps">${esc(taskName(task))}</span><span class="tstat">${label}</span><span class="tmeta">${esc(meta)}</span>
@@ -752,7 +787,7 @@ function taskRow({ task, depth, root }, available, withTrader) {
     const done = st === "done" || !!S.objDone?.get(obj.id)?.complete;
     const od = document.createElement("div");
     od.className = "tobj" + (done ? " done" : "");
-    od.innerHTML = `• ${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}`;
+    od.innerHTML = `• ${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${keyNote(obj.requiredKeys)}`;
     if (st !== "done") od.appendChild(progressButtons(obj));
     row.appendChild(od);
   }
@@ -916,7 +951,7 @@ function missionCard(task, here) {
     const cnt = obj.count > 1 ? ` <span class="muted">${prog?.count || 0}/${obj.count}</span>` : "";
     const st = document.createElement("div");
     st.className = "step" + (go ? " go" : "") + (elsewhere ? " elsewhere" : "");
-    st.innerHTML = `${go ? "📍 " : "• "}${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}`;
+    st.innerHTML = `${go ? "📍 " : "• "}${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}${keyNote(obj.requiredKeys)}`;
     if (go) st.addEventListener("click", () => focusPos(mo.positions[0].pos, `${task.id}:${obj.id}:0`));
     card.appendChild(st);
   }
@@ -1109,13 +1144,14 @@ function drawExtracts(mc) {
     const name = t(S.mapsEn, ex.name, ex.name);
     if (seen.has(faction + name)) continue;
     seen.add(faction + name);
-    const cls = "ex-" + faction;
+    const needs = extractNeeds(ex, name);
+    const cls = "ex-" + faction + (needs.length ? " ex-need" : "");
     const showName = $("showLabels").checked;
     const m = L.marker(pos(ex.position), {
-      zIndexOffset: 500, riseOnHover: true, title: name,
+      zIndexOffset: 500, riseOnHover: true, title: needs.length ? `${name}. Needs: ${needs.join(", ")}` : name,
       icon: L.divIcon({ className: "", iconSize: null, html: `<div class="ex-icon ${cls}"><div class="box"></div>${showName ? `<span>${esc(name)}</span>` : ""}</div>` }),
     });
-    const extra = (ex.switches || []).length ? `<div class="muted">Needs a switch/condition</div>` : "";
+    const extra = needs.length ? `<div class="exneed">Needs: ${esc(needs.join(", "))}</div>` : "";
     m.bindPopup(`<b>${esc(name)}</b><div class="muted">${{ pmc: "PMC extract", scav: "Scav extract" }[faction] || "Shared extract (PMC & Scav)"}</div>${extra}`);
     m.addTo(S.layers.extracts);
     if (ex.outline?.length) {

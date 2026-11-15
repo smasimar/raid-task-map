@@ -12,7 +12,7 @@ const CUST = "56f40101d2720b2a4d8b45d6", WOODS = "5704e3c2d2720bac5b8b4567", PRA
 const task = (id, o) => ({ id, name: `${id} name`, trader: PRAPOR, minPlayerLevel: 1, taskRequirements: [], traderRequirements: [], objectives: [], failConditions: [], finishRewards: { traderUnlock: [] }, factionName: "Any", normalizedName: id, wikiLink: "https://wiki/" + id, ...o });
 const tasks = {
   debut: task("debut", { objectives: [{ id: "o1", description: "o1", type: "shoot", count: 5, maps: [CUST] }, { id: "o2", description: "o2", type: "giveItem", count: 2 }] }),
-  checking: task("checking", { taskRequirements: [{ task: "debut", status: ["complete"] }], objectives: [{ id: "o3", description: "o3", type: "visit", zones: [{ id: "z", map: CUST, position: { x: 100, y: 1, z: -50 }, outline: [{ x: 95, y: 1, z: -55 }, { x: 105, y: 1, z: -55 }, { x: 105, y: 1, z: -45 }] }], maps: [CUST] }, { id: "o3b", description: "o3b", type: "findQuestItem", possibleLocations: [{ map: CUST, positions: [{ x: 10, y: 2, z: 20 }, { x: 11, y: 2, z: 21 }] }], maps: [CUST] }] }),
+  checking: task("checking", { neededKeys: [{ map: CUST, keys: ["k206"] }], taskRequirements: [{ task: "debut", status: ["complete"] }], objectives: [{ id: "o3", description: "o3", type: "visit", requiredKeys: [["k206", "k207"]], zones: [{ id: "z", map: CUST, position: { x: 100, y: 1, z: -50 }, outline: [{ x: 95, y: 1, z: -55 }, { x: 105, y: 1, z: -55 }, { x: 105, y: 1, z: -45 }] }], maps: [CUST] }, { id: "o3b", description: "o3b", type: "findQuestItem", possibleLocations: [{ map: CUST, positions: [{ x: 10, y: 2, z: 20 }, { x: 11, y: 2, z: 21 }] }], maps: [CUST] }] }),
   woodsTask: task("woodsTask", { objectives: [{ id: "o4", description: "o4", type: "visit", zones: [{ id: "w", map: WOODS, position: { x: 0, y: 0, z: 0 } }], maps: [WOODS] }] }),
   highLevel: task("highLevel", { minPlayerLevel: 40, objectives: [{ id: "o5", description: "o5", type: "visit", maps: [CUST] }] }),
   jaegerTask: task("jaegerTask", { trader: JAEGER, objectives: [{ id: "o6", description: "o6", type: "visit", maps: [CUST] }] }),
@@ -29,7 +29,7 @@ const en = { "debut name": "Debut", "checking name": "Checking", "woodsTask name
   "nades name": "Nade Kills", o11: "Eliminate any target with grenades", "gunsmith name": "Gun Build", o12: "Modify a weapon", "arena name": "Arena Match", o13: "Play a match" };
 const apiMaps = {
   [CUST]: { id: CUST, name: `${CUST} Name`, normalizedName: "customs", nameId: "bigmap", scenePath: "maps/customs_preset.bundle", raidDuration: 35, extracts: [
-    { id: "e1", name: "ex_pmc_a", faction: "pmc", position: { x: 300, y: 0, z: -100 }, outline: [{ x: 1, y: 0, z: 1 }, { x: 2, y: 0, z: 2 }, { x: 3, y: 0, z: 1 }], switches: [] },
+    { id: "e1", name: "ex_pmc_a", faction: "pmc", position: { x: 300, y: 0, z: -100 }, outline: [{ x: 1, y: 0, z: 1 }, { x: 2, y: 0, z: 2 }, { x: 3, y: 0, z: 1 }], switches: [], transferItem: { item: "rub", count: 20000 } },
     { id: "e2", name: "ex_scav_b", faction: "scav", position: { x: 0, y: 0, z: 0 }, switches: [] },
     { id: "e3", name: "ex_shared_c", faction: "shared", position: { x: -200, y: 0, z: 50 }, switches: ["s"] },
     { id: "e4", name: "ex_null_d", faction: null, position: { x: -100, y: 0, z: 60 }, switches: [] }] },
@@ -55,6 +55,7 @@ const routes = {
   "https://json.tarkov.dev/regular/maps": { data: { maps: apiMaps } },
   "https://json.tarkov.dev/regular/maps_en": { data: mapsEn },
   "https://json.tarkov.dev/regular/traders": { data: { [PRAPOR]: { id: PRAPOR, name: "p", normalizedName: "prapor" }, [JAEGER]: { id: JAEGER, name: "j", normalizedName: "jaeger" } } },
+  "https://json.tarkov.dev/regular/items_en": { data: { "k206 Name": "Dorm room 206 key", "k207 Name": "Spare key", "rub Name": "Roubles" } },
   "https://json.tarkov.dev/regular/traders_en": { data: { p: "Prapor", j: "Jaeger" } },
 };
 // a small copy of the helper's quest list (state.json): it applies the changes and sends the "quests" event
@@ -144,6 +145,17 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   const ex = text(".ex-icon span");
   console.log("extracts:", ex);
   assert(ex.length === 3 && ex.includes("Crossroads") && ex.includes("Boat") && !ex.some((x) => x.includes("scav")), "PMC + shared extracts only");
+  // extracts with a special requirement are dimmed and say what they need
+  const exIcon = (name) => [...d.querySelectorAll(".ex-icon")].find((x) => x.textContent === name);
+  assert(exIcon("Crossroads").classList.contains("ex-need") && exIcon("Coop thing").classList.contains("ex-need") && !exIcon("Boat").classList.contains("ex-need"), "extracts that need an item or a partner are dimmed");
+  assert(w.eval('extractNeeds({ name: "ex_pmc_a", transferItem: { item: "rub", count: 20000 } }, "Crossroads").join()') === "20,000 Roubles", "an extract shows the payment");
+  assert(w.eval('extractNeeds({ name: "Alpinist" }, "Cliff Descent").join()') === "Red Rebel ice pick,Paracord,no body armor", "a climb extract shows the Red Rebel rule");
+  assert(w.eval('extractNeeds({ name: "EXFIL_vent" }, "Sewer Manhole").join()') === "no backpack" && w.eval('extractNeeds({ name: "x" }, "Old Road").length') === 0, "no backpack rule; no note for a usual extract");
+  // keys that a task needs
+  assert(w.eval('keyText([["k206", "k207"]])') === "Dorm room 206 key or Spare key" && w.eval('keyText([{ map: "m", keys: ["k206"] }])') === "Dorm room 206 key", "key names for a step and for a task");
+  pick("Prapor");
+  assert([...d.querySelectorAll(".trow")].find((r) => r.querySelector(".tname").textContent === "Checking").querySelector(".tmeta").textContent.includes("🔑 Dorm room 206 key"), "the task line shows the key that the task needs");
+  pick("My tasks");
 
   // tick Debut in the Prapor line
   pick("Prapor");

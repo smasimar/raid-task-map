@@ -102,7 +102,10 @@ path there.
 
 Map markers: yellow diamonds are objective zones, orange dots are possible task-item
 locations, green boxes are PMC extracts, orange boxes are Scav extracts, and cyan boxes
-are extracts that both PMCs and Scavs can use.
+are extracts that both PMCs and Scavs can use. An extract with a special requirement
+(a payment, a key, no backpack, a Red Rebel and a paracord, a partner) has a paler
+color; point at it or click it to read what it needs. A 🔑 next to a task or a step
+names the key that it needs.
 
 The app works out from the game logs whether a raid is a PMC raid or a Scav raid, and
 shows the extracts for that side. If it gets this wrong, select PMC or Scav under

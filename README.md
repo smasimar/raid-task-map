@@ -105,8 +105,9 @@ locations, green boxes are PMC extracts, orange boxes are Scav extracts, and cya
 are extracts that both PMCs and Scavs can use.
 
 The app works out from the game logs whether a raid is a PMC raid or a Scav raid, and
-shows the extracts for that side. If it gets this wrong, select PMC or Scav in the
-**Extracts** setting on the Settings tab.
+shows the extracts for that side. If it gets this wrong, select PMC or Scav under
+**Layers** on the Map tab. **Layers** also turns the task objectives and the extract
+names on and off.
 
 ## Troubleshooting
 

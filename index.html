@@ -22,12 +22,18 @@
   .tab:hover { color:#fff; background:linear-gradient(#374045, #272e33); }
   .tab.on { position:relative; z-index:1; color:#101214; font-weight:700; background:linear-gradient(#f1f3f4, #b9c0c4); }
   .tab svg { width:14px; height:14px; flex:none; fill:currentColor; }
-  header { grid-column: 1 / -1; grid-row:1; display:flex; gap:10px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header { grid-column: 1 / -1; grid-row:1; display:flex; gap:8px 10px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  /* first row: name and tabs on the left, raid timer and status on the right. The map controls go
+     between them if there is room, and on a second row if there is not (class two-rows, set by layoutHeader) */
+  #brand { display:flex; align-items:center; flex:none; order:1; }
+  #maptools { display:flex; gap:10px; align-items:center; flex:none; order:2; flex-wrap:wrap; }
+  #info { display:flex; gap:10px; align-items:center; flex:none; max-width:100%; margin-left:auto; order:3; }
+  header.two-rows #maptools { order:4; flex-basis:100%; }
   header h1 { font-size:15px; margin:0 8px 0 0; font-weight:600; }
   select, button, input[type=text], input[type=password] { background:#0f1215; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font:inherit; }
   button { cursor:pointer; }
   button:hover { border-color:#58616b; }
-  #status { margin-left:auto; color:var(--muted); font-size:12px; text-align:right; }
+  #status { color:var(--muted); font-size:12px; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:460px; }
   #status.err { color:var(--danger); }
   #raidTimer { display:none; padding:3px 9px; border:1px solid var(--line); border-radius:6px; font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
   #raidTimer.on { display:block; }
@@ -137,7 +143,7 @@
   .scard { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 12px; }
   .scard .k { font-size:12px; color:var(--muted); }
   .scard .v { font-size:20px; font-weight:600; font-variant-numeric:tabular-nums; }
-  #statusTab h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 6px; font-weight:600; }
+  #statusTab h2, #settings h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 6px; font-weight:600; }
   #connRows { border:1px solid var(--line); border-radius:8px; margin-bottom:16px; }
   .conn { display:flex; align-items:center; gap:10px; padding:7px 12px; border-top:1px solid var(--line); font-size:13px; }
   .conn:first-child { border-top:0; }
@@ -151,7 +157,15 @@
   #activity { border:1px solid var(--line); border-radius:8px; padding:8px 12px; font:12px/1.7 ui-monospace, Consolas, monospace; color:var(--muted); max-height:340px; overflow:auto; }
   #activity b { color:var(--text); font-weight:400; }
   #activity .err { color:var(--danger); }
-  #settingsForm { max-width:640px; }
+  #settingsForm { max-width:860px; min-height:100%; display:flex; flex-direction:column; }
+  #settings #aboutTitle { margin-top:auto; padding-top:16px; }
+  #about.sbox { margin-bottom:0; }
+  #layersPanel { grid-column:1; grid-row:2; z-index:1100; justify-self:end; align-self:start; margin:8px; width:300px; display:none;
+    background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 12px 10px; font-size:13px; }
+  #app.tab-map #layersPanel.open { display:block; }
+  #layersBtn.on { border-color:var(--accent); color:var(--accent); }
+  .sbox { border:1px solid var(--line); border-radius:8px; padding:2px 14px 12px; margin-bottom:16px; }
+  #about.sbox { padding-top:8px; margin-top:0; }
   #settings label { display:block; margin:12px 0 3px; color:var(--muted); font-size:12px; }
   #settings input[type=text], #settings input[type=password] { width:100%; }
   .hint { font-size:12px; color:var(--muted); margin-top:3px; }
@@ -162,6 +176,7 @@
 <body>
 <div id="app">
   <header>
+    <div id="brand">
     <h1>Raid Task Map</h1>
     <div id="tabs">
       <button id="tabTasks" class="tab" title="Your task list and the task lines of each trader"><svg viewBox="0 0 16 16"><path d="M2 2h3v3H2zM7 2.5h7v2H7zM2 6.5h3v3H2zM7 7h7v2H7zM2 11h3v3H2zM7 11.5h7v2H7z"/></svg>Tasks</button>
@@ -169,14 +184,20 @@
       <button id="tabStatus" class="tab" title="Connections, counters and what the app did"><svg viewBox="0 0 16 16"><path d="M1 9h3l2-6 3 10 2-6h4v2h-2.600l-2.400 7.200-3-10L5.400 11H1z"/></svg>Status</button>
       <button id="tabSettings" class="tab" title="Tokens, folders and options"><svg viewBox="0 0 16 16"><path d="M6.700 1h2.600l.4 1.800 1.300.6 1.600-1 1.800 1.800-1 1.600.6 1.300 1.800.4v2.600l-1.800.4-.6 1.300 1 1.600-1.800 1.800-1.600-1-1.300.6-.4 1.800H6.700l-.4-1.800-1.300-.6-1.600 1-1.800-1.800 1-1.600-.6-1.300L.2 9.300V6.700L2 6.300l.6-1.300-1-1.600 1.800-1.800 1.600 1 1.300-.6zM8 5.500a2.500 2.500 0 1 0 0 5 2.500 2.500 0 0 0 0-5z"/></svg>Settings</button>
     </div>
+    </div>
+    <div id="maptools" class="maptool">
     <select id="mapSelect" class="maptool" title="Map"></select>
     <select id="floorSelect" class="maptool" title="Floor"></select>
     <select id="styleSelect" class="maptool" title="Map style"></select>
     <button id="resetViewBtn" class="maptool" title="Put the full map back in the window">⌖ Reset view</button>
+    <button id="layersBtn" class="maptool" title="Select what the map shows">Layers ▾</button>
     <button id="viewBtn" class="maptool" title="Put the mission list across the top or down the side of the map"></button>
+    </div>
+    <div id="info">
     <div id="raidTimer" title="Raid state, read from the game's log files"></div>
     <div id="writesNote" title="Progress changes that wait to be sent to TarkovTracker"></div>
     <div id="status">Starting…</div>
+    </div>
   </header>
   <aside>
     <div id="tvTop">
@@ -202,50 +223,47 @@
   </aside>
   <section id="settings">
   <form id="settingsForm">
-    <label for="tokenInput">TarkovTracker.org API token</label>
-    <input type="password" id="tokenInput" placeholder="PVP_… or PVE_…  (leave empty to keep the current one)" autocomplete="off">
-    <div class="hint" id="tokenHint"></div>
-    <div class="row" id="modeRow" style="margin-top:6px"><label for="modeSelect" style="margin:0">Game mode</label> <select id="modeSelect" title="While the game is running, the app uses the game's mode"></select></div>
-    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="writeTT"> Send task progress to TarkovTracker</label>
-    <div class="hint" id="writeHint"></div>
-    <div class="row" style="margin-top:10px">
-      <button type="button" id="refreshBtn">↻ Refresh progress</button>
-      <span class="hint" style="margin:0">Reads your progress from TarkovTracker now. The app also reads it every 2 minutes.</span>
+    <h2>TarkovTracker</h2>
+    <div class="sbox">
+      <label for="tokenInput">TarkovTracker.org API token</label>
+      <input type="password" id="tokenInput" placeholder="PVP_… or PVE_…  (leave empty to keep the current one)" autocomplete="off">
+      <div class="hint" id="tokenHint"></div>
+      <div class="row" id="modeRow" style="margin-top:6px"><label for="modeSelect" style="margin:0">Game mode</label> <select id="modeSelect" title="While the game is running, the app uses the game's mode"></select></div>
+      <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="writeTT"> Send task progress to TarkovTracker</label>
+      <div class="hint" id="writeHint"></div>
+      <div class="row" style="margin-top:10px">
+        <button type="button" id="refreshBtn">↻ Refresh progress</button>
+        <span class="hint" style="margin:0">Reads your progress from TarkovTracker now. The app also reads it every 2 minutes.</span>
+      </div>
     </div>
-    <label>On the map</label>
-    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="showQuests" checked> Task objectives</label>
-    <div class="row" style="font-size:14px">Extracts
-      <select id="extractMode">
-        <option value="auto">Automatic (Scav extracts in a Scav raid, PMC extracts otherwise)</option>
-        <option value="pmc">PMC</option><option value="scav">Scav</option><option value="both">PMC and Scav</option><option value="off">None</option>
-      </select>
+    <h2>Folders</h2>
+    <div class="sbox">
+      <label for="shotsInput">EFT screenshots folder</label>
+      <input type="text" id="shotsInput">
+      <div class="hint" id="shotsHint"></div>
+      <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="deleteShots"> Delete each screenshot after reading its position</label>
+      <label for="logsInput">EFT logs folder</label>
+      <input type="text" id="logsInput" placeholder="Leave empty to find it automatically">
+      <div class="hint" id="logsHint"></div>
     </div>
-    <div class="hint">Extracts that PMCs and Scavs share are shown with every choice except None. The app works out from the game logs whether a raid is a Scav raid, and the raid timer shows "PMC" or "Scav". If it gets this wrong, select PMC or Scav in the list above.</div>
-    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="showLabels" checked> Extract names</label>
-    <label class="row" style="color:var(--text);font-size:14px" title="Also draw the tasks that you can have but did not tick"><input type="checkbox" id="showAll"> Markers for every task that is available to you, not only the ticked ones</label>
-    <div class="hint">The four options above apply straight away, without Save.</div>
-    <label for="shotsInput">EFT screenshots folder</label>
-    <input type="text" id="shotsInput">
-    <div class="hint" id="shotsHint"></div>
-    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="deleteShots"> Delete each screenshot after reading its position</label>
-    <label for="logsInput">EFT logs folder</label>
-    <input type="text" id="logsInput" placeholder="Leave empty to find it automatically">
-    <div class="hint" id="logsHint"></div>
-    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoTick"> Tick a task when you accept it in the game, and untick it when you complete or fail it</label>
-    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoMap"> Select the map when a raid loads</label>
-    <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoView"> Open the Map tab when a raid loads, and go back to the Tasks tab after it</label>
-    <details class="hint" id="about" style="margin-top:12px">
-      <summary>About, credits and licenses</summary>
+    <h2>Automatic actions</h2>
+    <div class="sbox">
+      <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoTick"> Tick a task when you accept it in the game, and untick it when you complete or fail it</label>
+      <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoMap"> Select the map when a raid loads</label>
+      <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoView"> Open the Map tab when a raid loads, and go back to the Tasks tab after it</label>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin:-4px 0 18px">
+      <span class="hint" id="savedNote"></span>
+      <button type="button" id="cancelSettings" title="Put the saved values back">Cancel</button>
+      <button type="submit" id="saveSettings">Save</button>
+    </div>
+    <h2 id="aboutTitle">About, credits and licenses</h2>
+    <div class="sbox hint" id="about">
       <p><b>Raid Task Map</b> is free software under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU General Public License, version 3</a>. It comes with no warranty.</p>
       <p>Maps: <a href="https://tarkov.dev" target="_blank" rel="noopener">tarkov.dev</a> and their authors (Shebuka and others), <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>. Their license does not allow commercial use or use in cheat software.<br>
       Game data: the tarkov.dev API. Task progress: <a href="https://tarkovtracker.org" target="_blank" rel="noopener">TarkovTracker.org</a>.<br>
       Game log reading is ported from <a href="https://github.com/the-hideout/TarkovMonitor" target="_blank" rel="noopener">TarkovMonitor</a> (GPL-3.0). Map library: <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a> (BSD 2-Clause).</p>
       <p>Not affiliated with or approved by Battlestate Games. Escape from Tarkov is a trademark of Battlestate Games Limited. This app reads only the game's log files and the names of your screenshots. The game's license agreement does not give permission for tools that do this; use the app at your own risk.</p>
-    </details>
-    <div class="row" style="justify-content:flex-end;margin-top:14px">
-      <span class="hint" id="savedNote"></span>
-      <button type="button" id="cancelSettings" title="Put the saved values back">Cancel</button>
-      <button type="submit" id="saveSettings">Save</button>
     </div>
   </form>
   </section>
@@ -261,6 +279,18 @@
     </div>
     <div id="activity"></div>
   </div></section>
+  <div id="layersPanel">
+    <label class="row"><input type="checkbox" id="showQuests" checked> Task objectives</label>
+    <label class="row"><input type="checkbox" id="showLabels" checked> Extract names</label>
+    <label class="row" title="Also draw the tasks that you can have but did not tick"><input type="checkbox" id="showAll"> Every available task, not only the ticked ones</label>
+    <div class="row">Extracts
+      <select id="extractMode">
+        <option value="auto">Automatic</option>
+        <option value="pmc">PMC</option><option value="scav">Scav</option><option value="both">PMC and Scav</option><option value="off">None</option>
+      </select>
+    </div>
+    <div class="hint">Automatic shows Scav extracts in a Scav raid and PMC extracts otherwise. If the raid timer shows the wrong side, select PMC or Scav. Extracts that PMCs and Scavs share are shown with every choice except None.</div>
+  </div>
   <div id="map"></div>
   <div id="mission"><div id="questList"></div></div>
 </div>
@@ -294,7 +324,15 @@ const store = {
   set(k, v) { try { localStorage.setItem("tqm." + k, JSON.stringify(v)); } catch {} },
 };
 
-function setStatus(text, isErr) { const el = $("status"); el.textContent = text; el.classList.toggle("err", !!isErr); }
+function setStatus(text, isErr) { const el = $("status"); el.textContent = text; el.title = text; el.classList.toggle("err", !!isErr); layoutHeader(); }
+// Put the map controls on a second row when the first row has no room for them.
+function layoutHeader() {
+  const h = document.querySelector("header"), tools = $("maptools");
+  h.classList.remove("two-rows");
+  const need = $("brand").offsetWidth + tools.offsetWidth + $("info").offsetWidth + 20 + 24; // two gaps and the side padding
+  h.classList.toggle("two-rows", tools.offsetWidth > 0 && need > h.clientWidth);
+}
+window.addEventListener("resize", layoutHeader);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const ref = (v) => (v && typeof v === "object" ? v.id : v);
 
@@ -357,7 +395,7 @@ async function loadProgress(force) {
     }
     const time = new Date().toLocaleTimeString();
     if (stale) setStatus(`TarkovTracker can't be reached. Showing the last progress it sent (${time}).`, true);
-    else setStatus(`${S.available.length} tasks available · progress checked ${time}`);
+    else setStatus(`Progress checked ${time}`);
   } catch (e) {
     setStatus(e.message, true);
     renderProfile(e.message);
@@ -575,6 +613,7 @@ function onWrites(ev) {
   el.classList.toggle("on", !!(ev.pending || ev.error));
   el.classList.toggle("err", !!ev.error);
   el.textContent = ev.error || `${ev.pending} change${ev.pending === 1 ? "" : "s"} to send…`;
+  layoutHeader();
 }
 
 async function loadQuests() {
@@ -1189,6 +1228,7 @@ async function applyGame(g) {
   }
   if ((prev?.raid?.side || null) !== (g.raid?.side || null) && S.current && S.layers.extracts) drawExtracts(S.current);
   updateRaidTimer();
+  layoutHeader();
 }
 const clock = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
 function updateRaidTimer() {
@@ -1405,6 +1445,7 @@ function setTab(tab) {
   $("tabSettings").classList.toggle("on", tab === "settings");
   $("tabStatus").classList.toggle("on", tab === "status");
   if (tab === "tasks" || tab === "map") store.set("tab", tab); // a reload opens Tasks or Map
+  layoutHeader();
   setTimeout(() => S.lmap?.invalidateSize(), 50);
 }
 const VIEWS = [["mission-h", "List ↔"], ["mission-v", "List ↕"]];
@@ -1423,6 +1464,7 @@ setTab(store.get("tab", "tasks"));
 $("tabMap").addEventListener("click", () => { S.viewAuto = false; setTab("map"); });
 $("tabTasks").addEventListener("click", () => { S.viewAuto = false; setTab("tasks"); });
 $("tabSettings").addEventListener("click", () => setTab("settings"));
+$("layersBtn").addEventListener("click", () => { const open = $("layersPanel").classList.toggle("open"); $("layersBtn").classList.toggle("on", open); });
 $("tabStatus").addEventListener("click", () => setTab("status"));
 $("copyActivity").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText(S.activity.map(activityLine).join("\n")); setStatus("Activity lines copied."); }

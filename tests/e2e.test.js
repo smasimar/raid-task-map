@@ -191,6 +191,10 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
 
   // the view button cycles setup -> mission across -> mission down -> setup
   const app = d.getElementById("app"), vb = d.getElementById("viewBtn");
+  // top bar: the map controls are one group, the timer and the status line are a second group
+  assert(d.querySelector("#maptools #mapSelect") && d.querySelector("#maptools #layersBtn") && d.querySelector("#maptools #viewBtn"), "the map controls are one group in the top bar");
+  assert(d.querySelector("#info #raidTimer") && d.querySelector("#info #status") && d.querySelector("#brand #tabs"), "the timer and the status line are a group at the right");
+  assert(!d.getElementById("status").textContent.includes("tasks available"), "the status line does not count the available tasks");
   // two tabs; on the Map tab the view button moves the mission list
   d.getElementById("tabMap").click();
   assert(app.classList.contains("tab-map") && !app.classList.contains("tab-tasks") && d.getElementById("tabMap").classList.contains("on"), "the Map tab shows the map");
@@ -385,7 +389,12 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   raid({});
   await sleep(50);
   assert(exNames().includes("Crossroads") && !exNames().includes("ex_scav_b"), "after the raid the PMC extracts are back");
-  assert(d.querySelector("#settings #extractMode") && d.querySelector("#settings #showAll") && !d.querySelector("aside #showQuests"), "the map options are on the Settings tab");
+  assert(d.querySelector("#layersPanel #extractMode") && d.querySelector("#layersPanel #showAll") && !d.querySelector("#settings #showQuests"), "the map options are in the Layers panel of the Map tab");
+  d.getElementById("layersBtn").click();
+  assert(d.getElementById("layersPanel").classList.contains("open") && d.getElementById("layersBtn").classList.contains("on"), "the Layers button opens the panel");
+  d.getElementById("layersBtn").click();
+  assert(!d.getElementById("layersPanel").classList.contains("open"), "and closes it");
+  assert(text("#settings h2").join("|") === "TarkovTracker|Folders|Automatic actions|About, credits and licenses", "the Settings tab has a heading for each group");
   assert(app.dataset.tab === "tasks" && !timer.classList.contains("on"), "raid end goes back to the Tasks tab and hides the timer");
   send({ type: "game", mode: "pve", session: "s", raid: { phase: "idle" } });
   await sleep(20);

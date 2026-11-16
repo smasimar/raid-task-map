@@ -129,6 +129,15 @@
   .exneed { color:var(--accent); }
   .keynote { color:var(--accent); white-space:nowrap; text-decoration:none; display:inline-block; text-indent:0; }
   .player svg { filter: drop-shadow(0 0 3px #000); }
+  /* mini view: a small window that stays on top of the game. Only the map and the icons, no text. */
+  #app.mini.tab-map header, #app.mini.tab-map #mission, #app.mini.tab-map #layersPanel,
+  #app.mini.tab-map .leaflet-control-container, #app.mini.tab-map .ex-icon span, #app.mini.tab-map .map-label { display:none !important; }
+  #app.mini.tab-map .ex-icon { transform:translate(-4px,-4px); }
+  #app.mini.tab-map .ex-icon .box { width:8px; height:8px; border-width:1px; }
+  #app.mini.tab-map .q-icon, #app.mini.tab-map .q-item { scale:.7; }
+  #miniExit { display:none; grid-column:1; grid-row:2; z-index:1100; justify-self:end; align-self:start; margin:4px; padding:0 6px; opacity:0; transition:opacity .15s; }
+  #app.mini.tab-map #miniExit { display:block; }
+  #app.mini.tab-map:hover #miniExit { opacity:.85; }
   .map-label { color:#ffffffb0; font-weight:600; white-space:nowrap; text-shadow:0 0 3px #000; pointer-events:none; }
   .leaflet-container { background:#0c0e10; font:inherit; }
   .leaflet-popup-content-wrapper, .leaflet-popup-tip { background:#1d2227; color:var(--text); }
@@ -194,7 +203,8 @@
     <select id="styleSelect" class="maptool" title="Map style"></select>
     <button id="resetViewBtn" class="maptool" title="Put the full map back in the window">⌖ Reset view</button>
     <button id="layersBtn" class="maptool" title="Select what the map shows">Layers ▾</button>
-    <button id="viewBtn" class="maptool" title="Put the mission list across the top or down the side of the map"></button>
+    <button id="miniBtn" class="maptool" title="Mini view: only the map, the extract icons and the task locations. Key: M">Mini</button>
+    <button id="viewBtn" class="maptool" title="Put the mission list across the top or down the side of the map, or hide it"></button>
     </div>
     <div id="info">
     <div id="raidTimer" title="Raid state, read from the game's log files"></div>
@@ -285,6 +295,7 @@
   <div id="layersPanel">
     <label class="row"><input type="checkbox" id="showQuests" checked> Task objectives</label>
     <label class="row"><input type="checkbox" id="showLabels" checked> Extract names</label>
+    <label class="row"><input type="checkbox" id="showLandmarks" checked> Landmark names</label>
     <label class="row" title="Also draw the tasks that you can have but did not tick"><input type="checkbox" id="showAll"> Every available task, not only the ticked ones</label>
     <div class="row">Extracts
       <select id="extractMode">
@@ -295,6 +306,7 @@
     <div class="hint">Automatic shows Scav extracts in a Scav raid and PMC extracts otherwise. If the raid timer shows the wrong side, select PMC or Scav. Extracts that PMCs and Scavs share are shown with every choice except None.</div>
   </div>
   <div id="map"></div>
+  <button type="button" id="miniExit" title="Leave the mini view. Key: M or Esc">⤢</button>
   <div id="mission"><div id="questList"></div></div>
 </div>
 
@@ -1012,6 +1024,7 @@ async function showMap(key) {
   S.lmap = map;
   const bounds = getBounds(mc.bounds);
   map.fitBounds(bounds);
+  if ($("app").classList.contains("mini")) setTimeout(fitMap, 50);
 
   // base style choice
   const styles = [];
@@ -1023,7 +1036,7 @@ async function showMap(key) {
   $("styleSelect").value = S.baseStyle;
   $("styleSelect").disabled = styles.length < 2;
 
-  S.layers = { base: null, quests: L.layerGroup().addTo(map), extracts: L.layerGroup().addTo(map), labels: L.layerGroup().addTo(map), player: L.layerGroup().addTo(map) };
+  S.layers = { base: null, quests: L.layerGroup().addTo(map), extracts: L.layerGroup().addTo(map), labels: L.layerGroup(), player: L.layerGroup().addTo(map) };
   await buildBase(mc);
   if (S.current !== mc || S.lmap !== map) return; // another map was selected while this one loaded
   buildFloorSelect(mc);
@@ -1121,7 +1134,13 @@ async function showFloor(index) {
   }
 }
 
+// The landmark names ("Dorms", "Old Gas Station") are one layer: the Layers panel shows or hides it.
+function showLandmarks() {
+  if (!S.lmap || !S.layers.labels) return;
+  $("showLandmarks").checked ? S.layers.labels.addTo(S.lmap) : S.layers.labels.remove();
+}
 function drawLabels(mc) {
+  showLandmarks();
   for (const label of mc.labels || []) {
     const size = label.size ?? 100;
     L.marker(pos({ x: label.position[0], z: label.position[1] }), {
@@ -1454,6 +1473,8 @@ $("showQuests").addEventListener("change", () => { store.set("showQuests", $("sh
 $("extractMode").value = store.get("extractMode", "auto");
 $("extractMode").addEventListener("change", () => { store.set("extractMode", $("extractMode").value); if (S.current) drawExtracts(S.current); });
 $("showLabels").checked = store.get("showLabels", true);
+$("showLandmarks").checked = store.get("showLandmarks", true);
+$("showLandmarks").addEventListener("change", () => { store.set("showLandmarks", $("showLandmarks").checked); showLandmarks(); });
 $("showLabels").addEventListener("change", () => { store.set("showLabels", $("showLabels").checked); if (S.current) drawExtracts(S.current); });
 $("showAll").checked = store.get("showMode", "selected") === "all";
 $("showAll").addEventListener("change", () => { store.set("showMode", showMode()); drawQuestMarkers(); });
@@ -1484,7 +1505,29 @@ function setTab(tab) {
   layoutHeader();
   setTimeout(() => S.lmap?.invalidateSize(), 50);
 }
-const VIEWS = [["mission-h", "List ↔"], ["mission-v", "List ↕"]];
+// Mini view: only the map, the extract icons and the task locations, with the full map in the window.
+const fitMap = () => { if (S.lmap && S.current) { S.lmap.invalidateSize(); S.lmap.fitBounds(getBounds(S.current.bounds)); } };
+function setMini(on) {
+  $("app").classList.toggle("mini", on);
+  store.set("mini", on);
+  setTimeout(fitMap, 50);
+}
+$("miniBtn").addEventListener("click", () => setMini(true));
+$("miniExit").addEventListener("click", () => setMini(false));
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.altKey || e.metaKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "")) return;
+  if ($("app").dataset.tab !== "map") return;
+  const mini = $("app").classList.contains("mini");
+  if (e.key === "m" || e.key === "M") setMini(!mini);
+  else if (e.key === "Escape" && mini) setMini(false);
+});
+let fitTimer = 0;
+window.addEventListener("resize", () => {   // the mini window keeps the full map in view when its size changes
+  if (!$("app").classList.contains("mini") || $("app").dataset.tab !== "map") return;
+  clearTimeout(fitTimer); fitTimer = setTimeout(fitMap, 150);
+});
+$("app").classList.toggle("mini", store.get("mini", false));
+const VIEWS = [["mission-h", "List ↔"], ["mission-v", "List ↕"], ["mission-off", "List ✕"]];
 function setView(v) {
   const i = Math.max(0, VIEWS.findIndex((x) => x[0] === v));
   $("app").classList.remove(...VIEWS.map((x) => "view-" + x[0]));

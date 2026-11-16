@@ -93,7 +93,10 @@ path there.
 - **Tasks tab.** Tick the tasks you have in the game. Click a task name to see its
   steps. The search box, the filters and **Sort** narrow and order the list.
 - **Map tab.** Select a map in the top bar. Click a step marked 📍 in the mission list
-  to move the map to it. The **List ↔** / **List ↕** button moves the mission list.
+  to move the map to it. The **Mini** button (key **M**) shows only the map, the extract icons and the task
+  locations, for a small window that you keep on top of the game; press **M** or
+  **Esc** to go back. The **List ↔** / **List ↕** / **List ✕** button puts the mission list across the top
+  or down the side, or hides it.
 - **In a raid.** Press your screenshot key to move your position marker (a blue
   arrow). The marker goes on the selected map.
 - **Progress.** With "Send task progress to TarkovTracker" on, the Tasks tab lets you
@@ -109,8 +112,8 @@ names the key that it needs.
 
 The app works out from the game logs whether a raid is a PMC raid or a Scav raid, and
 shows the extracts for that side. If it gets this wrong, select PMC or Scav under
-**Layers** on the Map tab. **Layers** also turns the task objectives and the extract
-names on and off.
+**Layers** on the Map tab. **Layers** also turns the task objectives, the extract
+names and the landmark names on and off.
 
 ## Troubleshooting
 

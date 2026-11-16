@@ -212,6 +212,8 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(app.classList.contains("tab-map") && !app.classList.contains("tab-tasks") && d.getElementById("tabMap").classList.contains("on"), "the Map tab shows the map");
   assert(app.classList.contains("view-mission-h") && vb.textContent === "List ↔", "mission list across the top");
   vb.click(); assert(app.classList.contains("view-mission-v") && !app.classList.contains("view-mission-h"), "mission list down the side");
+  vb.click(); assert(app.classList.contains("view-mission-off") && !app.classList.contains("view-mission-v") && vb.textContent === "List ✕", "third choice: no mission list");
+  assert(w.getComputedStyle(d.getElementById("mission")).display === "none", "the hidden list takes no room on the map");
   vb.click(); assert(app.classList.contains("view-mission-h"), "and across the top again");
   vb.click();
   d.getElementById("tabTasks").click();
@@ -406,6 +408,30 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(d.getElementById("layersPanel").classList.contains("open") && d.getElementById("layersBtn").classList.contains("on"), "the Layers button opens the panel");
   d.getElementById("layersBtn").click();
   assert(!d.getElementById("layersPanel").classList.contains("open"), "and closes it");
+  // mini view: a button and the M key; only the map and the icons stay
+  const shown = (sel) => w.getComputedStyle(d.querySelector(sel)).display !== "none";
+  const key = (k, target = d.body) => target.dispatchEvent(new w.KeyboardEvent("keydown", { key: k, bubbles: true }));
+  const tabBefore = app.dataset.tab;
+  d.getElementById("tabMap").click();
+  d.getElementById("miniBtn").click();
+  assert(app.classList.contains("mini") && !shown("header") && !shown("#mission") && !shown(".ex-icon span") && !shown(".map-label") && shown("#map") && shown(".ex-icon .box"), "mini view: no top bar, no list, no names; the map and the icons stay");
+  assert(w.localStorage.getItem("tqm.mini") === "true" && shown("#miniExit"), "the mini view is kept and has a button to leave it");
+  key("m"); assert(!app.classList.contains("mini") && shown("header"), "the M key leaves the mini view");
+  key("m", d.getElementById("mapSelect")); assert(!app.classList.contains("mini"), "the M key does nothing in a list or a text box");
+  key("M"); assert(app.classList.contains("mini"), "the M key opens the mini view");
+  key("Escape"); assert(!app.classList.contains("mini"), "Esc leaves the mini view");
+  key("M"); d.getElementById("tabTasks").click();
+  assert(shown("header"), "the other tabs keep the top bar in the mini view");
+  d.getElementById("tabMap").click(); key("Escape");
+  if (tabBefore !== "map") d.getElementById("tab" + tabBefore[0].toUpperCase() + tabBefore.slice(1)).click();
+  // landmark names: one option in the Layers panel
+  const marks = () => d.querySelectorAll(".leaflet-marker-pane .map-label").length, lm = d.getElementById("showLandmarks");
+  const allMarks = marks();
+  assert(d.querySelector("#layersPanel #showLandmarks") && allMarks > 0, "landmark names show by default");
+  lm.checked = false; lm.dispatchEvent(new w.Event("change"));
+  assert(marks() === 0 && w.localStorage.getItem("tqm.showLandmarks") === "false", "the option hides the landmark names and is kept");
+  lm.checked = true; lm.dispatchEvent(new w.Event("change"));
+  assert(marks() === allMarks, "and shows them again");
   assert(text("#settings h2").join("|") === "TarkovTracker|Folders|Automatic actions|About, credits and licenses", "the Settings tab has a heading for each group");
   assert(app.dataset.tab === "tasks" && !timer.classList.contains("on"), "raid end goes back to the Tasks tab and hides the timer");
   send({ type: "game", mode: "pve", session: "s", raid: { phase: "idle" } });

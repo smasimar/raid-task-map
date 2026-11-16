@@ -166,6 +166,9 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(text("#traderList .tbtn").some((x) => x.startsWith("Prapor") && x.includes("2 ·")), "the trader entry counts the tasks in progress");
   assert(quests.modes.regular.selected.includes("debut"), "tick saved by the helper");
   console.log("mission list:", text("#questList .qname"), text("#questList .step"));
+  w.eval('S.tasksById.get("debut").wikiLink = "https://wiki.example/Debut"; renderQuestPanel()');
+  const wl = [...d.querySelectorAll("#questList .qcard")].find((c) => c.querySelector(".qname")?.textContent === "Debut").querySelector("a.wiki");
+  assert(wl && wl.getAttribute("href") === "https://wiki.example/Debut" && wl.target === "_blank", "a mission card has a link to the task's wiki page");
   assert(text("#questList .step").some((x) => x.includes("Kill 5 Scavs") && x.includes("3/5")), "mission list shows steps with counts");
   assert(!text("#questList .step").some((x) => x.includes("Hand over 2 bolts")), "completed objective left out of the mission list");
 

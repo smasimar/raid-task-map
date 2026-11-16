@@ -90,6 +90,7 @@
   #app.view-mission-v .qcard { width:auto; }
   .qcard:hover { background:rgba(20,23,26,.95); }
   .qcard .trader { margin-left:6px; white-space:nowrap; }
+  .qhead .wiki { text-decoration:none; margin-left:6px; } .qhead .wiki:hover { color:var(--accent); }
   .step.elsewhere { color:var(--muted); }
   .qhead { display:flex; align-items:baseline; flex-wrap:wrap; }
   .qx { padding:0 6px; line-height:18px; border-radius:4px; color:var(--muted); }
@@ -950,7 +951,7 @@ function missionCard(task, here) {
   const card = document.createElement("div");
   card.className = "qcard" + (here ? " here" : "");
   const trader = S.traders[ref(task.trader)]?.name || "";
-  card.innerHTML = `<div class="qhead"><span class="qname">${esc(taskName(task))}</span><span class="trader">${esc(trader)}${here ? "" : " · any location"}</span></div>`;
+  card.innerHTML = `<div class="qhead"><span class="qname">${esc(taskName(task))}</span><span class="trader">${esc(trader)}${here ? "" : " · any location"}</span>${task.wikiLink ? `<a class="wiki muted" href="${esc(task.wikiLink)}" target="_blank" rel="noopener" title="Wiki">↗</a>` : ""}</div>`;
   let open = 0;
   for (const obj of task.objectives || []) {
     const prog = S.objDone?.get(obj.id);

@@ -643,6 +643,31 @@ async function questOp(op) {
   }
 }
 const setSelected = (id, on) => questOp(on ? { add: [id] } : { remove: [id] });
+// Tasks that the game has but tarkov.dev does not have yet (new or event tasks). The game logs give
+// only the id of such a task, so the app shows it as text. You can give it a name; the name stays in this browser.
+const unknownTasks = () => (S.tasks.length ? [...S.sel].filter((id) => !S.tasksById.has(id)) : []);
+const unknownName = (id) => store.get("taskNames", {})[id] || `Unknown task …${id.slice(-6)}`;
+function nameUnknown(id) {
+  const names = store.get("taskNames", {});
+  const name = prompt("tarkov.dev does not have this task yet, so the app knows only its id.\nType the name that the game shows for it:", names[id] || "");
+  if (name === null) return;
+  if (name.trim()) names[id] = name.trim().slice(0, 80); else delete names[id];
+  store.set("taskNames", names);
+  renderTasks();
+}
+function removeUnknown(id) {
+  store.set("unknownHidden", [...new Set([...store.get("unknownHidden", []), id])]);   // so the old logs do not put it back
+  setSelected(id, false);
+}
+// The old game logs can show a started task that tarkov.dev does not know. Tick it, so that it is visible.
+async function findUnknownInLogs() {
+  try {
+    const res = await (await postJSON("/api/past-logs", { apply: false })).json();
+    const hidden = new Set(store.get("unknownHidden", []));
+    const add = (res.changes?.[S.mode]?.started || []).filter((id) => !S.tasksById.has(id) && !S.sel.has(id) && !hidden.has(id));
+    if (add.length) await questOp({ add });
+  } catch {}
+}
 const setCustom = (name, on) => questOp(on ? { addCustom: [name] } : { removeCustom: [name] });
 // ------------------------------------------------------------------ progress changes, sent to TarkovTracker by the helper
 const MODE_NAMES = { regular: "PvP", pve: "PvE", "pvp-season": "PvP season" };
@@ -876,7 +901,8 @@ function renderTaskView() {
     b.addEventListener("click", () => { store.set("tvTrader", key); $("taskSearch").value = ""; renderTaskView(); });
     nav.appendChild(b);
   };
-  entry("mine", "My tasks", mine.length + S.custom.length, "The tasks you have in the game");
+  const unknown = unknownTasks();
+  entry("mine", "My tasks", mine.length + unknown.length + S.custom.length, "The tasks you have in the game");
   entry("all", "All traders", S.tasks.length, "The tasks of all traders");
   traders.forEach((tr, i) => {
     const own = S.tasks.filter((x) => ref(x.trader) === tr.id);
@@ -929,14 +955,24 @@ function renderTaskView() {
     rows = rows.map(({ task }) => ({ task, depth: 0, group: group(task) }))
       .sort((a, b) => key(a.task).localeCompare(key(b.task)) || byName(a.task, b.task));
   }
-  title(`${heading} · ${rows.length + (cur === "mine" && !find ? S.custom.length : 0)} task${rows.length === 1 ? "" : "s"}`);
+  title(`${heading} · ${rows.length + (cur === "mine" && !find ? unknown.length + S.custom.length : 0)} task${rows.length === 1 ? "" : "s"}`);
   if (!rows.length) note(cur === "mine" && !find && !only && !mapKey
-    ? (S.custom.length ? "" : "No tasks yet. Select a trader on the left and tick the tasks you have in the game. A task that you accept while this app runs is ticked automatically.")
+    ? (S.custom.length + unknown.length ? "" : "No tasks yet. Select a trader on the left and tick the tasks you have in the game. A task that you accept while this app runs is ticked automatically.")
     : "No tasks match these filters.");
   let last;
   for (const r of rows) {
     if (r.group !== undefined && r.group !== last) { last = r.group; main.insertAdjacentHTML("beforeend", `<div class="tgroup">${esc(r.group)}</div>`); }
     main.appendChild(taskRow(r.group !== undefined ? { ...r, root: false } : r, available, withTrader));
+  }
+  if (cur === "mine" && !find) for (const id of unknown) {
+    const row = document.createElement("div");
+    row.className = "trow st-active unknown";
+    row.innerHTML = `<div class="thead"><button class="pbtn" title="Remove from my tasks">×</button><span class="tname" title="Give this task a name">${esc(unknownName(id))}</span><button class="pbtn" title="Give this task a name">✎ name</button><span class="tmeta">tarkov.dev does not have this task yet: text only, no map markers</span></div>`;
+    const [del, name] = row.querySelectorAll("button");
+    del.addEventListener("click", () => removeUnknown(id));
+    name.addEventListener("click", () => nameUnknown(id));
+    row.querySelector(".tname").addEventListener("click", () => nameUnknown(id));
+    main.appendChild(row);
   }
   if (cur === "mine" && !find) for (const name of S.custom) {
     const row = document.createElement("div");
@@ -979,7 +1015,7 @@ function renderQuestPanel() {
   for (const list of [here, any, other]) list.sort(byName);
   for (const { task } of here) box.appendChild(missionCard(task, true));
   for (const { task } of any) if (hasRaidStep(task)) box.appendChild(missionCard(task, false));
-  const custom = customQuests();
+  const custom = [...unknownTasks().map(unknownName), ...customQuests()];
   for (const name of custom) {
     const card = document.createElement("div");
     card.className = "qcard";
@@ -1363,7 +1399,7 @@ setInterval(updateRaidTimer, 1000);
 const hhmmss = (sec) => (sec ? new Date(sec * 1000).toLocaleTimeString() : "");
 function activityLine(a) {
   let text = a.text;
-  if (a.taskId) { const task = S.tasksById.get(a.taskId); text = `${a.status || ""}: ${task ? taskName(task) : a.taskId}`; }
+  if (a.taskId) { const task = S.tasksById.get(a.taskId); text = `${a.status || ""}: ${task ? taskName(task) : unknownName(a.taskId)}`; }
   if (a.raid && a.raid.phase !== "idle") {
     const { api, mc } = raidMap(a.raid);
     const name = mc ? mc.displayName : api ? t(S.mapsEn, api.name, api.normalizedName) : "";
@@ -1505,6 +1541,7 @@ async function boot() {
   populateMapSelect();
   populateTaskSearch();
   await loadQuests().catch((e) => setStatus(`Could not load the task list: ${e.message}`, true));
+  findUnknownInLogs();
   const state =await getJSON("/api/state").catch(() => ({}));
   const startKey = store.get("map", "customs");
   // a position from an earlier raid is probably on a different map

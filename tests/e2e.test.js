@@ -86,7 +86,7 @@ const dom = new JSDOM(html, {
       if (u.startsWith("/api/progress/")) { progressPosts.push([u, JSON.parse(opts.body)]); return reply({ type: "writes", pending: 1, error: null }); }
       if (u === "/api/config" && opts?.method === "POST") { Object.assign(routes["/api/config"], JSON.parse(opts.body), { canWrite: true }); return reply(routes["/api/config"]); }
       if (u === "/api/past-logs") {
-        const changes = { regular: { started: ["woodsTask", "doneTask"], ended: ["nades"] } };
+        const changes = { regular: { started: ["woodsTask", "doneTask", ...logOnlyTasks], ended: ["nades"] } };
         if (JSON.parse(opts.body).apply) { pastLogsApplied++; questPost(w, { mode: "regular", add: changes.regular.started, remove: changes.regular.ended }); }
         return reply({ changes, messages: 3, applied: JSON.parse(opts.body).apply });
       }
@@ -106,6 +106,7 @@ w.console.warn = (...a) => errors.push("warn " + a.join(" "));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const text = (sel) => [...d.querySelectorAll(sel)].map((e) => e.textContent.replace(/\s+/g, " ").trim());
 // Tasks view helpers: select an entry on the left, read the task rows on the right
+const logOnlyTasks = [];   // ids that the old game logs have and the task data does not
 const pick = (name) => [...d.querySelectorAll("#traderList .tbtn")].find((b) => b.firstChild.textContent === name).click();
 const rows = (cls = "") => [...d.querySelectorAll("#taskLines .trow" + cls)].map((r) => r.querySelector(".tname").textContent);
 const rowOf = (name) => [...d.querySelectorAll("#taskLines .trow")].find((r) => r.querySelector(".tname").textContent === name);
@@ -427,6 +428,25 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(d.getElementById("layersPanel").classList.contains("open") && d.getElementById("layersBtn").classList.contains("on"), "the Layers button opens the panel");
   d.getElementById("layersBtn").click();
   assert(!d.getElementById("layersPanel").classList.contains("open"), "and closes it");
+  // a task that tarkov.dev does not have: found in the old logs, shown as text, can get a name
+  {
+    const GHOST = "6a763df2161e4b45b1015663", before = d.getElementById("app").dataset.tab;
+    const ghostRow = () => d.querySelector("#taskLines .trow.unknown");
+    logOnlyTasks.push(GHOST);
+    await w.eval("findUnknownInLogs()");
+    d.getElementById("tabTasks").click(); pick("My tasks");
+    assert(quests.modes.regular.selected.includes(GHOST) && ghostRow()?.querySelector(".tname").textContent === "Unknown task …015663", "a started task that the data does not have shows under My tasks");
+    w.prompt = () => "A Familiar Face...";
+    ghostRow().querySelectorAll("button")[1].click();
+    assert(ghostRow().querySelector(".tname").textContent === "A Familiar Face..." && text("#questList .qname").includes("A Familiar Face..."), "the task can get a name; the mission list shows it");
+    ghostRow().querySelector("button").click();
+    await sleep(20);
+    assert(!ghostRow() && !quests.modes.regular.selected.includes(GHOST), "the × button removes it");
+    await w.eval("findUnknownInLogs()");
+    assert(!quests.modes.regular.selected.includes(GHOST), "and the old logs do not put it back");
+    logOnlyTasks.length = 0;
+    d.getElementById("tab" + before[0].toUpperCase() + before.slice(1)).click();
+  }
   // mini view: a button and the M key; only the map and the icons stay
   const shown = (sel) => w.getComputedStyle(d.querySelector(sel)).display !== "none";
   const key = (k, target = d.body) => target.dispatchEvent(new w.KeyboardEvent("keydown", { key: k, bubbles: true }));

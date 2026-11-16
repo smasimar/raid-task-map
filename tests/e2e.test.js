@@ -33,7 +33,7 @@ const apiMaps = {
     { id: "e2", name: "ex_scav_b", faction: "scav", position: { x: 0, y: 0, z: 0 }, switches: [] },
     { id: "e3", name: "ex_shared_c", faction: "shared", position: { x: -200, y: 0, z: 50 }, switches: ["s"] },
     { id: "e4", name: "ex_null_d", faction: null, position: { x: -100, y: 0, z: 60 }, switches: [] }] },
-  [WOODS]: { id: WOODS, name: `${WOODS} Name`, normalizedName: "woods", nameId: "Woods", scenePath: "maps/woods_preset.bundle", raidDuration: 35, extracts: [] },
+  [WOODS]: { id: WOODS, name: `${WOODS} Name`, normalizedName: "woods", nameId: "Woods", scenePath: "maps/woods_preset.bundle", raidDuration: 35, extracts: [], locks: [{ id: "l1", key: "k206" }] },
 };
 const mapsEn = { [`${CUST} Name`]: "Customs", [`${WOODS} Name`]: "Woods", ex_pmc_a: "Crossroads", ex_shared_c: "Boat", ex_null_d: "Coop thing" };
 const progress = { data: { tasksProgress: [{ id: "doneTask", complete: true }], taskObjectivesProgress: [{ id: "o1", complete: false, count: 3 }, { id: "o2", complete: true }], tradersProgress: [{ id: PRAPOR, level: 2, reputation: 0.2 }], displayName: "Tester", playerLevel: 12, pmcFaction: "USEC" }, meta: {} };
@@ -116,7 +116,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   console.log("status:", d.getElementById("status").textContent);
   assert(d.getElementById("mapSelect").value === "customs", "starts on customs");
   assert(d.getElementById("app").dataset.tab === "tasks" && d.getElementById("tabTasks").classList.contains("on"), "starts on the Tasks tab");
-  assert(text("#traderList .tbtn span:first-child").join() === "My tasks,All traders,Jaeger,Prapor", "left list: My tasks, All traders, then the traders");
+  assert(text("#traderList .tbtn span:first-child").join() === "My tasks,All traders,Prapor,Jaeger", "left list: My tasks, All traders, then the traders in the order of the game");
   pick("Prapor");
   console.log("Prapor lines:", rows());
   assert(rows(".st-available").includes("Debut"), "Debut available");
@@ -153,6 +153,22 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(w.eval('extractNeeds({ name: "EXFIL_vent" }, "Sewer Manhole").join()') === "no backpack" && w.eval('extractNeeds({ name: "x" }, "Old Road").length') === 0, "no backpack rule; no note for a usual extract");
   // keys that a task needs
   assert(w.eval('keyText([["k206", "k207"]])') === "Dorm room 206 key or Spare key" && w.eval('keyText([{ map: "m", keys: ["k206"] }])') === "Dorm room 206 key", "key names for a step and for a task");
+  // a key belongs to the map that has its lock (here: Woods), not to each map of the step
+  const cfg = (k) => `S.mapCfgs.find((mc) => mc.key === "${k}")`;
+  assert(w.eval(`keyText([["k206"]], { on: ${cfg("customs")} })`) === "" && w.eval(`keyText([["k206"]], { on: ${cfg("woods")} })`) === "Dorm room 206 key", "on the map, a key shows only where its lock is");
+  assert(w.eval(`keyText([["k206"]], { mapIds: ["${CUST}", "${WOODS}"] })`) === "Dorm room 206 key (Woods)" && w.eval(`keyText([["k206"]], { mapIds: ["${WOODS}"] })`) === "Dorm room 206 key", "a step on two maps names the map of the key");
+  assert(w.eval(`keyText([["k207"]], { on: ${cfg("customs")} })`) === "Spare key", "a key with no lock data shows on each map");
+  // a step that names its map loses the locations on other maps, and the keys for them (Vitamins)
+  const stale = w.eval(`(() => {
+    const loc = (m) => ({ map: m, positions: [{ x: 1, y: 0, z: 1 }] });
+    const obj = { id: "os", description: "os", type: "findQuestItem", maps: ["${CUST}", "${WOODS}"], possibleLocations: [loc("${CUST}"), loc("${WOODS}")], requiredKeys: [["k206"]] };
+    const same = { id: "ot", description: "ot", type: "findQuestItem", maps: ["${CUST}", "${WOODS}"], possibleLocations: [loc("${CUST}"), loc("${WOODS}")], requiredKeys: [["k206"]] };
+    const task = { id: "staleTask", name: "x", objectives: [obj, same], neededKeys: [{ map: "${CUST}", keys: ["k206"] }] };
+    S.tasksEn.os = "Find the box on Customs"; S.tasksEn.ot = "Find the box";
+    S.tasks.push(task); pruneStaleLocations(); S.tasks.pop();
+    return JSON.stringify([obj.maps, obj.possibleLocations.map((l) => l.map), obj.requiredKeys, same.possibleLocations.length, same.requiredKeys, task.neededKeys]);
+  })()`);
+  assert(stale === JSON.stringify([[CUST], [CUST], [], 2, [["k206"]], [{ map: CUST, keys: ["k206"] }]]), "a step that names Customs keeps only its Customs location and loses the Woods key; a step that names no map is not changed");
   pick("Prapor");
   assert([...d.querySelectorAll(".trow")].find((r) => r.querySelector(".tname").textContent === "Checking").querySelector(".tmeta").textContent.includes("🔑 Dorm room 206 key"), "the task line shows the key that the task needs");
   pick("My tasks");
@@ -256,7 +272,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   const set = (id, value) => { const el = d.getElementById(id); if (el.type === "checkbox") el.checked = value; else el.value = value; el.dispatchEvent(new w.Event("change")); };
   const groups = () => text("#taskLines .tgroup");
   pick("All traders");
-  assert(groups().join() === "Jaeger,Prapor" && rows().includes("Jaeger Job") && rows().includes("Debut"), "All traders: the lines of each trader under its name");
+  assert(groups().join() === "Prapor,Jaeger" && rows().includes("Jaeger Job") && rows().includes("Debut"), "All traders: the lines of each trader under its name");
   set("onlyActive", true);
   assert(rows().length > 0 && rows().length === rows(".st-active").length && !rows().includes("Endgame"), "Only accepted shows only the tasks in progress");
   set("onlyActive", false);

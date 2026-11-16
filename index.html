@@ -57,6 +57,8 @@
   .tbtn.on { background:#2c333b; color:var(--accent); }
   .tbtn .n { color:var(--muted); font-size:12px; white-space:nowrap; }
   .tbtn.sep { margin-top:8px; }
+  .tbtn.sep.line { margin-top:14px; position:relative; }
+  .tbtn.sep.line::before { content:""; position:absolute; left:4px; right:4px; top:-7px; border-top:1px solid var(--line); }
   #taskLines { flex:1; min-width:0; overflow:auto; padding:10px 16px 40px; }
   .tgroup { margin:14px 0 4px; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-weight:600; }
   #taskLines h2 { font-size:13px; margin:0 0 8px; color:var(--muted); font-weight:600; }
@@ -362,10 +364,21 @@ async function getJSON(url) {
 function t(dict, key, fallback) { const v = dict[key]; return v ? v : (fallback ?? key); }
 const itemName = (id, fallback) => S.itemsEn?.[`${ref(id)} Name`] || fallback;
 // Keys that a step or a task needs. requiredKeys: [[a, b], [c]] = (a or b) and c. neededKeys: [{map, keys}].
-function keyText(groups) {
-  return (groups || []).map((g) => [...new Set((Array.isArray(g) ? g : g.keys || []).map((k) => itemName(k, "a key")))].join(" or ")).filter(Boolean).join(", ");
+// A key opens a door on one map. A step can have locations on more than one map (Vitamins: Factory,
+  // and room 112 on Shoreline), so the key is tied to the maps that have its lock:
+  //   on: a map config. Keys with no lock on that map are left out.
+  //   mapIds: the maps of the step or task. If one of them has no lock for the key, the key's map is named.
+function keyText(groups, { on, mapIds } = {}) {
+  const cfgs = mapIds ? S.mapCfgs.filter((mc) => mapIds.some((id) => mc.ids.has(ref(id)))) : [];
+  const one = (k) => {
+    const locks = S.keyLocks?.get(ref(k)), has = (mc) => [...mc.ids].some((id) => locks.has(id));
+    if (locks && on && !has(on)) return "";
+    const name = itemName(k, "a key");
+    return locks && !on && cfgs.some((mc) => !has(mc)) ? `${name} (${S.mapCfgs.filter(has).map((mc) => mc.displayName).join(" / ")})` : name;
+  };
+  return (groups || []).map((g) => [...new Set((Array.isArray(g) ? g : g.keys || []).map(one).filter(Boolean))].join(" or ")).filter(Boolean).join(", ");
 }
-const keyNote = (groups) => { const text = keyText(groups); return text ? ` <span class="keynote" title="Key that this step needs">🔑 ${esc(text)}</span>` : ""; };
+const keyNote = (groups, where) => { const text = keyText(groups, where); return text ? ` <span class="keynote" title="Key that this step needs">🔑 ${esc(text)}</span>` : ""; };
 // What an extract needs. tarkov.dev gives the item to pay or to carry (transferItem). The other
 // rules are not in the data: they come from the extract's name and from this small list.
 const EXTRACT_NEEDS = {
@@ -383,6 +396,35 @@ function extractNeeds(ex, name) {
   if (/co-?op/i.test(name) || /coop/i.test(ex.name)) needs.push("a PMC and a Scav together");
   needs.push(...(EXTRACT_NEEDS[ex.name] || []));
   return needs;
+}
+
+// tarkov.dev can keep a location from an older version of a task. Vitamins: the step says "on Factory",
+// but the data also has a location on Shoreline, with the key for that room. When the text of a step
+// names one of its maps, the locations on the maps that it does not name are removed, with their keys.
+function pruneStaleLocations() {
+  const cfgOf = (id) => S.mapCfgs.find((mc) => mc.ids.has(ref(id)));
+  const hasLock = (key, cfgs) => { const locks = S.keyLocks.get(ref(key)); return !locks || cfgs.some((mc) => [...mc.ids].some((id) => locks.has(id))); };
+  for (const task of S.tasks) {
+    let pruned = false;
+    for (const obj of task.objectives || []) {
+      const ids = [...(obj.maps || []), ...(obj.zones || []).map((z) => z.map), ...(obj.possibleLocations || []).map((l) => l.map)];
+      const cfgs = [...new Set(ids.map(cfgOf).filter(Boolean))];
+      if (cfgs.length < 2) continue;
+      const text = t(S.tasksEn, obj.description, "").toLowerCase();
+      const named = cfgs.filter((mc) => mc.apiMaps.some((a) => text.includes(t(S.mapsEn, a.name, a.normalizedName).toLowerCase())));
+      if (!named.length || named.length === cfgs.length) continue;
+      const keep = (id) => named.includes(cfgOf(id));
+      if (obj.maps) obj.maps = obj.maps.filter(keep);
+      if (obj.zones) obj.zones = obj.zones.filter((z) => keep(z.map));
+      if (obj.possibleLocations) obj.possibleLocations = obj.possibleLocations.filter((l) => keep(l.map));
+      if (obj.requiredKeys) obj.requiredKeys = obj.requiredKeys.map((g) => g.filter((k) => hasLock(k, named))).filter((g) => g.length);
+      pruned = true;
+    }
+    if (pruned && task.neededKeys) {
+      const cfgs = taskMaps(task);
+      task.neededKeys = task.neededKeys.map((g) => ({ ...g, keys: (g.keys || []).filter((k) => hasLock(k, cfgs)) })).filter((g) => g.keys.length);
+    }
+  }
 }
 
 async function loadGameData() {
@@ -413,6 +455,13 @@ async function loadGameData() {
     mc.displayName = mc.primary ? t(S.mapsEn, mc.primary.name, mc.key) : mc.key;
   }
   S.mapCfgs = S.mapCfgs.filter((mc) => mc.primary);
+  S.keyLocks = new Map();   // key item id -> ids of the maps that have a lock for it
+  for (const a of S.apiMaps) for (const lock of a.locks || []) {
+    if (!lock.key) continue;
+    if (!S.keyLocks.has(ref(lock.key))) S.keyLocks.set(ref(lock.key), new Set());
+    S.keyLocks.get(ref(lock.key)).add(a.id);
+  }
+  pruneStaleLocations();
   // item names (keys, extract payments): a large file, so the page does not wait for it
   getJSON(`${JSON_API}/${m}/items_en`).then((d) => {
     if (S.mode !== m) return;
@@ -779,7 +828,7 @@ function taskRow({ task, depth, root }, available, withTrader) {
   row.style.marginLeft = `${depth * 22}px`;
   const maps = taskMaps(task).map((m) => m.displayName).join(" / ");
   const waits = st !== "locked" ? [] : (task.taskRequirements || []).map((r) => S.tasksById.get(ref(r.task))).filter((x) => x && !S.finished?.has(x.id)).slice(0, 2).map(taskName);
-  const keys = keyText(task.neededKeys);
+  const keys = keyText(task.neededKeys, { mapIds: taskMaps(task).flatMap((mc) => [...mc.ids]) });
   const meta = [withTrader ? S.traders[ref(task.trader)]?.name : "", task.minPlayerLevel > 1 ? `level ${task.minPlayerLevel}` : "", maps, keys ? `🔑 ${keys}` : "", waits.length ? `after: ${waits.join(", ")}` : ""].filter(Boolean).join(" · ");
   const label = { done: "completed", active: "in progress", available: "available", locked: "locked" }[st];
   row.innerHTML = `<div class="thead">${st === "done" ? "" : `<input type="checkbox" ${st === "active" ? "checked" : ""} title="I have this task in the game">`}
@@ -800,18 +849,22 @@ function taskRow({ task, depth, root }, available, withTrader) {
     const done = st === "done" || !!S.objDone?.get(obj.id)?.complete;
     const od = document.createElement("div");
     od.className = "tobj" + (done ? " done" : "");
-    od.innerHTML = `• ${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${keyNote(obj.requiredKeys)}`;
+    od.innerHTML = `• ${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${keyNote(obj.requiredKeys, { mapIds: obj.maps || [] })}`;
     if (st !== "done") od.appendChild(progressButtons(obj));
     row.appendChild(od);
   }
   return row;
 }
+const TRADER_ORDER = ["prapor", "therapist", "skier", "peacekeeper", "mechanic", "ragman", "jaeger", "ref"];
+const IN_RAID_TRADERS = ["btr-driver", "lightkeeper"];
 function renderTaskView() {
   const nav = $("traderList"), main = $("taskLines");
   if (!nav || !main) return;
   const available = new Set((S.available || []).map((x) => x.id));
   const mine = [...S.sel].map((id) => S.tasksById.get(id)).filter((x) => x && !S.finished?.has(x.id));
-  const traders = Object.values(S.traders).filter((tr) => S.tasks.some((x) => ref(x.trader) === tr.id)).sort((a, b) => a.name.localeCompare(b.name));
+  // The order of the game's trader screen, with Fence last. Then the traders that you meet only in a raid.
+  const rank = (tr) => { const i = TRADER_ORDER.indexOf(tr.normalizedName); return IN_RAID_TRADERS.includes(tr.normalizedName) ? 300 + IN_RAID_TRADERS.indexOf(tr.normalizedName) : tr.normalizedName === "fence" ? 200 : i < 0 ? 100 : i; };
+  const traders = Object.values(S.traders).filter((tr) => S.tasks.some((x) => ref(x.trader) === tr.id)).sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
   let cur = store.get("tvTrader", "mine");
   if (cur !== "mine" && cur !== "all" && !traders.some((tr) => tr.id === cur)) cur = "mine";
   // left: My tasks, then one entry for each trader
@@ -828,7 +881,7 @@ function renderTaskView() {
   traders.forEach((tr, i) => {
     const own = S.tasks.filter((x) => ref(x.trader) === tr.id);
     const active = own.filter((x) => S.sel.has(x.id) && !S.finished?.has(x.id)).length, open = own.filter((x) => available.has(x.id) && !S.sel.has(x.id)).length;
-    entry(tr.id, tr.name, `${active} · ${open}`, `${active} in progress · ${open} more available`, i ? "" : " sep");
+    entry(tr.id, tr.name, `${active} · ${open}`, `${active} in progress · ${open} more available`, !i ? " sep" : rank(tr) >= 300 && rank(traders[i - 1]) < 300 ? " sep line" : "");
   });
   // right: the task rows
   main.innerHTML = "";
@@ -964,7 +1017,7 @@ function missionCard(task, here) {
     const cnt = obj.count > 1 ? ` <span class="muted">${prog?.count || 0}/${obj.count}</span>` : "";
     const st = document.createElement("div");
     st.className = "step" + (go ? " go" : "") + (elsewhere ? " elsewhere" : "");
-    st.innerHTML = `${go ? "📍 " : "• "}${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}${keyNote(obj.requiredKeys)}`;
+    st.innerHTML = `${go ? "📍 " : "• "}${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}${keyNote(obj.requiredKeys, here ? { on: S.current } : { mapIds: obj.maps || [] })}`;
     if (go) st.addEventListener("click", () => focusPos(mo.positions[0].pos, `${task.id}:${obj.id}:0`));
     card.appendChild(st);
   }

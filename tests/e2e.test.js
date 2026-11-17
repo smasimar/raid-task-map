@@ -32,7 +32,9 @@ const apiMaps = {
     { id: "e1", name: "ex_pmc_a", faction: "pmc", position: { x: 300, y: 0, z: -100 }, outline: [{ x: 1, y: 0, z: 1 }, { x: 2, y: 0, z: 2 }, { x: 3, y: 0, z: 1 }], switches: [], transferItem: { item: "rub", count: 20000 } },
     { id: "e2", name: "ex_scav_b", faction: "scav", position: { x: 0, y: 0, z: 0 }, switches: [] },
     { id: "e3", name: "ex_shared_c", faction: "shared", position: { x: -200, y: 0, z: 50 }, switches: ["s"] },
-    { id: "e4", name: "ex_null_d", faction: null, position: { x: -100, y: 0, z: 60 }, switches: [] }] },
+    { id: "e4", name: "ex_null_d", faction: null, position: { x: -100, y: 0, z: 60 }, switches: [] }],
+    transits: [{ id: "9", description: "CUS_TRANSIT_9_DESC", map: WOODS, position: { x: 50, y: 0, z: 50 }, outline: [] },
+      { id: "10", description: "CUS_TRANSIT_10_DESC", map: "unknownMap", conditions: "CUS_TRANSIT_10_COND", position: { x: 60, y: 0, z: 50 } }] },
   [WOODS]: { id: WOODS, name: `${WOODS} Name`, normalizedName: "woods", nameId: "Woods", scenePath: "maps/woods_preset.bundle", raidDuration: 35, extracts: [], locks: [{ id: "l1", key: "k206" }] },
 };
 const mapsEn = { [`${CUST} Name`]: "Customs", [`${WOODS} Name`]: "Woods", ex_pmc_a: "Crossroads", ex_shared_c: "Boat", ex_null_d: "Coop thing" };
@@ -143,9 +145,16 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   pick("My tasks");
   assert(rows(".st-active").join() === "Extra Zone", "moved tick shows under My tasks");
   assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 1 && d.querySelectorAll(".leaflet-marker-pane .q-item").length === 0, "only the moved tick has a marker before ticking");
-  const ex = text(".ex-icon span");
+  const ex = text(".ex-icon:not(.ex-transit) span");
   console.log("extracts:", ex);
   assert(ex.length === 3 && ex.includes("Crossroads") && ex.includes("Boat") && !ex.some((x) => x.includes("scav")), "PMC + shared extracts only");
+  // transits: the name from the game text, else from the map they go to; a condition dims them
+  const trs = [...d.querySelectorAll(".ex-transit")];
+  assert(trs.map((x) => x.textContent).join() === "Transit to Woods,Transit to another map", "transits show with their names");
+  assert(trs[1].classList.contains("ex-need") && !trs[0].classList.contains("ex-need"), "a transit with a condition is dimmed");
+  d.getElementById("showTransits").checked = false; d.getElementById("showTransits").dispatchEvent(new w.Event("change"));
+  assert(d.querySelectorAll(".ex-transit").length === 0 && text(".ex-icon span").length === 3, "the Layers option hides the transits only");
+  d.getElementById("showTransits").checked = true; d.getElementById("showTransits").dispatchEvent(new w.Event("change"));
   // extracts with a special requirement are dimmed and say what they need
   const exIcon = (name) => [...d.querySelectorAll(".ex-icon")].find((x) => x.textContent === name);
   assert(exIcon("Crossroads").classList.contains("ex-need") && exIcon("Coop thing").classList.contains("ex-need") && !exIcon("Boat").classList.contains("ex-need"), "extracts that need an item or a partner are dimmed");

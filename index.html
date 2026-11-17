@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <style>
-  :root { --bg:#14171a; --panel:#1d2227; --line:#30363d; --text:#e6e6e6; --muted:#9aa4ad; --accent:#e5e200; --pmc:#00e599; --shared:#00e4e5; --danger:#ff6b6b; }
+  :root { --bg:#14171a; --panel:#1d2227; --line:#30363d; --text:#e6e6e6; --muted:#9aa4ad; --accent:#e5e200; --pmc:#00e599; --shared:#00e4e5; --transit:#c49bff; --danger:#ff6b6b; }
   * { box-sizing: border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
   /* the map always has the full area, so it keeps its size; the Tasks view lies on top of it */
@@ -127,6 +127,7 @@
   .ex-icon span { font-size:12px; font-weight:600; text-shadow:0 0 3px #000, 0 0 3px #000, 0 0 2px #000; }
   .ex-pmc .box { background:var(--pmc); } .ex-pmc span { color:var(--pmc); }
   .ex-shared .box { background:var(--shared); } .ex-shared span { color:var(--shared); }
+  .ex-transit .box { background:var(--transit); border-radius:50%; } .ex-transit span { color:var(--transit); }
   .ex-scav .box { background:#ffa94d; } .ex-scav span { color:#ffa94d; }
   .ex-need { filter:saturate(.3); opacity:.8; }   /* an extract with a special requirement */
   .exneed { color:var(--accent); }
@@ -299,6 +300,7 @@
     <label class="row"><input type="checkbox" id="showQuests" checked> Task objectives</label>
     <label class="row"><input type="checkbox" id="showLabels" checked> Extract names</label>
     <label class="row"><input type="checkbox" id="showLandmarks" checked> Landmark names</label>
+    <label class="row" title="Exits to another map"><input type="checkbox" id="showTransits" checked> Transits</label>
     <label class="row" title="Also draw the tasks that you can have but did not tick"><input type="checkbox" id="showAll"> Every available task, not only the ticked ones</label>
     <div class="row">Extracts
       <select id="extractMode">
@@ -1283,6 +1285,31 @@ function drawExtracts(mc) {
       m.on("mouseout", () => poly.remove());
     }
   }
+  if ($("showTransits").checked) drawTransits(mc);
+}
+// Transits: exits that take you to another map. tarkov.dev gives the condition of some of them
+// only as a game text key with no English text, so the app says only that there is one.
+function drawTransits(mc) {
+  const showName = $("showLabels").checked;
+  const seen = new Set();
+  for (const tr of mc.primary.transits || []) {
+    if (!tr.position || seen.has(tr.id)) continue;
+    seen.add(tr.id);
+    const to = S.apiMaps.find((a) => a.id === tr.map);
+    const name = t(S.mapsEn, tr.description, `Transit to ${to ? t(S.mapsEn, to.name, to.normalizedName) : "another map"}`);
+    const cond = tr.conditions ? "a condition (see the wiki)" : "";
+    const m = L.marker(pos(tr.position), {
+      zIndexOffset: 400, riseOnHover: true, title: cond ? `${name}. Needs: ${cond}` : name,
+      icon: L.divIcon({ className: "", iconSize: null, html: `<div class="ex-icon ex-transit${cond ? " ex-need" : ""}"><div class="box"></div>${showName ? `<span>${esc(name)}</span>` : ""}</div>` }),
+    });
+    m.bindPopup(`<b>${esc(name)}</b><div class="muted">Transit to another map</div>${cond ? `<div class="exneed">Needs: ${esc(cond)}</div>` : ""}`);
+    m.addTo(S.layers.extracts);
+    if (tr.outline?.length) {
+      const poly = L.polygon(tr.outline.map(pos), { color: "#c49bff", weight: 1, fillOpacity: 0.15, interactive: false });
+      m.on("mouseover", () => poly.addTo(S.layers.extracts));
+      m.on("mouseout", () => poly.remove());
+    }
+  }
 }
 
 function drawQuestMarkers() {
@@ -1579,6 +1606,8 @@ $("extractMode").value = store.get("extractMode", "auto");
 $("extractMode").addEventListener("change", () => { store.set("extractMode", $("extractMode").value); if (S.current) drawExtracts(S.current); });
 $("showLabels").checked = store.get("showLabels", true);
 $("showLandmarks").checked = store.get("showLandmarks", true);
+$("showTransits").checked = store.get("showTransits", true);
+$("showTransits").addEventListener("change", () => { store.set("showTransits", $("showTransits").checked); if (S.current) drawExtracts(S.current); });
 $("showLandmarks").addEventListener("change", () => { store.set("showLandmarks", $("showLandmarks").checked); showLandmarks(); });
 $("showLabels").addEventListener("change", () => { store.set("showLabels", $("showLabels").checked); if (S.current) drawExtracts(S.current); });
 $("showAll").checked = store.get("showMode", "selected") === "all";

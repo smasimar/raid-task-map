@@ -62,7 +62,7 @@ as not found, type its path.
 - **Map tab.** Click a step marked 📍 to move the map to it. **List ↔ / ↕ / ✕** puts
   the mission list across the top, down the side, or hides it. **Mini** (key **M**)
   shows only the map, extracts and task locations. **M** or **Esc** goes back. **Layers** sets PMC or Scav extracts and shows or
-  hides objectives, extract names and landmark names.
+  hides objectives, extract names, landmark names and transits.
 - **Progress** (with sending on). Type a step count, mark a step or task done with
   **✓**, undo with **↺**. Type your level in the box next to your name; the game logs
   do not give it.
@@ -76,7 +76,8 @@ Map markers:
 | Green box | PMC extract |
 | Orange box | Scav extract |
 | Cyan box | PMC and Scav extract |
-| Pale box | Extract with a requirement (payment, key, no backpack, Red Rebel and paracord, partner). Point at it to see what it needs |
+| Purple dot | Transit to another map |
+| Pale box or dot | Extract or transit with a requirement (payment, key, no backpack, Red Rebel and paracord, partner, other condition). Point at it to see what it needs |
 | 🔑 | Key that a task or step needs |
 
 ## Troubleshooting

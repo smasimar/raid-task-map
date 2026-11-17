@@ -813,7 +813,21 @@ function renderProfile(error) {
       (S.cfg && !S.cfg.hasToken ? ` <span class="hint">Open <b>Settings</b> and paste your TarkovTracker.org token.</span>` : "");
     return;
   }
-  box.innerHTML = `<b>${esc(p.displayName || "")}</b> <span class="muted">· ${esc(MODE_NAMES[S.mode] || S.mode)} · level ${esc(p.playerLevel)} · ${esc(p.pmcFaction)}</span>`;
+  const level = canWrite()
+    ? `<input type="number" id="levelInput" class="cnt" min="1" max="79" value="${esc(p.playerLevel || 1)}" title="Your level in the game. A change goes to TarkovTracker.">`
+    : esc(p.playerLevel);
+  box.innerHTML = `<b>${esc(p.displayName || "")}</b> <span class="muted">· ${esc(MODE_NAMES[S.mode] || S.mode)} · level ${level} · ${esc(p.pmcFaction)}</span>`;
+  $("levelInput")?.addEventListener("change", (e) => setLevel(e.target.value));
+}
+// The game logs do not give your level, so you type it; the helper sends it to TarkovTracker.
+function setLevel(value) {
+  const n = Math.round(Number(value));
+  if (!S.progress || !writeReady()) return renderProfile();
+  if (!(n >= 1 && n <= 79)) { setStatus("The level must be from 1 to 79.", true); return renderProfile(); }
+  if (n === S.progress.playerLevel) return;
+  S.progress.playerLevel = n;   // show it at once: tasks that need this level become available
+  computeAvailable(); renderProfile(); renderTasks();
+  sendProgress("level", { level: n });
 }
 // done = completed or failed on TarkovTracker; active = ticked (you have it in the game);
 // available = you can take it; locked = something is still missing

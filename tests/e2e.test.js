@@ -327,6 +327,14 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   w.confirm = () => true;
   [...rowOf("Debut").querySelectorAll(".thead .pbtn")].find((b) => b.textContent === "✓ task").click();
   assert(JSON.stringify(progressPosts.at(-1)) === JSON.stringify(["/api/progress/task", { id: "debut", state: "completed" }]), "✓ task marks the quest as completed");
+  // the level: typed by hand, sent to the helper, and used for the task states at once
+  const lvl = d.getElementById("levelInput");
+  assert(lvl && lvl.value === "12", "with sending on, the level is a box");
+  lvl.value = "80"; lvl.dispatchEvent(new w.Event("change"));
+  assert(progressPosts.at(-1)[0] !== "/api/progress/level" && d.getElementById("levelInput").value === "12", "a level out of range is not sent");
+  d.getElementById("levelInput").value = "40"; d.getElementById("levelInput").dispatchEvent(new w.Event("change"));
+  assert(JSON.stringify(progressPosts.at(-1)) === JSON.stringify(["/api/progress/level", { level: 40 }]), "a new level goes to the helper");
+  assert(w.eval("S.available.some((x) => x.id === 'highLevel')") && d.getElementById("levelInput").value === "40", "a task that needs the new level becomes available");
   w.__es.onmessage({ data: JSON.stringify({ type: "writes", pending: 2, error: null }) });
   assert(d.getElementById("writesNote").textContent === "2 changes to send…" && d.getElementById("writesNote").classList.contains("on"), "waiting changes show in the top bar");
   w.__es.onmessage({ data: JSON.stringify({ type: "writes", pending: 2, error: "TarkovTracker daily write limit reached." }) });

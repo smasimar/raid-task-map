@@ -142,6 +142,11 @@ class Overlay(unittest.TestCase):
         self.assertEqual(out["tasksProgress"], [{"id": "a", "complete": True, "failed": False}, {"id": "b", "complete": False, "failed": True}])
         self.assertEqual(out["taskObjectivesProgress"], [{"id": "o1", "complete": False, "count": 5}, {"id": "o2", "complete": True}])
 
+    def test_pending_level_shows(self):
+        import json
+        out = json.loads(app.overlay_progress(self.BODY, {"tasks": {}, "objectives": {}, "level": {"player": 21}}))["data"]
+        self.assertEqual(out["playerLevel"], 21)
+
 
 class Writes(unittest.TestCase):
     """send_writes with a stand-in for TarkovTracker."""
@@ -175,6 +180,21 @@ class Writes(unittest.TestCase):
         self.assertEqual(self.calls, [("/progress/task/objective/o1", {"count": 10, "state": "uncompleted"})])
         self.assertEqual(app.QUESTS.pending_count(), 0)
         self.assertEqual(app.WRITES["remaining"], "97")
+
+    def test_level_sends_the_last_value(self):
+        app.QUESTS.queue_level("pve", 14)
+        app.QUESTS.queue_level("pve", 15)
+        self.assertEqual(app.QUESTS.pending_count(), 1)
+        self.assertTrue(app.send_writes(self.request))
+        self.assertEqual(self.calls, [("/progress/level/15", {})])
+        self.assertEqual(app.QUESTS.pending_count(), 0)
+
+    def test_state_file_without_level(self):
+        import json
+        app.QUESTS.path.write_text(json.dumps({"writes": {"pve": {"tasks": {"a": "completed"}, "objectives": {}}}}), encoding="utf-8")
+        old = app.QuestList(app.QUESTS.path)
+        self.assertEqual(old.pending_count(), 1)
+        self.assertEqual(old.pending("pve")["level"], {})
 
     def test_one_task_and_many_tasks(self):
         app.QUESTS.queue_task("pve", "a", "completed")

@@ -101,7 +101,9 @@ path there.
   arrow). The marker goes on the selected map.
 - **Progress.** With "Send task progress to TarkovTracker" on, the Tasks tab lets you
   type the count of a step (for example 7 of 10 kills), mark a step or a task as done
-  with **✓**, and undo that with **↺**.
+  with **✓**, and undo that with **↺**. Type your level in the box next to your name at
+  the top of the Tasks tab; the app sends it to TarkovTracker. The game logs do not give
+  your level, so the app cannot update it automatically.
 
 Map markers: yellow diamonds are objective zones, orange dots are possible task-item
 locations, green boxes are PMC extracts, orange boxes are Scav extracts, and cyan boxes

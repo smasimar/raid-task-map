@@ -273,7 +273,9 @@ class QuestList:
 
     # -- progress changes that wait to be sent to TarkovTracker
     def _writes(self, mode: str) -> dict:
-        return self.data["writes"].setdefault(mode, {"tasks": {}, "objectives": {}})
+        w = self.data["writes"].setdefault(mode, {"tasks": {}, "objectives": {}})
+        w.setdefault("level", {})   # {"player": level}; a state file from an older version has no level
+        return w
 
     def queue_task(self, mode: str, task_id: str, state: str):
         with self.lock:
@@ -288,15 +290,24 @@ class QuestList:
             self.changed = time.time()
             save_json(self.path, self.data)
 
+    def queue_level(self, mode: str, level: int):
+        """The player level. A new level replaces the one that waits."""
+        with self.lock:
+            self._writes(mode)["level"]["player"] = level
+            self.changed = time.time()
+            save_json(self.path, self.data)
+
     def pending(self, mode: str = None) -> dict:
         with self.lock:
             w = self.data["writes"]
             copy = json.loads(json.dumps(w))
-        return copy.get(mode, {"tasks": {}, "objectives": {}}) if mode else copy
+        for w in copy.values():
+            w.setdefault("level", {})
+        return copy.get(mode, {"tasks": {}, "objectives": {}, "level": {}}) if mode else copy
 
     def pending_count(self) -> int:
         with self.lock:
-            return sum(len(w["tasks"]) + len(w["objectives"]) for w in self.data["writes"].values())
+            return sum(len(w["tasks"]) + len(w["objectives"]) + len(w.get("level") or {}) for w in self.data["writes"].values())
 
     def sent(self, mode: str, kind: str, item_id: str, value):
         """Remove a write that was sent, unless it changed again in the meantime."""
@@ -322,7 +333,7 @@ class QuestList:
 def overlay_progress(body: bytes, pending: dict) -> bytes:
     """A /progress answer with the changes that are not sent yet put on top,
     so the page shows a click at once and keeps it after a reload."""
-    if not pending["tasks"] and not pending["objectives"]:
+    if not pending["tasks"] and not pending["objectives"] and not pending.get("level"):
         return body
     try:
         doc = json.loads(body)
@@ -338,6 +349,8 @@ def overlay_progress(body: bytes, pending: dict) -> bytes:
             rows.append(row)
         return row
 
+    if pending.get("level", {}).get("player"):
+        data["playerLevel"] = pending["level"]["player"]
     for task_id, state in pending["tasks"].items():
         entry("tasksProgress", task_id).update({"complete": state == "completed", "failed": state == "failed"})
     for objective_id, patch in pending["objectives"].items():
@@ -590,6 +603,9 @@ def send_writes(request=tt_request) -> bool:
             calls.append(("/progress/tasks", [{"id": i, "state": st} for i, st in tasks.items()], [("tasks", i, st) for i, st in tasks.items()]))
         for objective_id, patch in pending["objectives"].items():
             calls.append((f"/progress/task/objective/{urllib.parse.quote(objective_id, safe='')}", patch, [("objectives", objective_id, patch)]))
+        level = pending["level"].get("player")
+        if level:
+            calls.append((f"/progress/level/{int(level)}", {}, [("level", "player", level)]))
         for path, body, items in calls:
             try:
                 status, answer, headers = request(path, token, None, body)
@@ -804,12 +820,19 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"error": "x, y, z and rotation must be numbers"})
             HUB.publish(ev)
             return self._json(200, ev)
-        if path in ("/api/progress/task", "/api/progress/objective"):
+        if path in ("/api/progress/task", "/api/progress/objective", "/api/progress/level"):
             mode = active_mode()
             with CONFIG_LOCK:
                 enabled = bool(CONFIG.get("writeTT"))
             if not enabled or not token_for(mode):
                 return self._json(409, {"error": "Sending progress to TarkovTracker is off. Set it on in Settings."})
+            if path.endswith("/level"):
+                level = data.get("level")
+                if not isinstance(level, int) or isinstance(level, bool) or not 1 <= level <= 79:
+                    return self._json(400, {"error": "level must be a whole number from 1 to 79"})
+                QUESTS.queue_level(mode, level)
+                HUB.publish({"type": "progress"})
+                return self._json(200, writes_status())
             item_id = data.get("id")
             if not isinstance(item_id, str) or not 0 < len(item_id.strip()) <= 64:
                 return self._json(400, {"error": "id must be text of 1 to 64 characters"})

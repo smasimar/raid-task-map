@@ -1051,6 +1051,7 @@ function isRaidStep(obj) {
 }
 // true if the task still has an open step to do in a raid
 const hasRaidStep = (task) => (task.objectives || []).some((obj) => isRaidStep(obj) && !S.objDone?.get(obj.id)?.complete);
+const ELSEWHERE_MAX = 4;   // from this many steps on other maps, a card on the Map tab leaves them out
 function missionCard(task, here) {
   const onMap = here ? new Map(objectivesOnMap(task, S.current).map((o) => [o.obj.id, o])) : new Map();
   const card = document.createElement("div");
@@ -1058,14 +1059,19 @@ function missionCard(task, here) {
   const trader = S.traders[ref(task.trader)]?.name || "";
   card.innerHTML = `<div class="qhead"><span class="qname">${esc(taskName(task))}</span><span class="trader">${esc(trader)}${here ? "" : " · any location"}</span>${task.wikiLink ? `<a class="wiki muted" href="${esc(task.wikiLink)}" target="_blank" rel="noopener" title="Wiki">↗</a>` : ""}</div>`;
   let open = 0;
+  // a step that is on a different map
+  const isElsewhere = (obj) => here && !onMap.has(obj.id) && !!((obj.maps || []).length || (obj.zones || []).length || (obj.possibleLocations || []).length);
+  const openObjs = (task.objectives || []).filter((obj) => !S.objDone?.get(obj.id)?.complete);
+  // a task with many steps on other maps (for example one camera on each map) shows only the steps of this map
+  const hidden = openObjs.filter(isElsewhere).length >= ELSEWHERE_MAX ? openObjs.filter(isElsewhere).length : 0;
   for (const obj of task.objectives || []) {
     const prog = S.objDone?.get(obj.id);
     if (prog?.complete) continue;
     open++;
+    const elsewhere = isElsewhere(obj);
+    if (elsewhere && hidden) continue;
     const mo = onMap.get(obj.id);
     const go = !!(mo && mo.positions.length);
-    const hasMap = (obj.maps || []).length || (obj.zones || []).length || (obj.possibleLocations || []).length;
-    const elsewhere = here && !mo && hasMap; // this step is on a different map
     const cnt = obj.count > 1 ? ` <span class="muted">${prog?.count || 0}/${obj.count}</span>` : "";
     const st = document.createElement("div");
     st.className = "step" + (go ? " go" : "") + (elsewhere ? " elsewhere" : "");
@@ -1073,6 +1079,7 @@ function missionCard(task, here) {
     if (go) st.addEventListener("click", () => focusPos(mo.positions[0].pos, `${task.id}:${obj.id}:0`));
     card.appendChild(st);
   }
+  if (hidden) card.insertAdjacentHTML("beforeend", `<div class="step muted elsewhere-note">+ ${hidden} steps on other maps</div>`);
   if (!open) card.insertAdjacentHTML("beforeend", `<div class="step muted">• All steps done</div>`);
   return card;
 }

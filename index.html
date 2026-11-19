@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <style>
-  :root { --bg:#14171a; --panel:#1d2227; --line:#30363d; --text:#e6e6e6; --muted:#9aa4ad; --accent:#e5e200; --pmc:#00e599; --shared:#00e4e5; --transit:#c49bff; --danger:#ff6b6b; }
+  :root { --bg:#14171a; --panel:#1d2227; --line:#30363d; --text:#e6e6e6; --muted:#9aa4ad; --accent:#e5e200; --pmc:#00e599; --ex-pmc:#22e5e5; --ex-scav:#8fd3ff; --transit:#ff5fc8; --q-task:#8de736; --q-tool:#3d8bff; --q-item:#ffd23f; --q-stash:#b04dff; --q-key:#ff2d2d; --q-area:#ff3b30; --danger:#ff6b6b; }
   * { box-sizing: border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
   /* the map always has the full area, so it keeps its size; the Tasks view lies on top of it */
@@ -103,6 +103,12 @@
   .qcard .qmeta { color:var(--muted); font-size:12px; margin-bottom:3px; }
   .step { margin:2px 0 0; padding-left:14px; text-indent:-14px; }
   .step.done { text-decoration:line-through; color:var(--muted); }
+  .step-mark { display:inline-block; width:14px; text-indent:0; }
+  .step-mark > div { display:inline-block; vertical-align:middle; margin:0 0 2px 2px; }
+  .step-mark > .q-icon { width:7px; height:7px; border-width:1px; }
+  .step-mark > .q-item { width:7px; height:7px; border-width:1px; }
+  .step-mark > .q-area { width:9px; height:9px; border-width:1.5px; }
+  .step-mark > .key { box-shadow:0 0 0 2px var(--q-key); }
   .step.go { cursor:pointer; } .step.go:hover { color:var(--accent); }
   .step .num { color:var(--muted); display:inline-block; width:16px; text-indent:0; }
   .section { margin-bottom:14px; }
@@ -120,15 +126,18 @@
   .obj.has-pos:hover { color:var(--accent); }
   .obj.done { text-decoration:line-through; color:var(--muted); }
   .obj .pin { color:var(--accent); }
-  .q-icon { width:16px; height:16px; background:var(--accent); border:2px solid #000; transform:rotate(45deg); border-radius:2px; box-shadow:0 0 0 1px var(--accent); }
-  .q-item { width:14px; height:14px; background:#ffb300; border:2px solid #000; border-radius:50%; box-shadow:0 0 0 1px #ffb300; }
-  .ex-icon { display:flex; align-items:center; gap:4px; white-space:nowrap; transform:translate(-6px,-6px); pointer-events:auto; }
-  .ex-icon .box { width:12px; height:12px; border:2px solid #000; border-radius:2px; flex:none; }
+  .q-icon { width:16px; height:16px; background:var(--q-task); border:2px solid #000; transform:rotate(45deg); border-radius:2px; box-shadow:0 0 0 1px var(--q-task); }
+  .q-icon.tool { background:var(--q-tool); box-shadow:0 0 0 1px var(--q-tool); }
+  .q-item { width:14px; height:14px; background:var(--q-item); border:2px solid #000; border-radius:50%; box-shadow:0 0 0 1px var(--q-item); }
+  .q-item.stash { background:var(--q-stash); box-shadow:0 0 0 1px var(--q-stash); }
+  .q-area { width:12px; height:12px; border:2px dashed var(--q-area); }   /* list mark of an area for kills */
+  .q-icon.key, .q-item.key { box-shadow:0 0 0 3px var(--q-key); }   /* the step needs a key */
+  .ex-icon { display:flex; align-items:center; gap:3px; white-space:nowrap; transform:translate(-8px,-8px); pointer-events:auto; }
+  /* extract: arrow up and right; transit: arrow down and right */
+  .ex-icon .box { width:16px; height:16px; flex:none; fill:currentColor; stroke:#000; stroke-width:1.6px; stroke-linejoin:round; paint-order:stroke; transform:rotate(-45deg); overflow:visible; }
+  .ex-transit .box { transform:rotate(45deg); }
   .ex-icon span { font-size:12px; font-weight:600; text-shadow:0 0 3px #000, 0 0 3px #000, 0 0 2px #000; }
-  .ex-pmc .box { background:var(--pmc); } .ex-pmc span { color:var(--pmc); }
-  .ex-shared .box { background:var(--shared); } .ex-shared span { color:var(--shared); }
-  .ex-transit .box { background:var(--transit); border-radius:50%; } .ex-transit span { color:var(--transit); }
-  .ex-scav .box { background:#ffa94d; } .ex-scav span { color:#ffa94d; }
+  .ex-pmc { color:var(--ex-pmc); } .ex-scav { color:var(--ex-scav); } .ex-transit { color:var(--transit); }
   .ex-need { filter:saturate(.3); opacity:.8; }   /* an extract with a special requirement */
   .exneed { color:var(--accent); }
   .keynote { color:var(--accent); white-space:nowrap; text-decoration:none; display:inline-block; text-indent:0; }
@@ -136,8 +145,8 @@
   /* mini view: a small window that stays on top of the game. Only the map and the icons, no text. */
   #app.mini.tab-map header, #app.mini.tab-map #mission, #app.mini.tab-map #layersPanel,
   #app.mini.tab-map .leaflet-control-container, #app.mini.tab-map .ex-icon span, #app.mini.tab-map .map-label { display:none !important; }
-  #app.mini.tab-map .ex-icon { transform:translate(-4px,-4px); }
-  #app.mini.tab-map .ex-icon .box { width:8px; height:8px; border-width:1px; }
+  #app.mini.tab-map .ex-icon { transform:translate(-5px,-5px); }
+  #app.mini.tab-map .ex-icon .box { width:10px; height:10px; }
   #app.mini.tab-map .q-icon, #app.mini.tab-map .q-item { scale:.7; }
   #miniExit { display:none; grid-column:1; grid-row:2; z-index:1100; justify-self:end; align-self:start; margin:4px; padding:0 6px; opacity:0; transition:opacity .15s; }
   #app.mini.tab-map #miniExit { display:block; }
@@ -584,6 +593,29 @@ function pruneFinished() {
 }
 
 // ------------------------------------------------------------------ objectives for current map
+// Some steps have a zone for the general area and a smaller zone for the exact spot. A zone that
+// holds the centre of a smaller (or equal) zone of the same step is left out, so only the spot shows.
+const outlineArea = (o) => Math.abs(o.reduce((s, p, i) => { const q = o[(i + 1) % o.length]; return s + p.x * q.z - q.x * p.z; }, 0) / 2);
+function inOutline(p, o) {
+  let inside = false;
+  for (let i = 0, j = o.length - 1; i < o.length; j = i++) {
+    if ((o[i].z > p.z) !== (o[j].z > p.z) && p.x < ((o[j].x - o[i].x) * (p.z - o[i].z)) / (o[j].z - o[i].z) + o[i].x) inside = !inside;
+  }
+  return inside;
+}
+function dropAreas(positions) {
+  const zones = positions.filter((p) => p.kind === "zone" && p.outline?.length >= 3);
+  const area = new Map(zones.map((z) => [z, outlineArea(z.outline)]));
+  const gone = new Set();
+  for (const a of zones) {
+    for (const b of zones) {
+      if (a === b || gone.has(b) || !inOutline(b.pos, a.outline)) continue;
+      // b is smaller, or the same size and earlier in the list (two copies of one zone)
+      if (area.get(b) < area.get(a) * 0.9999 || (area.get(b) <= area.get(a) * 1.0001 && zones.indexOf(b) < zones.indexOf(a))) { gone.add(a); break; }
+    }
+  }
+  return positions.filter((p) => !gone.has(p));
+}
 function objectivesOnMap(task, mc) {
   const out = [];
   for (const obj of task.objectives || []) {
@@ -594,7 +626,7 @@ function objectivesOnMap(task, mc) {
     if (!onMap) continue;
     // de-duplicate positions that appear once per map variant
     const seen = new Set();
-    const uniq = positions.filter((p) => { const k = `${p.kind}:${p.pos.x.toFixed(1)}:${p.pos.z.toFixed(1)}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    const uniq = dropAreas(positions.filter((p) => { const k = `${p.kind}:${p.pos.x.toFixed(1)}:${p.pos.z.toFixed(1)}`; if (seen.has(k)) return false; seen.add(k); return true; }));
     const prog = S.objDone?.get(obj.id);
     out.push({
       obj, positions: uniq,
@@ -1075,7 +1107,8 @@ function missionCard(task, here) {
     const cnt = obj.count > 1 ? ` <span class="muted">${prog?.count || 0}/${obj.count}</span>` : "";
     const st = document.createElement("div");
     st.className = "step" + (go ? " go" : "") + (elsewhere ? " elsewhere" : "");
-    st.innerHTML = `${go ? "📍 " : "• "}${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}${keyNote(obj.requiredKeys, here ? { on: S.current } : { mapIds: obj.maps || [] })}`;
+    const mark = go ? `<span class="step-mark"><div class="${markerClass(obj, mo.positions[0].kind, keyText(obj.requiredKeys, { on: S.current }), !!mo.positions[0].outline?.length)}"></div></span>` : "• ";
+    st.innerHTML = `${mark}${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}${keyNote(obj.requiredKeys, here ? { on: S.current } : { mapIds: obj.maps || [] })}`;
     if (go) st.addEventListener("click", () => focusPos(mo.positions[0].pos, `${task.id}:${obj.id}:0`));
     card.appendChild(st);
   }
@@ -1269,6 +1302,8 @@ function drawExtracts(mc) {
   const mode = $("extractMode").value;
   const side = mode === "auto" ? (S.game?.raid?.side === "scav" ? "scav" : "pmc") : mode;
   if (side === "off") return;
+  // a shared extract has the color of the raid's side: Scav in a Scav raid, otherwise PMC
+  const sharedAs = S.game?.raid?.side === "scav" || (!S.game?.raid?.side && side === "scav") ? "scav" : "pmc";
   const seen = new Set();
   for (const ex of mc.primary.extracts || []) {
     const faction = ex.faction || "shared";
@@ -1277,17 +1312,18 @@ function drawExtracts(mc) {
     if (seen.has(faction + name)) continue;
     seen.add(faction + name);
     const needs = extractNeeds(ex, name);
-    const cls = "ex-" + faction + (needs.length ? " ex-need" : "");
+    const look = faction === "shared" ? sharedAs : faction;
+    const cls = "ex-" + look + (faction === "shared" ? " ex-shared" : "") + (needs.length ? " ex-need" : "");
     const showName = $("showLabels").checked;
     const m = L.marker(pos(ex.position), {
       zIndexOffset: 500, riseOnHover: true, title: needs.length ? `${name}. Needs: ${needs.join(", ")}` : name,
-      icon: L.divIcon({ className: "", iconSize: null, html: `<div class="ex-icon ${cls}"><div class="box"></div>${showName ? `<span>${esc(name)}</span>` : ""}</div>` }),
+      icon: L.divIcon({ className: "", iconSize: null, html: `<div class="ex-icon ${cls}">${EX_ARROW}${showName ? `<span>${esc(name)}</span>` : ""}</div>` }),
     });
     const extra = needs.length ? `<div class="exneed">Needs: ${esc(needs.join(", "))}</div>` : "";
     m.bindPopup(`<b>${esc(name)}</b><div class="muted">${{ pmc: "PMC extract", scav: "Scav extract" }[faction] || "Shared extract (PMC & Scav)"}</div>${extra}`);
     m.addTo(S.layers.extracts);
     if (ex.outline?.length) {
-      const poly = L.polygon(ex.outline.map(pos), { color: { pmc: "#00e599", scav: "#ffa94d" }[faction] || "#00e4e5", weight: 1, fillOpacity: 0.15, interactive: false });
+      const poly = L.polygon(ex.outline.map(pos), { color: EX_COLORS[look], weight: 1, fillOpacity: 0.15, interactive: false });
       m.on("mouseover", () => poly.addTo(S.layers.extracts));
       m.on("mouseout", () => poly.remove());
     }
@@ -1307,18 +1343,57 @@ function drawTransits(mc) {
     const cond = tr.conditions ? "a condition (see the wiki)" : "";
     const m = L.marker(pos(tr.position), {
       zIndexOffset: 400, riseOnHover: true, title: cond ? `${name}. Needs: ${cond}` : name,
-      icon: L.divIcon({ className: "", iconSize: null, html: `<div class="ex-icon ex-transit${cond ? " ex-need" : ""}"><div class="box"></div>${showName ? `<span>${esc(name)}</span>` : ""}</div>` }),
+      icon: L.divIcon({ className: "", iconSize: null, html: `<div class="ex-icon ex-transit${cond ? " ex-need" : ""}">${EX_ARROW}${showName ? `<span>${esc(name)}</span>` : ""}</div>` }),
     });
     m.bindPopup(`<b>${esc(name)}</b><div class="muted">Transit to another map</div>${cond ? `<div class="exneed">Needs: ${esc(cond)}</div>` : ""}`);
     m.addTo(S.layers.extracts);
     if (tr.outline?.length) {
-      const poly = L.polygon(tr.outline.map(pos), { color: "#c49bff", weight: 1, fillOpacity: 0.15, interactive: false });
+      const poly = L.polygon(tr.outline.map(pos), { color: EX_COLORS.transit, weight: 1, fillOpacity: 0.15, interactive: false });
       m.on("mouseover", () => poly.addTo(S.layers.extracts));
       m.on("mouseout", () => poly.remove());
     }
   }
 }
 
+// Items of the special slots (marker, jammer, camera, multitool, flares, ...): tarkov.dev gives them
+// the type "specialSlot" in its item data, which is too large to load, so the ids are listed here.
+const SPECIAL_SLOT_ITEMS = new Set([
+  "544fb5454bdc2df8738b456a", "574eb85c245977648157eec3", "5798a2832459774b53341029", "5900b89686f7744e704a8747",
+  "5991b51486f77447b112d44f", "5a8036fb86f77407252ddc02", "5a80a29286f7742b25692012", "5ac78a9b86f7741cca0bbd8d",
+  "5b4391a586f7745321235ab2", "5be4038986f774527d3fae60", "5c12688486f77426843c7d32", "5d02778e86f774203e7dedbe",
+  "5d02797c86f774203f38e30a", "5f4f9eb969cdc30ff33f09db", "61605e13ffa6e502ac5e7eef", "620109578d82e67e7911abf2",
+  "6217726288ed9f0845317459", "62178be9d0050232da3485d9", "62178c4d4ecf221597654e3d", "624c0b3340357b5f566e8766",
+  "62e910aaf957f2915e0a5e36", "64d0b40fbe2eed70e254e2d4", "6526909b539ee574cb624991", "65ddcc9cfa85b9f17d0dfb07",
+  "6655e35b6bc645cb7b059912", "666b11055a706400b717cfa5", "66d98233302686954b0c6f81", "66d9f1abb16d9aacf5068468",
+  "675ea3d6312c0a5c4e04e317", "678fa929819ddc4c350c0317", "67ab3d4b83869afd170fdd3f", "67bdea8667098e658f064695",
+  "67bdf04d66ca1d79a2024637", "67c033fd0610e91bea056998", "67c04a6f9152fbdfa306cc66", "67c04dac9320f644db06f45c",
+  "67d2c2aec4d4d19af00f9ba8", "6819f8df28294ec0730db6b4", "68cc09872bdcc15c010c2668", "68d152b9915f131d4e05ee6c",
+  "68e63a53371639e1e4004b6e", "68f213f8ea61d1803707cf7a", "68fa8e253666e2fd5b00a626", "69a0174087a75d2cbd0842e8",
+  "6a8c4c7999baf8bd5802f7fe"
+]);
+// True for a step that places, marks with or uses a special-slot item: its diamond is blue.
+function isToolStep(obj) {
+  if (!["mark", "plantItem", "useItem"].includes(obj.type)) return false;
+  return [obj.markerItem, ...(obj.items || []), ...(obj.useAny || [])].map(ref).some((x) => x && SPECIAL_SLOT_ITEMS.has(x));
+}
+// a step that leaves an item at a spot ("Stash ... at the specified spot"); a camera or jammer is a tool step
+const isStashStep = (obj) => ["plantItem", "plantQuestItem"].includes(obj.type) && !isToolStep(obj);
+// kind of a step's map marker; an area where you kill targets ("Eliminate ... in the area") has a dashed outline and no icon
+function markerKind(obj, posKind, hasOutline) {
+  if (posKind === "item") return "item";
+  if (obj.type === "shoot" && hasOutline) return "area";
+  return isToolStep(obj) ? "tool" : isStashStep(obj) ? "stash" : "task";
+}
+// CSS class of a step's map marker: green diamond, blue diamond (special-slot item), purple dot (stash),
+// golden dot (item), red ring (key)
+function markerClass(obj, posKind, keys, hasOutline) {
+  const kind = markerKind(obj, posKind, hasOutline);
+  return { item: "q-item", stash: "q-item stash", tool: "q-icon tool", task: "q-icon", area: "q-area" }[kind] + (keys ? " key" : "");
+}
+const EX_COLORS = { pmc: "#22e5e5", scav: "#8fd3ff", transit: "#ff5fc8" };
+// arrow that points right; CSS turns it up for an extract and down for a transit
+const EX_ARROW = `<svg class="box" viewBox="0 0 16 16"><path d="M1 6H8V2L15 8L8 14V10H1Z"/></svg>`;
+const MARKER_COLORS = { task: "#8de736", area: "#ff3b30", tool: "#3d8bff", stash: "#b04dff", item: "#ffd23f" };
 function drawQuestMarkers() {
   if (!S.lmap || !S.current) return;
   S.layers.quests.clearLayers();
@@ -1328,18 +1403,34 @@ function drawQuestMarkers() {
     if (!isShown(it.task.id)) continue;
     for (const o of it.objs) {
       if (o.done) continue;
+      const keys = keyText(o.obj.requiredKeys, { on: S.current });
       o.positions.forEach((p, i) => {
-        const icon = L.divIcon({ className: "", iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -8], html: `<div class="${p.kind === "item" ? "q-item" : "q-icon"}"></div>` });
+        const kind = markerKind(o.obj, p.kind, !!p.outline?.length);
+        const cls = markerClass(o.obj, p.kind, keys, !!p.outline?.length);
         const floor = floorOf(S.current, p.pos);
         const offFloor = floor !== S.floorIndex;
         const floorName = floor < 0 ? "Ground level" : S.current.layers[floor].name;
-        const m = L.marker(pos(p.pos), { icon, riseOnHover: true, zIndexOffset: offFloor ? 900 : 1000, opacity: offFloor ? 0.4 : 1 });
         const cnt = o.total > 1 ? ` (${o.count || 0}/${o.total})` : "";
-        m.bindTooltip(`<b>${esc(it.name)}</b> <span class="muted">· ${esc(it.trader)}</span><div style="margin-top:4px">${esc(o.text)}${cnt}</div>` +
+        const tip = `<b>${esc(it.name)}</b> <span class="muted">· ${esc(it.trader)}</span><div style="margin-top:4px">${esc(o.text)}${cnt}</div>` +
           (p.kind === "item" ? `<div class="muted">Possible task item location</div>` : "") +
-          `<div class="muted" style="font-size:11px">${esc(floorName)} · elevation ${p.pos.y?.toFixed?.(1) ?? "?"}</div>`, { direction: "top", offset: [0, -10], opacity: 1, className: "q-tip" });
+          (keys ? `<div class="keynote">🔑 ${esc(keys)}</div>` : "") +
+          `<div class="muted" style="font-size:11px">${esc(floorName)} · elevation ${p.pos.y?.toFixed?.(1) ?? "?"}</div>`;
+        if (kind === "area") {
+          // dashed outline; a wide transparent line on top of it shows the tooltip, so the inside of the area stays free
+          const op = offFloor ? 0.4 : 1, fill = offFloor ? 0.03 : 0.08;
+          const line = L.polygon(p.outline.map(pos), { color: MARKER_COLORS.area, weight: 2, dashArray: "6 5", opacity: op, fillOpacity: fill, interactive: false }).addTo(S.layers.quests);
+          const hit = L.polygon(p.outline.map(pos), { color: "#000", weight: 12, opacity: 0, fill: false, className: "q-area-hit" })
+            .bindTooltip(tip, { sticky: true, direction: "top", offset: [0, -10], opacity: 1, className: "q-tip" }).addTo(S.layers.quests);
+          hit.on("mouseover", () => line.setStyle({ weight: 3, fillOpacity: 0.18 }));
+          hit.on("mouseout", () => line.setStyle({ weight: 2, fillOpacity: fill }));
+          S.markersByKey.set(`${it.task.id}:${o.obj.id}:${i}`, hit);
+          return;
+        }
+        const icon = L.divIcon({ className: "", iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -8], html: `<div class="${cls}"></div>` });
+        const m = L.marker(pos(p.pos), { icon, riseOnHover: true, zIndexOffset: offFloor ? 900 : 1000, opacity: offFloor ? 0.4 : 1 });
+        m.bindTooltip(tip, { direction: "top", offset: [0, -10], opacity: 1, className: "q-tip" });
         if (p.outline?.length) {
-          const poly = L.polygon(p.outline.map(pos), { color: "#e5e200", weight: 1, opacity: offFloor ? 0.4 : 1, fillOpacity: offFloor ? 0.05 : 0.15, interactive: false }).addTo(S.layers.quests);
+          const poly = L.polygon(p.outline.map(pos), { color: MARKER_COLORS[kind], weight: 1, opacity: offFloor ? 0.4 : 1, fillOpacity: offFloor ? 0.05 : 0.15, interactive: false }).addTo(S.layers.quests);
           m.on("mouseover", () => poly.setStyle({ weight: 2, fillOpacity: 0.3 }));
           m.on("mouseout", () => poly.setStyle({ weight: 1, fillOpacity: offFloor ? 0.05 : 0.15 }));
         }
@@ -1352,8 +1443,10 @@ function drawQuestMarkers() {
 
 function focusPos(p, key) {
   if (!S.lmap) return;
-  S.lmap.flyTo(pos(p), Math.max(S.lmap.getZoom(), (S.current.maxZoom || 5) - 1), { duration: 0.6 });
   const m = S.markersByKey.get(key);
+  // an area (kill zone) is shown whole
+  if (m?.getBounds) S.lmap.flyToBounds(m.getBounds(), { padding: [40, 40], duration: 0.6 });
+  else S.lmap.flyTo(pos(p), Math.max(S.lmap.getZoom(), (S.current.maxZoom || 5) - 1), { duration: 0.6 });
   if (m) setTimeout(() => m.openTooltip(), 650);
 }
 

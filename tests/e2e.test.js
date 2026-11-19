@@ -146,7 +146,9 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(rows(".st-active").join() === "Extra Zone", "moved tick shows under My tasks");
   assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 1 && d.querySelectorAll(".leaflet-marker-pane .q-item").length === 0, "only the moved tick has a marker before ticking");
   const ex = text(".ex-icon:not(.ex-transit) span");
+  assert(d.querySelectorAll(".ex-icon").length > 0 && [...d.querySelectorAll(".ex-icon")].every((x) => x.querySelector("svg.box path")), "extracts and transits are arrows");
   console.log("extracts:", ex);
+  assert([...d.querySelectorAll(".ex-shared")].length > 0 && [...d.querySelectorAll(".ex-shared")].every((x) => x.classList.contains("ex-pmc")), "with no raid, a shared extract has the PMC color");
   assert(ex.length === 3 && ex.includes("Crossroads") && ex.includes("Boat") && !ex.some((x) => x.includes("scav")), "PMC + shared extracts only");
   // transits: the name from the game text, else from the map they go to; a condition dims them
   const trs = [...d.querySelectorAll(".ex-transit")];
@@ -161,6 +163,41 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(w.eval('extractNeeds({ name: "ex_pmc_a", transferItem: { item: "rub", count: 20000 } }, "Crossroads").join()') === "20,000 Roubles", "an extract shows the payment");
   assert(w.eval('extractNeeds({ name: "Alpinist" }, "Cliff Descent").join()') === "Red Rebel ice pick,Paracord,no body armor", "a climb extract shows the Red Rebel rule");
   assert(w.eval('extractNeeds({ name: "EXFIL_vent" }, "Sewer Manhole").join()') === "no backpack" && w.eval('extractNeeds({ name: "x" }, "Old Road").length') === 0, "no backpack rule; no note for a usual extract");
+  // a step that places, marks with or uses a special-slot item has a blue diamond
+  assert(w.eval('isToolStep({ type: "plantItem", items: [{ id: "5b4391a586f7745321235ab2" }] })') && w.eval('isToolStep({ type: "mark", markerItem: "5991b51486f77447b112d44f" })'), "camera and marker steps are tool steps");
+  assert(!w.eval('isToolStep({ type: "plantItem", items: ["5448fee04bdc2dbc018b4567"] })') && !w.eval('isToolStep({ type: "findItem", items: ["5991b51486f77447b112d44f"] })'), "other items and other step types are not");
+  // a zone that holds a smaller zone of the same step (the general area) is left out
+  const sq = (x, z, r) => `{ kind: "zone", pos: { x: ${x}, z: ${z} }, outline: [{ x: ${x - r}, z: ${z - r} }, { x: ${x + r}, z: ${z - r} }, { x: ${x + r}, z: ${z + r} }, { x: ${x - r}, z: ${z + r} }] }`;
+  assert(w.eval(`dropAreas([${sq(0, 0, 10)}, ${sq(2, 2, 1)}]).map((p) => p.pos.x).join()`) === "2", "the area around a spot is left out");
+  assert(w.eval(`dropAreas([${sq(0, 0, 1)}, ${sq(0.2, 0, 1)}]).length`) === 1, "two copies of one zone show once");
+  assert(w.eval(`dropAreas([${sq(0, 0, 1)}, ${sq(50, 0, 1)}, { kind: "item", pos: { x: 0, z: 0 } }]).length`) === 3, "separate zones and item spots stay");
+  // marker colors: a key that the step needs adds a red ring
+  const stepMarks = [...d.querySelectorAll(".leaflet-marker-pane .q-icon, .leaflet-marker-pane .q-item")];
+  assert(stepMarks.length > 0 && stepMarks.every((m) => !m.classList.contains("tool") && !m.classList.contains("key")), "task diamonds are drawn in the task color");
+  const keyRing = w.eval(`(() => {
+    const o = tasksForMap(S.current).flatMap((it) => it.objs).find((x) => x.positions.length).obj, before = o.requiredKeys;
+    o.requiredKeys = [["kRing"]]; S.keyLocks.set("kRing", new Set(S.current.ids)); drawQuestMarkers();
+    const n = document.querySelectorAll(".leaflet-marker-pane .key").length;
+    o.requiredKeys = before; S.keyLocks.delete("kRing"); drawQuestMarkers();
+    return n;
+  })()`);
+  assert(keyRing > 0 && d.querySelectorAll(".leaflet-marker-pane .key").length === 0, "a step that needs a key on this map has a red ring");
+  // the mission list shows the map marker of each step on the map, not a pin
+  w.eval("renderQuestPanel()");
+  const listMarks = [...d.querySelectorAll("#questList .step.go .step-mark > div")];
+  assert(listMarks.length > 0 && listMarks.length === d.querySelectorAll("#questList .step.go").length && !d.getElementById("questList").textContent.includes("\u{1f4cd}"), "each step on the map shows its marker in the mission list");
+  assert(w.eval('markerClass({ type: "mark", markerItem: "5991b51486f77447b112d44f" }, "zone", "")') === "q-icon tool" && w.eval('markerClass({}, "item", "k")') === "q-item key", "the list marker has the same classes as the map marker");
+  assert(w.eval('markerClass({ type: "plantItem", items: [{ id: "5448fee04bdc2dbc018b4567" }] }, "zone", "")') === "q-item stash" && w.eval('markerClass({ type: "plantQuestItem" }, "zone", "")') === "q-item stash", "a stash step is a purple dot");
+  assert(w.eval('markerClass({ type: "plantItem", items: [{ id: "5b4391a586f7745321235ab2" }] }, "zone", "")') === "q-icon tool", "a camera step stays a blue diamond");
+  assert(w.eval('markerClass({ type: "shoot" }, "zone", "", true)') === "q-area" && w.eval('markerClass({ type: "shoot" }, "zone", "", false)') === "q-icon", "a kill area with an outline is a dashed area; without one it stays a diamond");
+  const areaDraw = w.eval(`(() => {
+    const obj = S.tasksById.get("checking").objectives[0], had = S.sel.has("checking");
+    S.sel.add("checking"); obj.type = "shoot"; drawQuestMarkers();
+    const r = [document.querySelectorAll(".q-area-hit").length, document.querySelectorAll(".leaflet-overlay-pane path[stroke-dasharray]").length];
+    obj.type = "visit"; if (!had) S.sel.delete("checking"); drawQuestMarkers();
+    return r.join();
+  })()`);
+  assert(/^[1-9]\d*,[1-9]\d*$/.test(areaDraw), "a kill area draws a dashed outline with a hover line (" + areaDraw + ")");
   // keys that a task needs
   assert(w.eval('keyText([["k206", "k207"]])') === "Dorm room 206 key or Spare key" && w.eval('keyText([{ map: "m", keys: ["k206"] }])') === "Dorm room 206 key", "key names for a step and for a task");
   // a key belongs to the map that has its lock (here: Woods), not to each map of the step
@@ -440,6 +477,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   await sleep(50);
   assert(exNames().includes("ex_scav_b") && exNames().includes("Boat") && !exNames().includes("Crossroads"), "a Scav raid shows the Scav and shared extracts");
   assert(timer.textContent.startsWith("Customs · Scav · "), "the timer names the side");
+  assert([...d.querySelectorAll(".ex-shared")].length > 0 && [...d.querySelectorAll(".ex-shared")].every((x) => x.classList.contains("ex-scav") && !x.classList.contains("ex-pmc")), "in a Scav raid, a shared extract has the Scav color");
   const mode = d.getElementById("extractMode");
   mode.value = "both"; mode.dispatchEvent(new w.Event("change"));
   assert(exNames().includes("ex_scav_b") && exNames().includes("Crossroads"), "PMC and Scav shows both");

@@ -59,7 +59,7 @@ as not found, type its path.
 
 - **Tasks tab.** Click a task name to see its steps. Use search, filters and **Sort**.
   ↗ opens the wiki page.
-- **Map tab.** Click a step marked 📍 to move the map to it. **List ↔ / ↕ / ✕** puts
+- **Map tab.** Click a step that shows a map marker to move the map to it. **List ↔ / ↕ / ✕** puts
   the mission list across the top, down the side, or hides it. **Mini** (key **M**)
   shows only the map, extracts and task locations. **M** or **Esc** goes back. **Layers** sets PMC or Scav extracts and shows or
   hides objectives, extract names, landmark names and transits.
@@ -71,13 +71,16 @@ Map markers:
 
 | Marker | Meaning |
 | --- | --- |
-| Yellow diamond | Objective zone |
-| Orange dot | Possible task-item location |
-| Green box | PMC extract |
-| Orange box | Scav extract |
-| Cyan box | PMC and Scav extract |
-| Purple dot | Transit to another map |
-| Pale box or dot | Extract or transit with a requirement (payment, key, no backpack, Red Rebel and paracord, partner, other condition). Point at it to see what it needs |
+| Green diamond | Objective zone |
+| Blue diamond | Objective zone where you place, mark with or use a special-slot item (marker, signal jammer, WI-FI camera, multitool, flare) |
+| Red dashed outline | Area where you kill targets. Point at the outline to see the step |
+| Purple dot | Spot where you stash an item |
+| Golden dot | Possible task-item location |
+| Red ring | The step needs a key |
+| Cyan ↗ arrow | PMC extract. A shared PMC and Scav extract is cyan too, except in a Scav raid |
+| Light blue ↗ arrow | Scav extract, and a shared extract in a Scav raid |
+| Pink ↘ arrow | Transit to another map |
+| Pale arrow | Extract or transit with a requirement (payment, key, no backpack, Red Rebel and paracord, partner, other condition). Point at it to see what it needs |
 | 🔑 | Key that a task or step needs |
 
 ## Troubleshooting

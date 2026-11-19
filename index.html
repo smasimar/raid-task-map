@@ -1090,7 +1090,6 @@ function isRaidStep(obj) {
 }
 // true if the task still has an open step to do in a raid
 const hasRaidStep = (task) => (task.objectives || []).some((obj) => isRaidStep(obj) && !S.objDone?.get(obj.id)?.complete);
-const ELSEWHERE_MAX = 4;   // from this many steps on other maps, a card on the Map tab leaves them out
 // A task name that is wider than its card loses letters from the middle:
 // "The Survivalist Path - Wounded Beast" -> "The Survivali…Wounded Beast". The full name shows on hover.
 // The name with letters cut from its middle so that `keep` letters stay (no dash or colon next to the cut).
@@ -1134,8 +1133,8 @@ function missionCard(task, here) {
   // a step that is on a different map
   const isElsewhere = (obj) => here && !onMap.has(obj.id) && !!((obj.maps || []).length || (obj.zones || []).length || (obj.possibleLocations || []).length);
   const openObjs = (task.objectives || []).filter((obj) => !S.objDone?.get(obj.id)?.complete);
-  // a task with many steps on other maps (for example one camera on each map) shows only the steps of this map
-  const hidden = openObjs.filter(isElsewhere).length >= ELSEWHERE_MAX ? openObjs.filter(isElsewhere).length : 0;
+  // a card on the Map tab shows only the steps of this map, and a count of the steps on other maps
+  const hidden = openObjs.filter(isElsewhere).length;
   for (const obj of task.objectives || []) {
     const prog = S.objDone?.get(obj.id);
     if (prog?.complete) continue;
@@ -1153,7 +1152,7 @@ function missionCard(task, here) {
     if (go) st.addEventListener("click", () => focusPos(mo.positions[0].pos, `${task.id}:${obj.id}:0`));
     card.appendChild(st);
   }
-  if (hidden) card.insertAdjacentHTML("beforeend", `<div class="step muted elsewhere-note">+ ${hidden} steps on other maps</div>`);
+  if (hidden) card.insertAdjacentHTML("beforeend", `<div class="step muted elsewhere-note">+ ${hidden} ${hidden === 1 ? "step" : "steps"} on other maps</div>`);
   if (!open) card.insertAdjacentHTML("beforeend", `<div class="step muted">• All steps done</div>`);
   else if (open === handOver) card.insertAdjacentHTML("beforeend", `<div class="step muted">• Only hand-over steps left</div>`);
   return card;

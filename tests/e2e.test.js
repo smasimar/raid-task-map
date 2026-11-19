@@ -258,15 +258,16 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   w.eval('S.tasksById.get("debut").wikiLink = "https://wiki.example/Debut"; renderQuestPanel()');
   const wl = [...d.querySelectorAll("#questList .qcard")].find((c) => c.querySelector(".qname")?.textContent === "Debut").querySelector("a.wiki");
   assert(wl && wl.getAttribute("href") === "https://wiki.example/Debut" && wl.target === "_blank", "a mission card has a link to the task's wiki page");
-  // a task with many steps on other maps shows only the steps of this map, and a count of the others
+  // a card shows only the steps of this map, and a count of the steps on other maps
   const cardSteps = (others) => w.eval(`(() => {
     const here = S.current.primary.id, obj = (id, maps) => ({ id, description: id, type: id, maps });
     const objectives = [obj("cam here", [here]), obj("hand over", []), ...Array.from({ length: ${others} }, (_, i) => obj("cam " + i, ["otherMap"]))];
     return [...missionCard({ id: "ref", name: "ref", trader: "${PRAPOR}", objectives }, true).querySelectorAll(".step")].map((s) => s.textContent);
   })()`);
-  const many = cardSteps(4), few = cardSteps(3);
-  assert(many.length === 3 && many.some((x) => x.includes("cam here")) && many.some((x) => x.includes("hand over")) && many.at(-1) === "+ 4 steps on other maps", "many steps on other maps are left out of the card");
-  assert(few.length === 5 && few.some((x) => x.includes("cam 0")), "a few steps on other maps stay in the card");
+  const many = cardSteps(4), one = cardSteps(1), none = cardSteps(0);
+  assert(many.length === 3 && many.some((x) => x.includes("cam here")) && many.some((x) => x.includes("hand over")) && many.at(-1) === "+ 4 steps on other maps", "steps on other maps are left out of the card");
+  assert(one.length === 3 && !one.some((x) => x.includes("cam 0")) && one.at(-1) === "+ 1 step on other maps", "one step on another map is left out too");
+  assert(none.length === 2 && !none.some((x) => x.includes("other maps")), "no count when all steps are on this map");
   assert(text("#questList .step").some((x) => x.includes("Kill 5 Scavs") && x.includes("3/5")), "mission list shows steps with counts");
   assert(!text("#questList .step").some((x) => x.includes("Hand over 2 bolts")), "completed objective left out of the mission list");
 

@@ -140,7 +140,7 @@
   .ex-pmc { color:var(--ex-pmc); } .ex-scav { color:var(--ex-scav); } .ex-transit { color:var(--transit); }
   .ex-need { filter:saturate(.3); opacity:.8; }   /* an extract with a special requirement */
   .exneed { color:var(--accent); }
-  .keynote { color:var(--accent); white-space:nowrap; text-decoration:none; display:inline-block; text-indent:0; }
+  .keynote { color:var(--accent); text-decoration:none; display:inline-block; max-width:100%; overflow-wrap:anywhere; text-indent:0; }   /* a long key name wraps inside the card */
   .player svg { filter: drop-shadow(0 0 3px #000); }
   /* mini view: a small window that stays on top of the game. Only the map and the icons, no text. */
   #app.mini.tab-map header, #app.mini.tab-map #mission, #app.mini.tab-map #layersPanel,
@@ -374,22 +374,25 @@ async function getJSON(url) {
 }
 function t(dict, key, fallback) { const v = dict[key]; return v ? v : (fallback ?? key); }
 const itemName = (id, fallback) => S.itemsEn?.[`${ref(id)} Name`] || fallback;
+// the name on the item icon in the game ("E107 San" for "Health Resort east wing office room 107 key")
+const itemShort = (id, fallback) => S.itemsEn?.[`${ref(id)} ShortName`] || itemName(id, fallback);
 // Keys that a step or a task needs. requiredKeys: [[a, b], [c]] = (a or b) and c. neededKeys: [{map, keys}].
 // A key opens a door on one map. A step can have locations on more than one map (Vitamins: Factory,
   // and room 112 on Shoreline), so the key is tied to the maps that have its lock:
   //   on: a map config. Keys with no lock on that map are left out.
   //   mapIds: the maps of the step or task. If one of them has no lock for the key, the key's map is named.
-function keyText(groups, { on, mapIds } = {}) {
+// Key names are the short names from the item icons; { full: true } gives the full names (for tooltips).
+function keyText(groups, { on, mapIds, full } = {}) {
   const cfgs = mapIds ? S.mapCfgs.filter((mc) => mapIds.some((id) => mc.ids.has(ref(id)))) : [];
   const one = (k) => {
     const locks = S.keyLocks?.get(ref(k)), has = (mc) => [...mc.ids].some((id) => locks.has(id));
     if (locks && on && !has(on)) return "";
-    const name = itemName(k, "a key");
+    const name = (full ? itemName : itemShort)(k, "a key");
     return locks && !on && cfgs.some((mc) => !has(mc)) ? `${name} (${S.mapCfgs.filter(has).map((mc) => mc.displayName).join(" / ")})` : name;
   };
   return (groups || []).map((g) => [...new Set((Array.isArray(g) ? g : g.keys || []).map(one).filter(Boolean))].join(" or ")).filter(Boolean).join(", ");
 }
-const keyNote = (groups, where) => { const text = keyText(groups, where); return text ? ` <span class="keynote" title="Key that this step needs">🔑 ${esc(text)}</span>` : ""; };
+const keyNote = (groups, where) => { const text = keyText(groups, where); return text ? ` <span class="keynote" title="Key that this step needs: ${esc(keyText(groups, { ...where, full: true }))}">🔑 ${esc(text)}</span>` : ""; };
 // What an extract needs. tarkov.dev gives the item to pay or to carry (transferItem). The other
 // rules are not in the data: they come from the extract's name and from this small list.
 const EXTRACT_NEEDS = {
@@ -901,11 +904,12 @@ function taskRow({ task, depth, root }, available, withTrader) {
   row.style.marginLeft = `${depth * 22}px`;
   const maps = taskMaps(task).map((m) => m.displayName).join(" / ");
   const waits = st !== "locked" ? [] : (task.taskRequirements || []).map((r) => S.tasksById.get(ref(r.task))).filter((x) => x && !S.finished?.has(x.id)).slice(0, 2).map(taskName);
-  const keys = keyText(task.neededKeys, { mapIds: taskMaps(task).flatMap((mc) => [...mc.ids]) });
+  const keyWhere = { mapIds: taskMaps(task).flatMap((mc) => [...mc.ids]) };
+  const keys = keyText(task.neededKeys, keyWhere);
   const meta = [withTrader ? S.traders[ref(task.trader)]?.name : "", task.minPlayerLevel > 1 ? `level ${task.minPlayerLevel}` : "", maps, keys ? `🔑 ${keys}` : "", waits.length ? `after: ${waits.join(", ")}` : ""].filter(Boolean).join(" · ");
   const label = { done: "completed", active: "in progress", available: "available", locked: "locked" }[st];
   row.innerHTML = `<div class="thead">${st === "done" ? "" : `<input type="checkbox" ${st === "active" ? "checked" : ""} title="I have this task in the game">`}
-    <span class="tname" title="Show or hide the steps">${esc(taskName(task))}</span><span class="tstat">${label}</span><span class="tmeta">${esc(meta)}</span>
+    <span class="tname" title="Show or hide the steps">${esc(taskName(task))}</span><span class="tstat">${label}</span><span class="tmeta"${keys ? ` title="Keys: ${esc(keyText(task.neededKeys, { ...keyWhere, full: true }))}"` : ""}>${esc(meta)}</span>
     <a href="${esc(task.wikiLink || "#")}" target="_blank" rel="noopener" title="Wiki" class="muted" style="text-decoration:none">↗</a></div>`;
   const head = row.querySelector(".thead");
   row.querySelector("input")?.addEventListener("change", (e) => setSelected(task.id, e.target.checked));
@@ -1413,7 +1417,7 @@ function drawQuestMarkers() {
         const cnt = o.total > 1 ? ` (${o.count || 0}/${o.total})` : "";
         const tip = `<b>${esc(it.name)}</b> <span class="muted">· ${esc(it.trader)}</span><div style="margin-top:4px">${esc(o.text)}${cnt}</div>` +
           (p.kind === "item" ? `<div class="muted">Possible task item location</div>` : "") +
-          (keys ? `<div class="keynote">🔑 ${esc(keys)}</div>` : "") +
+          (keys ? `<div class="keynote">🔑 ${esc(keys)} <span class="muted">(${esc(keyText(o.obj.requiredKeys, { on: S.current, full: true }))})</span></div>` : "") +
           `<div class="muted" style="font-size:11px">${esc(floorName)} · elevation ${p.pos.y?.toFixed?.(1) ?? "?"}</div>`;
         if (kind === "area") {
           // dashed outline; a wide transparent line on top of it shows the tooltip, so the inside of the area stays free

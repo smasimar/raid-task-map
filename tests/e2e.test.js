@@ -57,7 +57,7 @@ const routes = {
   "https://json.tarkov.dev/regular/maps": { data: { maps: apiMaps } },
   "https://json.tarkov.dev/regular/maps_en": { data: mapsEn },
   "https://json.tarkov.dev/regular/traders": { data: { [PRAPOR]: { id: PRAPOR, name: "p", normalizedName: "prapor" }, [JAEGER]: { id: JAEGER, name: "j", normalizedName: "jaeger" } } },
-  "https://json.tarkov.dev/regular/items_en": { data: { "k206 Name": "Dorm room 206 key", "k207 Name": "Spare key", "rub Name": "Roubles" } },
+  "https://json.tarkov.dev/regular/items_en": { data: { "k206 Name": "Dorm room 206 key", "k206 ShortName": "Dorm 206", "k207 Name": "Spare key", "rub Name": "Roubles" } },
   "https://json.tarkov.dev/regular/traders_en": { data: { p: "Prapor", j: "Jaeger" } },
 };
 // a small copy of the helper's quest list (state.json): it applies the changes and sends the "quests" event
@@ -199,11 +199,12 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   })()`);
   assert(/^[1-9]\d*,[1-9]\d*$/.test(areaDraw), "a kill area draws a dashed outline with a hover line (" + areaDraw + ")");
   // keys that a task needs
-  assert(w.eval('keyText([["k206", "k207"]])') === "Dorm room 206 key or Spare key" && w.eval('keyText([{ map: "m", keys: ["k206"] }])') === "Dorm room 206 key", "key names for a step and for a task");
+  assert(w.eval('keyText([["k206", "k207"]])') === "Dorm 206 or Spare key" && w.eval('keyText([{ map: "m", keys: ["k206"] }])') === "Dorm 206", "key names for a step and for a task: the icon name, else the full name");
+  assert(w.eval('keyText([["k206", "k207"]], { full: true })') === "Dorm room 206 key or Spare key", "full key names for tooltips");
   // a key belongs to the map that has its lock (here: Woods), not to each map of the step
   const cfg = (k) => `S.mapCfgs.find((mc) => mc.key === "${k}")`;
-  assert(w.eval(`keyText([["k206"]], { on: ${cfg("customs")} })`) === "" && w.eval(`keyText([["k206"]], { on: ${cfg("woods")} })`) === "Dorm room 206 key", "on the map, a key shows only where its lock is");
-  assert(w.eval(`keyText([["k206"]], { mapIds: ["${CUST}", "${WOODS}"] })`) === "Dorm room 206 key (Woods)" && w.eval(`keyText([["k206"]], { mapIds: ["${WOODS}"] })`) === "Dorm room 206 key", "a step on two maps names the map of the key");
+  assert(w.eval(`keyText([["k206"]], { on: ${cfg("customs")} })`) === "" && w.eval(`keyText([["k206"]], { on: ${cfg("woods")} })`) === "Dorm 206", "on the map, a key shows only where its lock is");
+  assert(w.eval(`keyText([["k206"]], { mapIds: ["${CUST}", "${WOODS}"] })`) === "Dorm 206 (Woods)" && w.eval(`keyText([["k206"]], { mapIds: ["${WOODS}"] })`) === "Dorm 206", "a step on two maps names the map of the key");
   assert(w.eval(`keyText([["k207"]], { on: ${cfg("customs")} })`) === "Spare key", "a key with no lock data shows on each map");
   // a step that names its map loses the locations on other maps, and the keys for them (Vitamins)
   const stale = w.eval(`(() => {
@@ -217,7 +218,8 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   })()`);
   assert(stale === JSON.stringify([[CUST], [CUST], [], 2, [["k206"]], [{ map: CUST, keys: ["k206"] }]]), "a step that names Customs keeps only its Customs location and loses the Woods key; a step that names no map is not changed");
   pick("Prapor");
-  assert([...d.querySelectorAll(".trow")].find((r) => r.querySelector(".tname").textContent === "Checking").querySelector(".tmeta").textContent.includes("🔑 Dorm room 206 key"), "the task line shows the key that the task needs");
+  assert([...d.querySelectorAll(".trow")].find((r) => r.querySelector(".tname").textContent === "Checking").querySelector(".tmeta").textContent.includes("🔑 Dorm 206"), "the task line shows the key that the task needs");
+  assert([...d.querySelectorAll(".trow")].find((r) => r.querySelector(".tname").textContent === "Checking").querySelector(".tmeta").title .startsWith("Keys: Dorm room 206 key"), "the full key name shows on hover");
   pick("My tasks");
 
   // tick Debut in the Prapor line

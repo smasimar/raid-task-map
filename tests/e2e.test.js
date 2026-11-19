@@ -208,6 +208,20 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(!card0().classList.contains("collapsed") && JSON.parse(w.localStorage.getItem("tqm.collapsedCards")).length === 0, "a second click shows the steps again");
   // a long task name loses words from its middle
   assert(w.eval('middleCut("The Survivalist Path - Wounded Beast", 26)') === "The Survivali…Wounded Beast" && w.eval('middleCut("Health Care Privacy - Part 2", 16)') === "Health C…Part 2", "a long name loses letters from its middle, with no dash at the cut");
+  // the mission list leaves out "hand over" steps
+  const handOver = w.eval(`(() => {
+    const task = S.tasksById.get("checking"), before = task.objectives;
+    task.objectives = [...before, { id: "gv", description: "gv", type: "giveQuestItem", maps: [] }];
+    const a = missionCard(task, true).textContent;
+    task.objectives = [{ id: "gv", description: "gv", type: "giveItem", maps: [] }];
+    const b = missionCard(task, true).textContent;
+    task.objectives = before;
+    return [a.includes("gv"), b.includes("Only hand-over steps left")].join();
+  })()`);
+  assert(handOver === "false,true", "the mission list leaves out hand-over steps");
+  // long step openings are made short
+  w.eval('S.tasksEn["fir1"] = "Find the item in raid: Salewa first aid kit"; S.tasksEn["ob1"] = "Obtain the item: Golden rooster"');
+  assert(w.eval('stepText({ description: "fir1" })') === "Find in raid: Salewa first aid kit" && w.eval('stepText({ description: "ob1" })') === "Obtain: Golden rooster", "short step openings");
   // keys that a task needs
   assert(w.eval('keyText([["k206", "k207"]])') === "Dorm 206 or Spare key" && w.eval('keyText([{ map: "m", keys: ["k206"] }])') === "Dorm 206", "key names for a step and for a task: the icon name, else the full name");
   assert(w.eval('keyText([["k206", "k207"]], { full: true })') === "Dorm room 206 key or Spare key", "full key names for tooltips");
@@ -276,7 +290,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   d.getElementById("addTask").value = "Brand New Quest";
   d.getElementById("addTaskBtn").click();
   await sleep(50);
-  assert(text("#questList .qname").includes("Brand New Quest"), "unknown quest added as text only");
+  assert(!text("#questList .qname").includes("Brand New Quest"), "the mission list leaves out an unknown task");
   rowOf("Brand New Quest").querySelector("button").click();
   await sleep(50);
   assert(!text("#questList .qname").includes("Brand New Quest"), "text-only quest removed");
@@ -514,7 +528,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
     assert(quests.modes.regular.selected.includes(GHOST) && ghostRow()?.querySelector(".tname").textContent === "Unknown task …015663", "a started task that the data does not have shows under My tasks");
     w.prompt = () => "A Familiar Face...";
     ghostRow().querySelectorAll("button")[1].click();
-    assert(ghostRow().querySelector(".tname").textContent === "A Familiar Face..." && text("#questList .qname").includes("A Familiar Face..."), "the task can get a name; the mission list shows it");
+    assert(ghostRow().querySelector(".tname").textContent === "A Familiar Face..." && !text("#questList .qname").includes("A Familiar Face..."), "the task can get a name; the mission list still leaves it out");
     ghostRow().querySelector("button").click();
     await sleep(20);
     assert(!ghostRow() && !quests.modes.regular.selected.includes(GHOST), "the × button removes it");

@@ -639,7 +639,7 @@ function objectivesOnMap(task, mc) {
       obj, positions: uniq,
       done: !!prog?.complete,
       count: prog?.count, total: obj.count,
-      text: t(S.tasksEn, obj.description, obj.type) + (obj.optional ? " (optional)" : ""),
+      text: stepText(obj) + (obj.optional ? " (optional)" : ""),
     });
   }
   return out;
@@ -930,7 +930,7 @@ function taskRow({ task, depth, root }, available, withTrader) {
     const done = st === "done" || !!S.objDone?.get(obj.id)?.complete;
     const od = document.createElement("div");
     od.className = "tobj" + (done ? " done" : "");
-    od.innerHTML = `• ${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${keyNote(obj.requiredKeys, { mapIds: obj.maps || [] })}`;
+    od.innerHTML = `• ${esc(stepText(obj))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${keyNote(obj.requiredKeys, { mapIds: obj.maps || [] })}`;
     if (st !== "done") od.appendChild(progressButtons(obj));
     row.appendChild(od);
   }
@@ -1054,8 +1054,11 @@ function taskMaps(task) {
   }
   return S.mapCfgs.filter((mc) => [...mc.ids].some((id) => ids.has(id)));
 }
+// step text, with long fixed openings made short
+const STEP_SHORT = [[/^Find the item in raid:\s*/i, "Find in raid: "], [/^Obtain the item:\s*/i, "Obtain: "]];
+const stepText = (obj) => STEP_SHORT.reduce((txt, [re, to]) => txt.replace(re, to), t(S.tasksEn, obj.description, obj.type));
 const taskName = (task) => t(S.tasksEn, task.name, task.normalizedName);
-// Mission list: ticked tasks on the current map, then "any map" tasks, then text-only tasks.
+// Mission list: ticked tasks on the current map, then "any map" tasks. Tasks that tarkov.dev does not have are left out.
 // Completed steps are left out to keep the cards short.
 function renderQuestPanel() {
   const box = $("questList"), cur = S.current;
@@ -1071,19 +1074,14 @@ function renderQuestPanel() {
   for (const list of [here, any, other]) list.sort(byName);
   for (const { task } of here) box.appendChild(missionCard(task, true));
   for (const { task } of any) if (hasRaidStep(task)) box.appendChild(missionCard(task, false));
-  const custom = [...unknownTasks().map(unknownName), ...customQuests()];
-  for (const name of custom) {
-    const card = document.createElement("div");
-    card.className = "qcard";
-    card.innerHTML = `<div class="qhead"><span class="qname">${esc(name)}</span><span class="trader">not in tarkov.dev data</span></div>`;
-    box.appendChild(card);
-  }
   fitNames(box);
   if (!box.children.length) box.innerHTML = `<div class="qcard muted">No ticked tasks on ${esc(cur?.displayName || "this map")}. Open the Tasks tab to tick tasks.</div>`;
 }
 // Objective types that are done in a raid. The other types (buildWeapon, giveItem, giveQuestItem,
 // sellItem, taskStatus, traderLevel, traderStanding, skill, experience, ...) are done in the menus.
 const RAID_TYPES = new Set(["shoot", "findItem", "findQuestItem", "visit", "mark", "plantItem", "plantQuestItem", "extract", "useItem"]);
+// "Hand over" steps are done at the trader, so the mission list leaves them out
+const HAND_OVER_TYPES = new Set(["giveItem", "giveQuestItem"]);
 function isRaidStep(obj) {
   if (!RAID_TYPES.has(obj.type)) return false;
   // a "visit" step with no map is an Arena step ("Play a match in ...")
@@ -1132,7 +1130,7 @@ function missionCard(task, here) {
   S.collapsedCards ||= new Set(store.get("collapsedCards", []));
   if (S.collapsedCards.has(task.id)) card.classList.add("collapsed");
   card.querySelector(".qname").addEventListener("click", () => toggleCard(task.id));
-  let open = 0;
+  let open = 0, handOver = 0;
   // a step that is on a different map
   const isElsewhere = (obj) => here && !onMap.has(obj.id) && !!((obj.maps || []).length || (obj.zones || []).length || (obj.possibleLocations || []).length);
   const openObjs = (task.objectives || []).filter((obj) => !S.objDone?.get(obj.id)?.complete);
@@ -1142,6 +1140,7 @@ function missionCard(task, here) {
     const prog = S.objDone?.get(obj.id);
     if (prog?.complete) continue;
     open++;
+    if (HAND_OVER_TYPES.has(obj.type)) { handOver++; continue; }
     const elsewhere = isElsewhere(obj);
     if (elsewhere && hidden) continue;
     const mo = onMap.get(obj.id);
@@ -1150,12 +1149,13 @@ function missionCard(task, here) {
     const st = document.createElement("div");
     st.className = "step" + (go ? " go" : "") + (elsewhere ? " elsewhere" : "");
     const mark = go ? `<span class="step-mark"><div class="${markerClass(obj, mo.positions[0].kind, keyText(obj.requiredKeys, { on: S.current }), !!mo.positions[0].outline?.length)}"></div></span>` : "• ";
-    st.innerHTML = `${mark}${esc(t(S.tasksEn, obj.description, obj.type))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}${keyNote(obj.requiredKeys, here ? { on: S.current } : { mapIds: obj.maps || [] })}`;
+    st.innerHTML = `${mark}${esc(stepText(obj))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}${keyNote(obj.requiredKeys, here ? { on: S.current } : { mapIds: obj.maps || [] })}`;
     if (go) st.addEventListener("click", () => focusPos(mo.positions[0].pos, `${task.id}:${obj.id}:0`));
     card.appendChild(st);
   }
   if (hidden) card.insertAdjacentHTML("beforeend", `<div class="step muted elsewhere-note">+ ${hidden} steps on other maps</div>`);
   if (!open) card.insertAdjacentHTML("beforeend", `<div class="step muted">• All steps done</div>`);
+  else if (open === handOver) card.insertAdjacentHTML("beforeend", `<div class="step muted">• Only hand-over steps left</div>`);
   return card;
 }
 function applyRotation(latLng, rotation) {

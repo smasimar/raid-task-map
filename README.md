@@ -28,6 +28,20 @@ Use the app at your own risk.
   changes that wait to be sent, and a list of what the app did.
 - PvP and PvE have separate task lists.
 
+## Screenshots
+
+Map tab on Shoreline. The mission list is across the top, and "any map" tasks are in the bottom row.
+
+![Map tab on Shoreline](docs/screenshots/map-shoreline.png)
+
+Map tab on Streets of Tarkov, with the mission list down the side.
+
+![Map tab on Streets of Tarkov](docs/screenshots/map-streets.webp)
+
+Tasks tab: one trader's tasks, sorted by map, with step progress.
+
+![Tasks tab](docs/screenshots/tasks.png)
+
 ## Requirements
 
 - Windows 10 or 11

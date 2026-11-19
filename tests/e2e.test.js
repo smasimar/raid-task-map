@@ -325,14 +325,14 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   const css = d.querySelector("style").textContent;
   assert(/#mission \{ grid-column:1;/.test(css) && /#map \{ grid-column:1;/.test(css), "the mission list lies over the map, in the same grid cell");
 
-  // show-all mode draws markers for everything possible
-  d.getElementById("showAll").click();
-  await sleep(50);
-  assert(d.getElementById("showAll").checked, "show-all mode on");
-  assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 2, "show-all mode keeps the ticked markers");
-  d.getElementById("showAll").click();
-  await sleep(50);
-  assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 2, "ticked-only mode shows the two ticked zones");
+  // the Layers option puts "any map" tasks apart from the tasks of this map
+  assert(d.getElementById("app").classList.contains("split-list") && d.querySelector("#questList .qg-here"), "the any-map tasks are apart by default");
+  d.getElementById("splitList").click();
+  assert(!d.getElementById("app").classList.contains("split-list") && w.localStorage.getItem("tqm.splitList") === "false", "the option turns it off");
+  d.getElementById("splitList").click();
+  assert(d.getElementById("app").classList.contains("split-list"), "and on again");
+  assert(!d.getElementById("showAll"), "the every-available-task option is gone");
+  assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 2, "the map shows the two ticked zones");
 
   // Status tab: counters, connections and the activity lines
   d.getElementById("tabStatus").click();
@@ -516,7 +516,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   raid({});
   await sleep(50);
   assert(exNames().includes("Crossroads") && !exNames().includes("ex_scav_b"), "after the raid the PMC extracts are back");
-  assert(d.querySelector("#layersPanel #extractMode") && d.querySelector("#layersPanel #showAll") && !d.querySelector("#settings #showQuests"), "the map options are in the Layers panel of the Map tab");
+  assert(d.querySelector("#layersPanel #extractMode") && d.querySelector("#layersPanel #splitList") && !d.querySelector("#settings #showQuests"), "the map options are in the Layers panel of the Map tab");
   d.getElementById("layersBtn").click();
   assert(d.getElementById("layersPanel").classList.contains("open") && d.getElementById("layersBtn").classList.contains("on"), "the Layers button opens the panel");
   d.getElementById("layersBtn").click();

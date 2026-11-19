@@ -77,7 +77,9 @@ as not found, type its path.
   name in the mission list to show only the name, and again to show the steps. **List ↔ / ↕ / ✕** puts
   the mission list across the top, down the side, or hides it. **Mini** (key **M**)
   shows only the map, extracts and task locations. **M** or **Esc** goes back. **Layers** sets PMC or Scav extracts and shows or
-  hides objectives, extract names, landmark names and transits.
+  hides objectives, extract names, landmark names and transits. With **"Any map" tasks apart**
+  (on by default), tasks for any map get their own column on the right (list down the side)
+  or their own row at the bottom (list across the top).
 - **Progress** (with sending on). Type a step count, mark a step or task done with
   **✓**, undo with **↺**. Type your level in the box next to your name; the game logs
   do not give it.

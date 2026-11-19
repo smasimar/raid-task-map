@@ -222,6 +222,8 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   // long step openings are made short
   w.eval('S.tasksEn["fir1"] = "Find the item in raid: Salewa first aid kit"; S.tasksEn["ob1"] = "Obtain the item: Golden rooster"');
   assert(w.eval('stepText({ description: "fir1" })') === "Find in raid: Salewa first aid kit" && w.eval('stepText({ description: "ob1" })') === "Obtain: Golden rooster", "short step openings");
+  // steps with no spot on the map: red X (kill), white magnifier (obtain), gold magnifier (find in raid)
+  assert(w.eval('stepIcon({ type: "shoot" })').includes("si-kill") && w.eval('stepIcon({ type: "findItem", foundInRaid: false })').includes("si-obtain") && w.eval('stepIcon({ type: "findItem", foundInRaid: true })').includes("si-fir") && w.eval('stepIcon({ type: "visit" })') === "• ", "step icons for steps with no spot");
   // keys that a task needs
   assert(w.eval('keyText([["k206", "k207"]])') === "Dorm 206 or Spare key" && w.eval('keyText([{ map: "m", keys: ["k206"] }])') === "Dorm 206", "key names for a step and for a task: the icon name, else the full name");
   assert(w.eval('keyText([["k206", "k207"]], { full: true })') === "Dorm room 206 key or Spare key", "full key names for tooltips");

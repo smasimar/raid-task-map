@@ -82,6 +82,8 @@ Map markers:
 | Light blue ↗ arrow | Scav extract, and a shared extract in a Scav raid |
 | Pink ↘ arrow | Transit to another map |
 | Pale arrow | Extract or transit with a requirement (payment, key, no backpack, Red Rebel and paracord, partner, other condition). Point at it to see what it needs |
+| Red ✕ (mission list) | Kill step with no area on the map |
+| White or gold magnifier (mission list) | Item to obtain; gold: the item must be found in raid |
 | 🔑 | Key that a task or step needs |
 
 ## Troubleshooting

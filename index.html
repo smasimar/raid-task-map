@@ -112,6 +112,8 @@
   .step-mark > .q-icon { width:7px; height:7px; border-width:1px; }
   .step-mark > .q-item { width:7px; height:7px; border-width:1px; }
   .step-mark > .q-area { width:9px; height:9px; border-width:1.5px; }
+  .step-mark > svg { width:10px; height:10px; vertical-align:middle; margin:0 0 2px 1px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; }
+  .si-kill { color:var(--q-area); } .si-obtain { color:#f2f2f2; } .si-fir { color:var(--q-item); }
   .step-mark > .key { box-shadow:0 0 0 2px var(--q-key); }
   .step.go { cursor:pointer; } .step.go:hover { color:var(--accent); }
   .step .num { color:var(--muted); display:inline-block; width:16px; text-indent:0; }
@@ -1080,6 +1082,14 @@ function renderQuestPanel() {
 // Objective types that are done in a raid. The other types (buildWeapon, giveItem, giveQuestItem,
 // sellItem, taskStatus, traderLevel, traderStanding, skill, experience, ...) are done in the menus.
 const RAID_TYPES = new Set(["shoot", "findItem", "findQuestItem", "visit", "mark", "plantItem", "plantQuestItem", "extract", "useItem"]);
+// icon for a step with no spot on the map: red X (kill), white magnifier (obtain), gold magnifier (find in raid)
+const SVG_X = `<svg viewBox="0 0 10 10"><path d="M2 2L8 8M8 2L2 8"/></svg>`;
+const SVG_LENS = `<svg viewBox="0 0 10 10"><circle cx="4.2" cy="4.2" r="2.9"/><path d="M6.4 6.4L8.8 8.8"/></svg>`;
+function stepIcon(obj) {
+  if (obj.type === "shoot") return `<span class="step-mark si-kill" title="Kill">${SVG_X}</span>`;
+  if (obj.type === "findItem") return obj.foundInRaid ? `<span class="step-mark si-fir" title="Found in raid">${SVG_LENS}</span>` : `<span class="step-mark si-obtain" title="Obtain">${SVG_LENS}</span>`;
+  return "• ";
+}
 // "Hand over" steps are done at the trader, so the mission list leaves them out
 const HAND_OVER_TYPES = new Set(["giveItem", "giveQuestItem"]);
 function isRaidStep(obj) {
@@ -1147,7 +1157,7 @@ function missionCard(task, here) {
     const cnt = obj.count > 1 ? ` <span class="muted">${prog?.count || 0}/${obj.count}</span>` : "";
     const st = document.createElement("div");
     st.className = "step" + (go ? " go" : "") + (elsewhere ? " elsewhere" : "");
-    const mark = go ? `<span class="step-mark"><div class="${markerClass(obj, mo.positions[0].kind, keyText(obj.requiredKeys, { on: S.current }), !!mo.positions[0].outline?.length)}"></div></span>` : "• ";
+    const mark = go ? `<span class="step-mark"><div class="${markerClass(obj, mo.positions[0].kind, keyText(obj.requiredKeys, { on: S.current }), !!mo.positions[0].outline?.length)}"></div></span>` : stepIcon(obj);
     st.innerHTML = `${mark}${esc(stepText(obj))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}${keyNote(obj.requiredKeys, here ? { on: S.current } : { mapIds: obj.maps || [] })}`;
     if (go) st.addEventListener("click", () => focusPos(mo.positions[0].pos, `${task.id}:${obj.id}:0`));
     card.appendChild(st);

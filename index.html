@@ -91,15 +91,19 @@
   #app.view-mission-h .qcard { width:auto; break-inside:avoid; margin-bottom:6px; }
   #app.view-mission-v .qcard { width:auto; }
   .qcard:hover { background:rgba(20,23,26,.95); }
-  .qcard .trader { margin-left:6px; white-space:nowrap; }
-  .qhead .wiki { text-decoration:none; margin-left:6px; } .qhead .wiki:hover { color:var(--accent); }
+  .qcard .trader { margin-left:6px; white-space:nowrap; flex:none; }
+  .qhead .wiki { text-decoration:none; margin-left:6px; flex:none; } .qhead .wiki:hover { color:var(--accent); }
   .step.elsewhere { color:var(--muted); }
-  .qhead { display:flex; align-items:baseline; flex-wrap:wrap; }
+  .qhead { display:flex; align-items:baseline; }   /* one line: a long task name loses its middle (fitNames) */
+  .qhead .qname { flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .qx { padding:0 6px; line-height:18px; border-radius:4px; color:var(--muted); }
   .q-tip { background:#1d2227; color:var(--text); border:1px solid var(--line); white-space:normal; width:max-content; max-width:280px; font-size:13px; padding:8px 10px; }
   .q-tip.leaflet-tooltip-top:before { border-top-color:#1d2227; }
   .qcard.here { border-color:#5c5a1f; }
-  .qcard .qname { font-weight:600; }
+  .qcard .qname { font-weight:600; cursor:pointer; }
+  .qcard .qname:hover { color:var(--accent); }
+  .qcard.collapsed .step { display:none; }   /* a collapsed card shows only its name line */
+  .qcard.collapsed .qname::before { content:"▸ "; color:var(--muted); }
   .qcard .qmeta { color:var(--muted); font-size:12px; margin-bottom:3px; }
   .step { margin:2px 0 0; padding-left:14px; text-indent:-14px; }
   .step.done { text-decoration:line-through; color:var(--muted); }
@@ -1051,7 +1055,7 @@ function taskMaps(task) {
   return S.mapCfgs.filter((mc) => [...mc.ids].some((id) => ids.has(id)));
 }
 const taskName = (task) => t(S.tasksEn, task.name, task.normalizedName);
-// Mission list: ticked tasks on the current map, then "any location" tasks, then text-only tasks.
+// Mission list: ticked tasks on the current map, then "any map" tasks, then text-only tasks.
 // Completed steps are left out to keep the cards short.
 function renderQuestPanel() {
   const box = $("questList"), cur = S.current;
@@ -1074,6 +1078,7 @@ function renderQuestPanel() {
     card.innerHTML = `<div class="qhead"><span class="qname">${esc(name)}</span><span class="trader">not in tarkov.dev data</span></div>`;
     box.appendChild(card);
   }
+  fitNames(box);
   if (!box.children.length) box.innerHTML = `<div class="qcard muted">No ticked tasks on ${esc(cur?.displayName || "this map")}. Open the Tasks tab to tick tasks.</div>`;
 }
 // Objective types that are done in a raid. The other types (buildWeapon, giveItem, giveQuestItem,
@@ -1088,12 +1093,45 @@ function isRaidStep(obj) {
 // true if the task still has an open step to do in a raid
 const hasRaidStep = (task) => (task.objectives || []).some((obj) => isRaidStep(obj) && !S.objDone?.get(obj.id)?.complete);
 const ELSEWHERE_MAX = 4;   // from this many steps on other maps, a card on the Map tab leaves them out
+// A task name that is wider than its card loses letters from the middle:
+// "The Survivalist Path - Wounded Beast" -> "The Survivali…Wounded Beast". The full name shows on hover.
+// The name with letters cut from its middle so that `keep` letters stay (no dash or colon next to the cut).
+function middleCut(name, keep) {
+  const front = name.slice(0, Math.ceil(keep / 2)).replace(/[\s\-–—:,·]+$/, "");
+  const back = name.slice(name.length - Math.floor(keep / 2)).replace(/^[\s\-–—:,·]+/, "");
+  return `${front}…${back}`;
+}
+function fitNames(box) {
+  for (const el of box.querySelectorAll(".qhead .qname")) {
+    const full = el.dataset.full ||= el.textContent;
+    el.textContent = full;
+    el.title = "Show or hide the steps";
+    if (el.scrollWidth <= el.clientWidth) continue;
+    for (let keep = full.length - 1; keep > 2; keep--) {
+      el.textContent = middleCut(full, keep);
+      if (el.scrollWidth <= el.clientWidth) break;
+    }
+    el.title = `${full}\nShow or hide the steps`;
+  }
+}
+// the cards change width with the window and the list layout
+{ const box = $("questList"); if (box && window.ResizeObserver) new ResizeObserver(() => fitNames(box)).observe(box); }
+// mission cards that the user collapsed to their name line (kept between sessions)
+function toggleCard(id) {
+  S.collapsedCards ||= new Set(store.get("collapsedCards", []));
+  S.collapsedCards.has(id) ? S.collapsedCards.delete(id) : S.collapsedCards.add(id);
+  store.set("collapsedCards", [...S.collapsedCards]);
+  renderQuestPanel();
+}
 function missionCard(task, here) {
   const onMap = here ? new Map(objectivesOnMap(task, S.current).map((o) => [o.obj.id, o])) : new Map();
   const card = document.createElement("div");
   card.className = "qcard" + (here ? " here" : "");
   const trader = S.traders[ref(task.trader)]?.name || "";
-  card.innerHTML = `<div class="qhead"><span class="qname">${esc(taskName(task))}</span><span class="trader">${esc(trader)}${here ? "" : " · any location"}</span>${task.wikiLink ? `<a class="wiki muted" href="${esc(task.wikiLink)}" target="_blank" rel="noopener" title="Wiki">↗</a>` : ""}</div>`;
+  card.innerHTML = `<div class="qhead"><span class="qname" title="Show or hide the steps">${esc(taskName(task))}</span><span class="trader">${esc(trader)}${here ? "" : " · any map"}</span>${task.wikiLink ? `<a class="wiki muted" href="${esc(task.wikiLink)}" target="_blank" rel="noopener" title="Wiki">↗</a>` : ""}</div>`;
+  S.collapsedCards ||= new Set(store.get("collapsedCards", []));
+  if (S.collapsedCards.has(task.id)) card.classList.add("collapsed");
+  card.querySelector(".qname").addEventListener("click", () => toggleCard(task.id));
   let open = 0;
   // a step that is on a different map
   const isElsewhere = (obj) => here && !onMap.has(obj.id) && !!((obj.maps || []).length || (obj.zones || []).length || (obj.possibleLocations || []).length);

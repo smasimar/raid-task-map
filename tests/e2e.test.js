@@ -198,6 +198,16 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
     return r.join();
   })()`);
   assert(/^[1-9]\d*,[1-9]\d*$/.test(areaDraw), "a kill area draws a dashed outline with a hover line (" + areaDraw + ")");
+  // a click on the task name collapses the mission card to its name line, and a second click opens it
+  w.eval("renderQuestPanel()");
+  const card0 = () => d.querySelector("#questList .qcard");
+  const name0 = card0().querySelector(".qname").textContent;
+  card0().querySelector(".qname").click();
+  assert(card0().classList.contains("collapsed") && card0().querySelector(".qname").textContent === name0 && JSON.parse(w.localStorage.getItem("tqm.collapsedCards")).length === 1, "a click on the name collapses the card");
+  card0().querySelector(".qname").click();
+  assert(!card0().classList.contains("collapsed") && JSON.parse(w.localStorage.getItem("tqm.collapsedCards")).length === 0, "a second click shows the steps again");
+  // a long task name loses words from its middle
+  assert(w.eval('middleCut("The Survivalist Path - Wounded Beast", 26)') === "The Survivali…Wounded Beast" && w.eval('middleCut("Health Care Privacy - Part 2", 16)') === "Health C…Part 2", "a long name loses letters from its middle, with no dash at the cut");
   // keys that a task needs
   assert(w.eval('keyText([["k206", "k207"]])') === "Dorm 206 or Spare key" && w.eval('keyText([{ map: "m", keys: ["k206"] }])') === "Dorm 206", "key names for a step and for a task: the icon name, else the full name");
   assert(w.eval('keyText([["k206", "k207"]], { full: true })') === "Dorm room 206 key or Spare key", "full key names for tooltips");

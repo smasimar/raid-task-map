@@ -134,6 +134,36 @@ class Updater:
         except OSError:
             pass
 
+    # ---------------------------------------------------------------- patch notes
+    def notes(self, limit: int = 30) -> list:
+        """The newest commits, newest first: {sha, date, subject, body, installed}.
+        From GitHub; for a git clone without network, from the local history.
+        installed is True for the commit that is installed and the older ones, False for newer
+        ones, and None when the installed commit is not in the list."""
+        try:
+            data = json.loads(self.get(f"{API}/commits?sha={BRANCH}&per_page={int(limit)}"))
+            items = []
+            for c in data:
+                msg = (c.get("commit", {}).get("message") or "").strip()
+                subject, _, body = msg.partition("\n")
+                items.append({"sha": c["sha"], "date": c.get("commit", {}).get("committer", {}).get("date", ""),
+                              "subject": subject, "body": body.strip()})
+        except Exception:
+            if self.method() != "git":
+                raise
+            out = self._git("log", f"-{int(limit)}", "--format=%H%x1f%cI%x1f%s%x1f%b%x1e")
+            items = []
+            for rec in out.split("\x1e"):
+                parts = rec.strip().split("\x1f")
+                if len(parts) == 4:
+                    items.append({"sha": parts[0], "date": parts[1], "subject": parts[2], "body": parts[3].strip()})
+        local = self.local_version()
+        index = next((i for i, c in enumerate(items) if c["sha"] == local), None)
+        for i, c in enumerate(items):
+            c["body"] = "\n".join(l for l in c["body"].splitlines() if not l.lower().startswith("co-authored-by:")).strip()
+            c["installed"] = None if index is None else i >= index
+        return items
+
     # ---------------------------------------------------------------- update
     def update(self):
         """Install the newest version. The state becomes "updated" (start the app again) or "error"."""

@@ -779,6 +779,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._events()
         if path == "/api/update":
             return self._json(200, UPDATER.snapshot())
+        if path == "/api/update/notes":
+            try:
+                return self._json(200, {"notes": UPDATER.notes()})
+            except Exception as exc:
+                return self._json(502, {"error": f"Could not load the patch notes: {exc}"})
         self._send(404, b'{"error":"not found"}')
 
     def do_POST(self):

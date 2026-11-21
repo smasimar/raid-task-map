@@ -591,6 +591,14 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(text("#settings h2").join("|") === "TarkovTracker|Folders|Automatic actions|Updates|Status|Connections|Activity|About, credits and licenses", "the Settings tab has a heading for each group");
   // updates: the page asks before it installs a new version
   const ubox = d.getElementById("updateBox");
+  // patch notes load when the list is opened
+  routes["/api/update/notes"] = { notes: [
+    { sha: "c".repeat(40), date: "2026-11-22T10:00:00Z", subject: "Newest change", body: "- detail", installed: false },
+    { sha: "a".repeat(40), date: "2026-11-21T10:00:00Z", subject: "Installed change", body: "", installed: true }] };
+  const pn = d.getElementById("patchNotes");
+  pn.open = true; pn.dispatchEvent(new w.Event("toggle"));
+  await sleep(50);
+  assert(text("#notesList .subj").join("|") === "Newest change|Installed change" && text("#notesList .tag").join("|") === "new|installed", "patch notes show the changes and mark the new and the installed one");
   assert(ubox.hidden && d.getElementById("autoUpdate") && d.getElementById("checkUpdate") && d.getElementById("openGithub"), "no question without a new version; Settings has the update options");
   send({ type: "update", state: "available", local: "a".repeat(40), remote: "b".repeat(40), behind: 2, message: "Add a thing", changed: [], startedAt: 1 });
   await sleep(20);

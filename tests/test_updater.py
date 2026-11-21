@@ -83,6 +83,21 @@ class Files(unittest.TestCase):
         # the next check finds nothing new
         self.assertEqual(updater.Updater(self.dir, get=fake_github(files), git="").check()["state"], "current")
 
+    def test_patch_notes_mark_the_new_changes(self):
+        commits = [
+            {"sha": "c" * 40, "commit": {"message": "Newest\n\n- detail\n\nCo-Authored-By: X <x@example.com>", "committer": {"date": "2026-11-22T10:00:00Z"}}},
+            {"sha": "a" * 40, "commit": {"message": "Installed", "committer": {"date": "2026-11-21T10:00:00Z"}}},
+            {"sha": "9" * 40, "commit": {"message": "Older", "committer": {"date": "2026-11-20T10:00:00Z"}}},
+        ]
+        (self.dir / updater.RECORD).write_text("a" * 40)
+        up = updater.Updater(self.dir, get=lambda url, timeout=20: json.dumps(commits).encode(), git="")
+        notes = up.notes()
+        self.assertEqual([n["subject"] for n in notes], ["Newest", "Installed", "Older"])
+        self.assertEqual([n["installed"] for n in notes], [False, True, True])
+        self.assertEqual(notes[0]["body"], "- detail", "the co-author line is left out")
+        (self.dir / updater.RECORD).unlink()
+        self.assertEqual({n["installed"] for n in up.notes()}, {None}, "unknown when the installed version is not known")
+
     def test_update_does_nothing_without_a_found_version(self):
         get = fake_github({"a.py": b"x"})
         up = updater.Updater(self.dir, get=get, git="")

@@ -218,6 +218,17 @@
   /* the question that comes when GitHub has a newer version */
   #updateBox { position:fixed; top:58px; right:12px; z-index:3000; width:340px; max-width:calc(100vw - 24px); background:var(--panel); border:1px solid var(--accent); border-radius:8px; padding:10px 12px; box-shadow:0 6px 24px #000a; font-size:13px; }
   #updateBox[hidden] { display:none; }
+  #patchNotes { margin-top:10px; font-size:13px; }
+  #patchNotes summary { cursor:pointer; color:var(--muted); }
+  #patchNotes summary:hover { color:var(--text); }
+  #notesList { margin-top:6px; max-height:360px; overflow:auto; border:1px solid var(--line); border-radius:6px; padding:4px 10px; }
+  .note { padding:6px 0; border-top:1px solid var(--line); }
+  .note:first-child { border-top:0; }
+  .note .when { color:var(--muted); font-size:12px; margin-right:6px; font-variant-numeric:tabular-nums; }
+  .note .tag { font-size:11px; padding:0 6px; border:1px solid var(--accent); color:var(--accent); border-radius:8px; margin-left:6px; }
+  .note .tag.now { border-color:var(--pmc); color:var(--pmc); }
+  .note .subj { color:var(--text); }
+  .note .body { white-space:pre-wrap; color:var(--muted); font-size:12px; margin-top:2px; }
   #updateBox .msg { color:var(--muted); margin:4px 0 8px; overflow-wrap:anywhere; }
   #updateBox .row { justify-content:flex-end; margin:0; }
   .ok { color:var(--pmc); } .bad { color:var(--danger); }
@@ -312,6 +323,10 @@
         <button type="button" id="openGithub" title="github.com/smasimar/raid-task-map">GitHub page ↗</button>
         <span class="hint" id="updateStatus" style="margin:0"></span>
       </div>
+      <details id="patchNotes">
+        <summary>Patch notes</summary>
+        <div id="notesList" class="hint">Loading…</div>
+      </details>
     </div>
     <div class="row" style="justify-content:flex-end;margin:-4px 0 18px">
       <span class="hint" id="savedNote"></span>
@@ -1805,6 +1820,23 @@ function onUpdate(st) {
   }[st.state] ?? "";
   $("updateStatus").innerHTML = `Version ${esc(shortSha(st.local))}${line ? ` · ${st.state === "error" ? `<span class="bad">${esc(line)}</span>` : esc(line)}` : ""}`;
 }
+// patch notes: the newest changes on GitHub, loaded when the list is opened
+async function loadNotes() {
+  const box = $("notesList");
+  box.textContent = "Loading…";
+  try {
+    const r = await fetch("/api/update/notes", { cache: "no-store" });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error || r.status);
+    const seen = body.notes.findIndex((n) => n.installed);
+    box.innerHTML = body.notes.map((n, i) => `<div class="note"><span class="when">${esc((n.date || "").slice(0, 10))}</span><span class="subj">${esc(n.subject)}</span>`
+      + (n.installed === false ? `<span class="tag" title="Not installed yet">new</span>` : i === seen ? `<span class="tag now" title="The version you have">installed</span>` : "")
+      + (n.body ? `<div class="body">${esc(n.body)}</div>` : "") + `</div>`).join("") || "No changes found.";
+    S.notesLoaded = true;
+  } catch (e) {
+    box.innerHTML = `<span class="bad">${esc(e.message)}</span>`;
+  }
+}
 async function restartApp() {
   $("updateBox").innerHTML = `<b>Restarting…</b><div class="msg">The page loads again when the app is back.</div>`;
   await postJSON("/api/update/restart", {}).catch(() => {});
@@ -1947,6 +1979,7 @@ $("settingsForm").addEventListener("submit", async (e) => {
   $("savedNote").textContent = "Saved.";
 });
 $("openGithub").addEventListener("click", () => window.open("https://github.com/smasimar/raid-task-map", "_blank", "noopener"));
+$("patchNotes").addEventListener("toggle", () => { if ($("patchNotes").open && !S.notesLoaded) loadNotes(); });
 $("checkUpdate").addEventListener("click", () => { S.updateDismissed = null; postJSON("/api/update/check", {}).then((r) => r.json()).then(onUpdate).catch(() => {}); });
 $("cancelSettings").addEventListener("click", () => { fillSettings(); $("savedNote").textContent = ""; });
 $("viewBtn").addEventListener("click", () => setView(VIEWS[(VIEWS.findIndex((x) => x[0] === $("app").dataset.view) + 1) % VIEWS.length][0]));

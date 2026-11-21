@@ -25,8 +25,8 @@ Use the app at your own risk.
   [TarkovTracker.org](https://tarkovtracker.org), so completed tasks and steps drop off
   your lists. If you allow it, it also sends task
   changes, step counts and your level.
-- **Status tab:** the state of TarkovTracker, game data, logs and screenshots, the
-  changes that wait to be sent, and a list of what the app did.
+- **Settings tab:** your settings, and the state of TarkovTracker, game data, logs and
+  screenshots, the changes that wait to be sent, and a list of what the app did.
 - PvP and PvE have separate task lists.
 - **Updates:** at start the app looks for a newer version on GitHub and asks before it
   installs it. Settings can turn this off or check now. A git clone is updated with

@@ -334,10 +334,10 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(!d.getElementById("showAll"), "the every-available-task option is gone");
   assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 2, "the map shows the two ticked zones");
 
-  // Status tab: counters, connections and the activity lines
-  d.getElementById("tabStatus").click();
+  // the Settings tab also shows the status: counters, connections and the activity lines
+  d.getElementById("tabSettings").click();
   await sleep(50);
-  assert(d.getElementById("app").classList.contains("tab-status") && d.getElementById("tabStatus").classList.contains("on"), "Status is a tab");
+  assert(!d.getElementById("tabStatus") && d.querySelector("#settings #statusPart #statCards") && d.querySelector("#settings #activity"), "the status is part of the Settings tab");
   assert(text("#statCards .v").join("|") === "PvP|4,812|2|93", "status cards: mode, log lines, changes waiting, writes left");
   const conn = (name) => [...d.querySelectorAll("#connRows .conn")].find((c) => c.querySelector(".name").textContent === name);
   assert(conn("TarkovTracker").classList.contains("good") && conn("TarkovTracker").textContent.includes("read and write"), "TarkovTracker row shows the token rights");
@@ -524,6 +524,21 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   raid({});
   await sleep(200);
   assert(d.getElementById("app").dataset.tab === "tasks", "after the wait the page goes back to the Tasks tab");
+  // a raid that starts while the Map tab is open also goes back to Tasks after it
+  d.getElementById("tabMap").click();
+  raid({ phase: "raid", scenePath: "maps/customs_preset.bundle", location: "bigmap", online: true, raidId: "MAP01", side: "pmc", started: Date.now() / 1000 });
+  await sleep(50);
+  raid({});
+  await sleep(200);
+  assert(d.getElementById("app").dataset.tab === "tasks", "a raid that starts on the Map tab goes back to Tasks after it");
+  // a click on the Map tab during the raid keeps the Map tab open after it
+  raid({ phase: "raid", scenePath: "maps/customs_preset.bundle", location: "bigmap", online: true, raidId: "MAP02", side: "pmc", started: Date.now() / 1000 });
+  await sleep(50);
+  d.getElementById("tabMap").click();
+  raid({});
+  await sleep(200);
+  assert(d.getElementById("app").dataset.tab === "map", "a tab click during the raid cancels the switch back");
+  d.getElementById("tabTasks").click();
   assert(exNames().includes("Crossroads") && !exNames().includes("ex_scav_b"), "after the raid the PMC extracts are back");
   assert(d.querySelector("#layersPanel #extractMode") && d.querySelector("#layersPanel #splitList") && !d.querySelector("#settings #showQuests"), "the map options are in the Layers panel of the Map tab");
   d.getElementById("layersBtn").click();
@@ -573,10 +588,10 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(marks() === 0 && w.localStorage.getItem("tqm.showLandmarks") === "false", "the option hides the landmark names and is kept");
   lm.checked = true; lm.dispatchEvent(new w.Event("change"));
   assert(marks() === allMarks, "and shows them again");
-  assert(text("#settings h2").join("|") === "TarkovTracker|Folders|Automatic actions|Updates|About, credits and licenses", "the Settings tab has a heading for each group");
+  assert(text("#settings h2").join("|") === "TarkovTracker|Folders|Automatic actions|Updates|Status|Connections|Activity|About, credits and licenses", "the Settings tab has a heading for each group");
   // updates: the page asks before it installs a new version
   const ubox = d.getElementById("updateBox");
-  assert(ubox.hidden && d.getElementById("autoUpdate") && d.getElementById("checkUpdate"), "no question without a new version; Settings has the update options");
+  assert(ubox.hidden && d.getElementById("autoUpdate") && d.getElementById("checkUpdate") && d.getElementById("openGithub"), "no question without a new version; Settings has the update options");
   send({ type: "update", state: "available", local: "a".repeat(40), remote: "b".repeat(40), behind: 2, message: "Add a thing", changed: [], startedAt: 1 });
   await sleep(20);
   assert(!ubox.hidden && ubox.textContent.includes("Add a thing") && ubox.textContent.includes("2 new changes") && d.getElementById("updNow"), "a new version shows the question");

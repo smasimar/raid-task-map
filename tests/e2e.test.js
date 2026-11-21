@@ -573,7 +573,23 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(marks() === 0 && w.localStorage.getItem("tqm.showLandmarks") === "false", "the option hides the landmark names and is kept");
   lm.checked = true; lm.dispatchEvent(new w.Event("change"));
   assert(marks() === allMarks, "and shows them again");
-  assert(text("#settings h2").join("|") === "TarkovTracker|Folders|Automatic actions|About, credits and licenses", "the Settings tab has a heading for each group");
+  assert(text("#settings h2").join("|") === "TarkovTracker|Folders|Automatic actions|Updates|About, credits and licenses", "the Settings tab has a heading for each group");
+  // updates: the page asks before it installs a new version
+  const ubox = d.getElementById("updateBox");
+  assert(ubox.hidden && d.getElementById("autoUpdate") && d.getElementById("checkUpdate"), "no question without a new version; Settings has the update options");
+  send({ type: "update", state: "available", local: "a".repeat(40), remote: "b".repeat(40), behind: 2, message: "Add a thing", changed: [], startedAt: 1 });
+  await sleep(20);
+  assert(!ubox.hidden && ubox.textContent.includes("Add a thing") && ubox.textContent.includes("2 new changes") && d.getElementById("updNow"), "a new version shows the question");
+  assert(d.getElementById("updateStatus").textContent.includes("Version aaaaaaa"), "Settings shows the installed version");
+  d.getElementById("updLater").click();
+  assert(ubox.hidden, "Not now closes the question");
+  send({ type: "update", state: "updated", local: "b".repeat(40), remote: "b".repeat(40), behind: 0, changed: [], startedAt: 1 });
+  await sleep(20);
+  assert(!ubox.hidden && d.getElementById("updRestart"), "after the update the page offers a restart");
+  d.getElementById("updLater").click();
+  send({ type: "update", state: "error", error: "Could not check for updates: offline", startedAt: 1 });
+  await sleep(20);
+  assert(ubox.hidden && d.getElementById("updateStatus").textContent.includes("offline"), "a failed check at start shows only in Settings");
   assert(app.dataset.tab === "tasks" && !timer.classList.contains("on"), "raid end goes back to the Tasks tab and hides the timer");
   send({ type: "game", mode: "pve", session: "s", raid: { phase: "idle" } });
   await sleep(20);

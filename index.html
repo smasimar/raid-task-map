@@ -216,11 +216,17 @@
   #settings label { display:block; margin:12px 0 3px; color:var(--muted); font-size:12px; }
   #settings input[type=text], #settings input[type=password] { width:100%; }
   .hint { font-size:12px; color:var(--muted); margin-top:3px; }
+  /* the question that comes when GitHub has a newer version */
+  #updateBox { position:fixed; top:58px; right:12px; z-index:3000; width:340px; max-width:calc(100vw - 24px); background:var(--panel); border:1px solid var(--accent); border-radius:8px; padding:10px 12px; box-shadow:0 6px 24px #000a; font-size:13px; }
+  #updateBox[hidden] { display:none; }
+  #updateBox .msg { color:var(--muted); margin:4px 0 8px; overflow-wrap:anywhere; }
+  #updateBox .row { justify-content:flex-end; margin:0; }
   .ok { color:var(--pmc); } .bad { color:var(--danger); }
   details summary { cursor:pointer; color:var(--muted); font-size:12px; margin-top:6px; }
 </style>
 </head>
 <body>
+<div id="updateBox" hidden></div>
 <div id="app">
   <header>
     <div id="brand">
@@ -299,6 +305,14 @@
       <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoTick"> Tick a task when you accept it in the game, and untick it when you complete or fail it</label>
       <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoMap"> Select the map when a raid loads</label>
       <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoView"> Open the Map tab when a raid loads, and go back to the Tasks tab after it</label>
+    </div>
+    <h2>Updates</h2>
+    <div class="sbox">
+      <label class="row" style="color:var(--text);font-size:14px"><input type="checkbox" id="autoUpdate"> Look for a new version on GitHub when the app starts</label>
+      <div class="row" style="margin-top:6px">
+        <button type="button" id="checkUpdate">Check for updates</button>
+        <span class="hint" id="updateStatus" style="margin:0"></span>
+      </div>
     </div>
     <div class="row" style="justify-content:flex-end;margin:-4px 0 18px">
       <span class="hint" id="savedNote"></span>
@@ -1549,6 +1563,7 @@ function onEvent(ev) {
   if (ev.type === "activity") return onActivity(ev);
   if (ev.type === "progress") return S.cfg?.hasToken && loadProgress();
   if (ev.type === "config") return getJSON("/api/config").then(applyConfig);
+  if (ev.type === "update") return onUpdate(ev);
   if (ev.type !== "position" || !S.current) return;
   // the screenshot has no map name, so it is placed on the map you have selected
   S.player = { ...ev, mapKey: S.current.key };
@@ -1714,11 +1729,12 @@ function fillSettings() {
   $("logsInput").value = c.logsDir || "";
   $("logsHint").innerHTML = c.logsDirExists ? `<span class="ok">Reading ${esc(c.logsDirActive)}</span>` : `<span class="bad">Game logs not found.</span> Type the path of the Logs folder in the game folder.`;
   $("autoTick").checked = c.autoTick !== false;
+  $("autoUpdate").checked = c.autoUpdate !== false;
   $("autoMap").checked = store.get("autoMap", true);
   $("autoView").checked = store.get("autoView", true);
 }
 async function saveSettings() {
-  const body = { screenshotsDir: $("shotsInput").value, deleteScreenshots: $("deleteShots").checked, logsDir: $("logsInput").value, autoTick: $("autoTick").checked };
+  const body = { screenshotsDir: $("shotsInput").value, deleteScreenshots: $("deleteShots").checked, logsDir: $("logsInput").value, autoTick: $("autoTick").checked, autoUpdate: $("autoUpdate").checked };
   store.set("autoMap", $("autoMap").checked);
   store.set("autoView", $("autoView").checked);
   const tok = $("tokenInput").value.trim();
@@ -1745,9 +1761,57 @@ function populateMapSelect() {
 }
 
 // ------------------------------------------------------------------ boot
+// ------------------------------------------------------------------ updates from GitHub
+// The helper looks for a newer commit when it starts (if Settings allow it) or when you click
+// "Check for updates". The page asks before it installs anything.
+const shortSha = (sha) => (sha ? String(sha).slice(0, 7) : "unknown");
+function onUpdate(st) {
+  if (!st || !st.state) return;
+  const before = S.update;
+  S.update = st;
+  if (before && before.startedAt && st.startedAt > before.startedAt) return location.reload();   // the app started again
+  const box = $("updateBox");
+  const ask = st.state === "available" && S.updateDismissed !== st.remote;
+  const news = st.behind ? `${st.behind} new ${st.behind === 1 ? "change" : "changes"}` : st.changed?.length ? `${st.changed.length} changed ${st.changed.length === 1 ? "file" : "files"}` : "";
+  if (ask) {
+    box.innerHTML = `<b>A new version of Raid Task Map is available.</b><div class="msg">${esc(st.message || "")}${news ? ` <span>(${esc(news)})</span>` : ""}</div>
+      <div class="row"><button type="button" id="updLater">Not now</button><button type="button" id="updNow">Update</button></div>`;
+    $("updLater").onclick = () => { S.updateDismissed = st.remote; onUpdate(st); };
+    $("updNow").onclick = () => { S.updateAsked = true; postJSON("/api/update/apply", {}); };
+  } else if (st.state === "updating") {
+    box.innerHTML = `<b>Updating…</b><div class="msg">Downloading the new version from GitHub.</div>`;
+  } else if (st.state === "updated") {
+    box.innerHTML = `<b>The update is installed.</b><div class="msg">Start the app again to use the new version.</div>
+      <div class="row"><button type="button" id="updLater">Later</button><button type="button" id="updRestart">Restart now</button></div>`;
+    $("updLater").onclick = () => { box.hidden = true; };
+    $("updRestart").onclick = restartApp;
+  } else if (st.state === "error" && S.updateAsked) {
+    box.innerHTML = `<b>Update</b><div class="msg bad">${esc(st.error)}</div><div class="row"><button type="button" id="updLater">Close</button></div>`;
+    $("updLater").onclick = () => { S.updateAsked = false; box.hidden = true; };
+  }
+  box.hidden = !(ask || st.state === "updating" || st.state === "updated" || (st.state === "error" && S.updateAsked));
+  const line = {
+    idle: "", checking: "Looking for a new version…", current: "You have the newest version.",
+    available: `A new version is available${news ? ` (${news})` : ""}.`, updating: "Updating…",
+    updated: "The update is installed. Start the app again.", error: st.error || "Could not check for updates.",
+  }[st.state] ?? "";
+  $("updateStatus").innerHTML = `Version ${esc(shortSha(st.local))}${line ? ` · ${st.state === "error" ? `<span class="bad">${esc(line)}</span>` : esc(line)}` : ""}`;
+}
+async function restartApp() {
+  $("updateBox").innerHTML = `<b>Restarting…</b><div class="msg">The page loads again when the app is back.</div>`;
+  await postJSON("/api/update/restart", {}).catch(() => {});
+  const old = S.update?.startedAt || 0;
+  for (let i = 0; i < 60; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    const st = await getJSON("/api/update").catch(() => null);
+    if (st && st.startedAt > old) return location.reload();
+  }
+  $("updateBox").innerHTML = `<b>The app did not start again.</b><div class="msg">Run <code>py raid_task_map.py</code> in the app folder.</div>`;
+}
 async function boot() {
   try {
     S.cfg = await getJSON("/api/config");
+    getJSON("/api/update").then(onUpdate).catch(() => {});
   } catch (e) {
     setStatus("Run raid_task_map.py and open http://localhost:3000. The page does not work when you open it as a file.", true);
     return;
@@ -1875,6 +1939,7 @@ $("settingsForm").addEventListener("submit", async (e) => {
   fillSettings();
   $("savedNote").textContent = "Saved.";
 });
+$("checkUpdate").addEventListener("click", () => { S.updateDismissed = null; postJSON("/api/update/check", {}).then((r) => r.json()).then(onUpdate).catch(() => {}); });
 $("cancelSettings").addEventListener("click", () => { fillSettings(); $("savedNote").textContent = ""; });
 $("viewBtn").addEventListener("click", () => setView(VIEWS[(VIEWS.findIndex((x) => x[0] === $("app").dataset.view) + 1) % VIEWS.length][0]));
 boot();

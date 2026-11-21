@@ -28,6 +28,9 @@ Use the app at your own risk.
 - **Status tab:** the state of TarkovTracker, game data, logs and screenshots, the
   changes that wait to be sent, and a list of what the app did.
 - PvP and PvE have separate task lists.
+- **Updates:** at start the app looks for a newer version on GitHub and asks before it
+  installs it. Settings can turn this off or check now. A git clone is updated with
+  `git`; a ZIP download gets the changed files. Your settings and task lists stay.
 
 ## Screenshots
 
@@ -120,13 +123,15 @@ Map markers:
 - The app listens only on `127.0.0.1` and refuses requests from other sites.
 - Tokens are in `config.json` in plain text. Do not share it. Git ignores it.
 - Ticked tasks and unsent changes are in `state.json`.
-- The app contacts only `tarkov.dev`, `unpkg.com` (Leaflet) and `api.tarkovtracker.org`.
+- The app contacts only `tarkov.dev`, `unpkg.com` (Leaflet), `api.tarkovtracker.org`
+  and `github.com` (update check; off in Settings).
 - Screenshots are deleted only if you tick that option in Settings (off by default).
 
 ## Development
 
 ```
 py -3 raid_task_map.py --no-browser      start without opening the browser
+py -3 raid_task_map.py --no-update       start without the update check
 py -3 -m unittest discover tests         server and log-reader tests
 cd tests; npm install; npm test          page tests (Node.js and jsdom)
 ```
@@ -135,6 +140,7 @@ cd tests; npm install; npm test          page tests (Node.js and jsdom)
 | --- | --- |
 | `raid_task_map.py` | Local server: page, TarkovTracker proxy, screenshot and log watchers |
 | `game_logs.py` | Game log reader and raid state |
+| `updater.py` | Update check and update from GitHub |
 | `index.html` | The page: map, task lists, settings |
 | `maps.json` | Map projection settings, from tarkov.dev |
 | `config.json`, `state.json` | Your settings and task lists. Made by the app; git ignores them |

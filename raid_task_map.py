@@ -22,6 +22,7 @@ import json
 import os
 import queue
 import re
+import subprocess
 import sys
 import threading
 from collections import deque
@@ -34,6 +35,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import game_logs
+import updater
 
 
 def _arg(name: str, default: str) -> str:
@@ -88,7 +90,7 @@ def default_screenshots_dir() -> str:
 
 def load_config() -> dict:
     cfg = {"tokens": {}, "mode": "", "screenshotsDir": "", "deleteScreenshots": False, "logsDir": "",
-           "autoTick": True, "writeTT": False}
+           "autoTick": True, "writeTT": False, "autoUpdate": True}
     if CONFIG_PATH.exists():
         try:
             cfg.update(json.loads(CONFIG_PATH.read_text(encoding="utf-8")))
@@ -185,6 +187,8 @@ class EventHub:
 
 
 HUB = EventHub()
+UPDATER = updater.Updater(APP_DIR, HUB.publish)
+RESTART = threading.Event()   # set by the page after an update: main() starts the app again
 
 # --------------------------------------------------------------------------- status and activity
 # What the Status tab shows: counters of the watchers, and the last lines of what the app did.
@@ -738,6 +742,7 @@ class Handler(BaseHTTPRequestHandler):
                 "logsDir": CONFIG.get("logsDir", ""),
                 "autoTick": bool(CONFIG.get("autoTick", True)),
                 "writeTT": bool(CONFIG.get("writeTT")),
+                "autoUpdate": bool(CONFIG.get("autoUpdate", True)),
             }
         # the permission check costs one request, so it is made only when writes are on
         perms = token_permissions(token) if fields["writeTT"] and token else None
@@ -772,6 +777,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._progress(force="force=1" in query.split("&"))
         if path == "/api/events":
             return self._events()
+        if path == "/api/update":
+            return self._json(200, UPDATER.snapshot())
         self._send(404, b'{"error":"not found"}')
 
     def do_POST(self):
@@ -801,7 +808,7 @@ class Handler(BaseHTTPRequestHandler):
                     CONFIG["mode"] = data["mode"]
                 if data.get("removeToken") in CONFIG["tokens"]:
                     del CONFIG["tokens"][data["removeToken"]]
-                for key in ("deleteScreenshots", "autoTick", "writeTT"):
+                for key in ("deleteScreenshots", "autoTick", "writeTT", "autoUpdate"):
                     if key in data:
                         CONFIG[key] = bool(data[key])
                 if not CONFIG.get("screenshotsDir"):
@@ -883,6 +890,17 @@ class Handler(BaseHTTPRequestHandler):
             token_mode = active_mode()
             ev = {"type": "task", "status": data["status"], "id": data["id"], "time": time.time(), "mode": data.get("mode")}
             return self._json(200, QUESTS.apply_task_event(ev, token_mode))
+        if path in ("/api/update/check", "/api/update/apply"):
+            if not UPDATER.busy():
+                work = UPDATER.check if path.endswith("/check") else UPDATER.update
+                threading.Thread(target=work, daemon=True).start()
+            return self._json(202, UPDATER.snapshot())
+        if path == "/api/update/restart":
+            if UPDATER.snapshot()["state"] != "updated":
+                return self._json(409, {"error": "There is no installed update."})
+            RESTART.set()
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
+            return self._json(202, {"restarting": True})
         if path == "/api/test-game":
             # lets you check the raid behaviour without starting the game; the next log change replaces it
             raid = game_logs.new_raid()
@@ -985,10 +1003,33 @@ def main():
     print(f"{APP_NAME} running at {url}  (press Ctrl+C to stop)")
     if "--no-browser" not in sys.argv:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    with CONFIG_LOCK:
+        auto_update = bool(CONFIG.get("autoUpdate", True))
+    if auto_update and "--no-update" not in sys.argv:
+        threading.Thread(target=startup_update_check, daemon=True).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
+    if RESTART.is_set():
+        # start the updated app in the same console; this process waits for it
+        server.server_close()
+        print("Starting the updated app…")
+        args = [a for a in sys.argv[1:]]
+        if "--no-browser" not in args:
+            args.append("--no-browser")   # the page that asked for the restart reloads by itself
+        try:
+            sys.exit(subprocess.call([sys.executable, str(APP_DIR / "raid_task_map.py"), *args]))
+        except KeyboardInterrupt:
+            pass
+
+
+def startup_update_check():
+    status = UPDATER.check()
+    if status["state"] == "available":
+        print(f"A new version is available: {status['message']}. Open the app to update it.")
+    elif status["state"] == "error":
+        print(f"[update] {status['error']}")
 
 
 if __name__ == "__main__":

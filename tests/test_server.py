@@ -127,6 +127,54 @@ class Tokens(unittest.TestCase):
         self.assertEqual(cfg["tokens"], {"pve": "PVE_abcdefghijkl"})
         self.assertNotIn("token", cfg)
         self.assertFalse(cfg["writeTT"])
+        self.assertTrue(cfg["autoUpdate"], "the update check is on by default")
+
+
+class UpdateRoutes(unittest.TestCase):
+    """The page talks to the updater through /api/update; GitHub is not contacted here."""
+
+    def setUp(self):
+        import threading
+        self.server = app.Server(("127.0.0.1", 0), app.Handler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+        self.real = app.UPDATER
+
+    def tearDown(self):
+        app.UPDATER = self.real
+        app.RESTART.clear()
+        self.server.shutdown()
+        self.server.server_close()
+
+    def call(self, path, body=None):
+        import json, urllib.request, urllib.error
+        req = urllib.request.Request(self.base + path, data=None if body is None else json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    def test_status_check_and_restart(self):
+        import updater, threading
+        done = threading.Event()
+
+        class Fake(updater.Updater):
+            def check(self):
+                st = self._set(state="current", local="a" * 40)
+                done.set()
+                return st
+        app.UPDATER = Fake(Path("."), git="")
+        status, st = self.call("/api/update")
+        self.assertEqual((status, st["state"]), (200, "idle"))
+        status, _ = self.call("/api/update/check", {})
+        self.assertEqual(status, 202)
+        self.assertTrue(done.wait(5))
+        self.assertEqual(self.call("/api/update")[1]["state"], "current")
+        status, body = self.call("/api/update/restart", {})
+        self.assertEqual(status, 409, "no restart without an installed update")
+        self.assertFalse(app.RESTART.is_set())
 
 
 class Overlay(unittest.TestCase):

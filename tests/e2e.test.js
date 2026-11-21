@@ -206,6 +206,15 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(card0().classList.contains("collapsed") && card0().querySelector(".qname").textContent === name0 && JSON.parse(w.localStorage.getItem("tqm.collapsedCards")).length === 1, "a click on the name collapses the card");
   card0().querySelector(".qname").click();
   assert(!card0().classList.contains("collapsed") && JSON.parse(w.localStorage.getItem("tqm.collapsedCards")).length === 0, "a second click shows the steps again");
+  const markerCount = () => d.querySelectorAll(".leaflet-marker-pane .q-icon, .leaflet-marker-pane .q-item, .leaflet-overlay-pane .q-area-hit").length;
+  w.eval("renderQuestPanel(); drawQuestMarkers()");
+  const markedCard = () => [...d.querySelectorAll("#questList .qcard:not(.collapsed)")].find((c) => c.querySelector(".step.go"));
+  const allMarkers = markerCount(), markedName = markedCard().querySelector(".qname").textContent;
+  markedCard().querySelector(".qname").click();
+  const foldedCard = [...d.querySelectorAll("#questList .qcard")].find((c) => c.querySelector(".qname").textContent === markedName);
+  assert(allMarkers > 0 && foldedCard.classList.contains("collapsed") && markerCount() < allMarkers, "a collapsed card hides the task's markers");
+  foldedCard.querySelector(".qname").click();
+  assert(markerCount() === allMarkers, "opening the card shows the markers again");
   // a long task name loses words from its middle
   assert(w.eval('middleCut("The Survivalist Path - Wounded Beast", 26)') === "The Survivali…Wounded Beast" && w.eval('middleCut("Health Care Privacy - Part 2", 16)') === "Health C…Part 2", "a long name loses letters from its middle, with no dash at the cut");
   // the mission list leaves out "hand over" steps

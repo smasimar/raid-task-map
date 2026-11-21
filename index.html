@@ -1180,11 +1180,14 @@ function fitNames(box) {
 // the cards change width with the window and the list layout
 { const box = $("questList"); if (box && window.ResizeObserver) new ResizeObserver(() => fitNames(box)).observe(box); }
 // mission cards that the user collapsed to their name line (kept between sessions)
+// a collapsed card also hides the task's markers on the map
+const collapsedCards = () => (S.collapsedCards ||= new Set(store.get("collapsedCards", [])));
 function toggleCard(id) {
-  S.collapsedCards ||= new Set(store.get("collapsedCards", []));
-  S.collapsedCards.has(id) ? S.collapsedCards.delete(id) : S.collapsedCards.add(id);
-  store.set("collapsedCards", [...S.collapsedCards]);
+  const set = collapsedCards();
+  set.has(id) ? set.delete(id) : set.add(id);
+  store.set("collapsedCards", [...set]);
   renderQuestPanel();
+  drawQuestMarkers();
 }
 function missionCard(task, here) {
   const onMap = here ? new Map(objectivesOnMap(task, S.current).map((o) => [o.obj.id, o])) : new Map();
@@ -1192,8 +1195,7 @@ function missionCard(task, here) {
   card.className = "qcard" + (here ? " here" : "");
   const trader = S.traders[ref(task.trader)]?.name || "";
   card.innerHTML = `<div class="qhead"><span class="qname" title="Show or hide the steps">${esc(taskName(task))}</span><span class="trader">${esc(trader)}${here ? "" : " · any map"}</span>${task.wikiLink ? `<a class="wiki muted" href="${esc(task.wikiLink)}" target="_blank" rel="noopener" title="Wiki">↗</a>` : ""}</div>`;
-  S.collapsedCards ||= new Set(store.get("collapsedCards", []));
-  if (S.collapsedCards.has(task.id)) card.classList.add("collapsed");
+  if (collapsedCards().has(task.id)) card.classList.add("collapsed");
   card.querySelector(".qname").addEventListener("click", () => toggleCard(task.id));
   let open = 0, handOver = 0;
   // a step that is on a different map
@@ -1507,7 +1509,7 @@ function drawQuestMarkers() {
   S.markersByKey.clear();
   if (!$("showQuests").checked) return;
   for (const it of tasksForMap(S.current)) {
-    if (!isShown(it.task.id)) continue;
+    if (!isShown(it.task.id) || collapsedCards().has(it.task.id)) continue;
     for (const o of it.objs) {
       if (o.done) continue;
       const keys = keyText(o.obj.requiredKeys, { on: S.current });

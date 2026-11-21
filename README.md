@@ -78,7 +78,8 @@ as not found, type its path.
 - **Tasks tab.** Click a task name to see its steps. Use search, filters and **Sort**.
   ↗ opens the wiki page.
 - **Map tab.** Click a step that shows a map marker to move the map to it. Click a task
-  name in the mission list to show only the name, and again to show the steps. **List ↔ / ↕ / ✕** puts
+  name in the mission list to show only the name and hide its markers, and again to show
+  them. **List ↔ / ↕ / ✕** puts
   the mission list across the top, down the side, or hides it. **Mini** (key **M**)
   shows only the map, extracts and task locations. **M** or **Esc** goes back. **Layers** sets PMC or Scav extracts and shows or
   hides objectives, extract names, landmark names and transits. With **"Any map" tasks apart**

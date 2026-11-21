@@ -120,6 +120,39 @@ class Raids(unittest.TestCase):
         again = line("10:30:30", "scene preset path:maps/woods_preset.bundle") + line("10:31:00", "GameStarted:1 real:1")
         self.assertEqual(self.side([insurance, load, go, back, self.BACKEND.format("10:30:00", "/client/raid/configuration").encode(), again]), "scav")
 
+    def test_transit_keeps_the_side(self):
+        """Real PvE logs: a PMC raid on Customs, then a transit to Factory. The game selects the profile
+        again at the transit and asks for no insurance, which looked like a Scav raid."""
+        insurance = self.BACKEND.format("00:42:57", game_logs.INSURANCE_REQUEST).encode()
+        customs = (line("00:43:09", "scene preset path:maps/customs_preset.bundle rcid:bigmap.scenespreset.asset")
+                   + line("00:43:33", "[Transit] Flag:Common, RaidId:6b00db247b7c40f9bb0d80d6, Count:0, Locations:bigmap -> ")
+                   + line("00:44:06", "GameStarting:44.51(0) real:57.73(0) diff:13.22") + line("00:44:06", "GameStarted:44.51(0) real:57.73(0) diff:13.22"))
+        back = line("01:02:13", "PrepareSelectedProfileLocally ProfileId:aaaa AccountId:1")
+        hop = line("01:02:14", "PVE transit hop local:True location:factory4_day side:Pmc onlineToggle:False cachedMode:Local")
+        factory = (line("01:02:15", "scene preset path:maps/factory_day_preset.bundle rcid:factory_day.scenespreset.asset")
+                   + line("01:02:25", "[Transit] Flag:Common, RaidId:6b00db247b7c40f9bb0d80d6, Count:1, Locations:bigmap -> factory4_day -> ")
+                   + line("01:02:46", "GameStarting:23.23(0) real:32.37(0) diff:9.13") + line("01:02:46", "GameStarted:23.23(0) real:32.37(0) diff:9.13"))
+        noise = self.BACKEND.format("01:02:20", "/client/raid/configuration").encode()
+        state, reader = game_logs.GameState(), game_logs.EntryReader()
+        run(state, reader, insurance + customs)
+        self.assertEqual((state.raid["side"], state.raid["transits"]), ("pmc", 0))
+        run(state, reader, back + hop + noise + factory)
+        self.assertEqual((state.raid["side"], state.raid["transits"], state.raid["scenePath"]), ("pmc", 1, "maps/factory_day_preset.bundle"))
+        # without the hop line, the side comes from the first map of the same raid id
+        state, reader = game_logs.GameState(), game_logs.EntryReader()
+        run(state, reader, insurance + customs + back + noise + factory)
+        self.assertEqual(state.raid["side"], "pmc")
+        # a Scav raid that transits stays a Scav raid
+        state, reader = game_logs.GameState(), game_logs.EntryReader()
+        run(state, reader, self.BACKEND.format("00:42:57", "/client/raid/configuration").encode() + customs + back + noise + factory)
+        self.assertEqual(state.raid["side"], "scav")
+        # a new raid (Count:0) does not take the side of the last one
+        state, reader = game_logs.GameState(), game_logs.EntryReader()
+        again = (line("02:00:00", "scene preset path:maps/woods_preset.bundle")
+                 + line("02:00:10", "[Transit] Flag:Common, RaidId:ffff, Count:0, Locations:woods -> ") + line("02:00:30", "GameStarted:1 real:1"))
+        run(state, reader, insurance + customs + back + self.BACKEND.format("01:59:00", "/client/raid/configuration").encode() + again)
+        self.assertEqual(state.raid["side"], "scav")
+
     def test_follower_puts_the_three_logs_in_time_order(self):
         import tempfile, os
         with tempfile.TemporaryDirectory() as d:

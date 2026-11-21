@@ -1577,8 +1577,14 @@ async function applyGame(g) {
     setStatus(`The game runs in ${MODE_NAMES[g.mode] || g.mode} mode, but there is no TarkovTracker token for that mode. Add one in Settings.`, true);
   if (idle) {
     S.raidAutoKey = null;
-    if (S.viewAuto) { S.viewAuto = false; setTab("tasks"); }
+    // wait a moment before going back to the Tasks tab: at a transit the raid ends for a few seconds
+    // and the next map loads, and the Map tab should stay open
+    clearTimeout(S.backTimer);
+    if (S.viewAuto) S.backTimer = setTimeout(() => {
+      if ((S.game?.raid?.phase || "idle") === "idle" && S.viewAuto) { S.viewAuto = false; setTab("tasks"); }
+    }, S.backDelay ?? 8000);
   } else {
+    clearTimeout(S.backTimer);
     if (wasIdle && store.get("autoView", true) && $("app").dataset.tab === "tasks") { S.viewAuto = true; setTab("map"); }
     const { mc } = raidMap(g.raid);
     // once for each raid, so you can still look at a different map during the raid

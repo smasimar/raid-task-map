@@ -18,7 +18,8 @@ Use the app at your own risk.
   which way you look.
 - **Game logs:** a task you accept is ticked; a task you complete or fail is unticked.
   When a raid loads, the app selects the map and the PMC or Scav extracts and starts a
-  raid timer. After the raid it goes back to the Tasks tab. Settings can turn off the
+  raid timer. After a transit it shows the next map and keeps the side (PMC or Scav).
+  After the raid it goes back to the Tasks tab. Settings can turn off the
   map selection and the tab change.
 - **TarkovTracker:** the app reads your progress from
   [TarkovTracker.org](https://tarkovtracker.org), so completed tasks and steps drop off

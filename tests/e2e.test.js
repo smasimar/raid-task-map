@@ -513,8 +513,17 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   mode.value = "off"; mode.dispatchEvent(new w.Event("change"));
   assert(exNames().length === 0, "None shows no extracts");
   mode.value = "auto"; mode.dispatchEvent(new w.Event("change"));
+  // a transit: the raid ends for a moment and the next map loads; the Map tab stays open
+  w.eval("S.backDelay = 150");
   raid({});
   await sleep(50);
+  assert(d.getElementById("app").dataset.tab === "map", "the Map tab stays open for a moment after the raid");
+  raid({ phase: "loading", scenePath: "maps/customs_preset.bundle", since: Date.now() / 1000 });
+  await sleep(200);
+  assert(d.getElementById("app").dataset.tab === "map", "a transit to the next map keeps the Map tab open");
+  raid({});
+  await sleep(200);
+  assert(d.getElementById("app").dataset.tab === "tasks", "after the wait the page goes back to the Tasks tab");
   assert(exNames().includes("Crossroads") && !exNames().includes("ex_scav_b"), "after the raid the PMC extracts are back");
   assert(d.querySelector("#layersPanel #extractMode") && d.querySelector("#layersPanel #splitList") && !d.querySelector("#settings #showQuests"), "the map options are in the Layers panel of the Map tab");
   d.getElementById("layersBtn").click();

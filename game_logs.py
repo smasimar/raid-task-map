@@ -24,6 +24,11 @@ PMC_COUNTDOWN_SECONDS = 3.0   # a PMC raid has a countdown between GameStarting 
 SCENE_RE = re.compile(r"scene preset path:(maps/[a-zA-Z0-9_]+\.bundle)")
 LOCATION_RE = re.compile(r"Location: ([^,]+)")
 RAID_ID_RE = re.compile(r"shortId: ([A-Z0-9]{6})")
+# Transits. At the start of each map the game writes "[Transit] Flag:Common, RaidId:<id>, Count:<n>, Locations:a -> b -> "
+# (PvP: "[Transit] `<profile>` Count:<n>, ..."). The raid id stays the same through the transits and Count is the
+# number of transits so far. Before a PvE transit it also writes "PVE transit hop ... side:Pmc".
+TRANSIT_RE = re.compile(r"\[Transit\].*?(?:RaidId:(\w+), )?Count:(\d+)")
+HOP_SIDE_RE = re.compile(r"transit hop .*?side:(\w+)", re.I)
 LOG_FOLDER_RE = re.compile(r"^log_\d+\.\d+\.\d+_\d+-\d+-\d+")
 
 SESSION_MODES = {
@@ -176,7 +181,7 @@ class EntryReader:
 
 def new_raid():
     return {"phase": "idle", "scenePath": None, "location": None, "online": None,
-            "raidId": None, "since": 0.0, "started": None, "side": None}
+            "raidId": None, "since": 0.0, "started": None, "side": None, "transits": 0}
 
 
 class GameState:
@@ -201,6 +206,10 @@ class GameState:
         self._starting = None         # time of GameStarting
         self._backend_seen = False    # the backend log is there, so the insurance rule can be used
         self._insured = False         # the game asked for the insurance cost since the last raid
+        self._transit = None          # (raid id or None, count) from the [Transit] line of the raid that loads
+        self._hop_side = None         # the side from the "transit hop" line before a transit
+        self._last_side = None        # the side of the last raid, for a transit with no other side data
+        self.side_by_transit = {}     # transit raid id -> side of the first map
 
     def snapshot(self):
         return {"mode": self.mode, "raid": dict(self.raid)}
@@ -214,6 +223,14 @@ class GameState:
             self.raid = new_raid()
             return True
         return False
+
+    def _transit_side(self):
+        """The side of a raid that comes from a transit: the same as on the map before.
+        No insurance screen comes before a transit, and the game selects the profile again
+        (as at the end of a raid), so the other rules would see a Scav raid."""
+        if not self._transit or self._transit[1] < 1:
+            return None
+        return self._hop_side or self.side_by_transit.get(self._transit[0]) or self._last_side
 
     def _side(self, started: float):
         """PMC or Scav.
@@ -258,7 +275,7 @@ class GameState:
                 self.raid = new_raid()
         elif "application|scene preset path:" in message:
             self.raid = r = new_raid()
-            self._status_profile = self._starting = None
+            self._status_profile = self._starting = self._transit = None
             r["phase"] = "loading"
             r["since"] = when
             m = SCENE_RE.search(message)
@@ -291,9 +308,23 @@ class GameState:
             r["started"] = self.started_by_id.get(r["raidId"], when) if r["raidId"] else when
             if r["raidId"]:
                 self.started_by_id[r["raidId"]] = r["started"]
-            r["side"] = self.side_by_id.get(r["raidId"]) or self._side(when)
+            r["side"] = self.side_by_id.get(r["raidId"]) or self._transit_side() or self._side(when)
+            r["transits"] = self._transit[1] if self._transit else 0
             if r["raidId"] and r["side"]:
                 self.side_by_id[r["raidId"]] = r["side"]
+            if self._transit and self._transit[0] and r["side"] and self._transit[1] == 0:
+                self.side_by_transit[self._transit[0]] = r["side"]
+            if r["side"]:
+                self._last_side = r["side"]
+            self._hop_side = None
+        elif HOP_SIDE_RE.search(message):
+            side = HOP_SIDE_RE.search(message).group(1).lower()
+            self._hop_side = "pmc" if side.startswith("pmc") else "scav"
+        elif "application|[Transit]" in message and TRANSIT_RE.search(message):
+            m = TRANSIT_RE.search(message)
+            self._transit = (m.group(1), int(m.group(2)))
+            if self._transit[1] == 0:
+                self._hop_side = None   # a new raid, not a transit
         elif ("application|Network game matching aborted" in message
               or "application|Network game matching cancelled" in message):
             self.raid = new_raid()

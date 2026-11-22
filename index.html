@@ -1520,12 +1520,16 @@ function drawLocks() {
   if (!S.lmap || !S.current || !S.layers.locks) return;
   S.layers.locks.clearLayers();
   if (!$("showLocks").checked) return;
-  // keys that the ticked tasks on this map still need
-  const need = new Set();
+  // keys that the ticked tasks still need on this map: a task's key entry or a step counts only for
+  // the maps it names (Is This a Reference? needs the Factory key on Factory, not on Streets)
+  const need = new Set(), here = (m) => !m || S.current.ids.has(ref(m));
   for (const it of tasksForMap(S.current)) {
     if (!isShown(it.task.id)) continue;
-    for (const g of it.task.neededKeys || []) for (const k of g.keys || []) need.add(ref(k));
-    for (const o of it.objs) if (!o.done) for (const g of o.obj.requiredKeys || []) for (const k of Array.isArray(g) ? g : [g]) need.add(ref(k));
+    for (const g of it.task.neededKeys || []) if (here(g.map)) for (const k of g.keys || []) need.add(ref(k));
+    for (const o of it.objs) {
+      if (o.done || ((o.obj.maps || []).length && !o.obj.maps.some(here))) continue;
+      for (const g of o.obj.requiredKeys || []) for (const k of Array.isArray(g) ? g : [g]) need.add(ref(k));
+    }
   }
   const seen = new Set();
   for (const a of S.apiMaps.filter((x) => S.current.ids.has(x.id))) for (const lock of a.locks || []) {

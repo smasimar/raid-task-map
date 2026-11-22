@@ -249,6 +249,14 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
     return n;
   })()`);
   assert(needLock === 1, "the lock of a key that a ticked task needs is brighter");
+  const otherMap = w.eval(`(() => {
+    const it = tasksForMap(S.current).find((x) => isShown(x.task.id)), before = it.task.neededKeys;
+    it.task.neededKeys = [{ map: "${WOODS}", keys: ["k208"] }]; drawLocks();
+    const n = document.querySelectorAll(".leaflet-marker-pane .lock-mark.need").length;
+    it.task.neededKeys = before; drawLocks();
+    return n;
+  })()`);
+  assert(otherMap === 0, "a key that the task needs on another map does not mark the lock here");
   d.getElementById("showLocks").click();
   assert(locks().length === 0, "the option hides the layer");
   // a click on a marker shows the floor of that marker (Customs dorms: 2nd floor)

@@ -191,6 +191,38 @@
   .leaflet-overlay-pane svg.floor-only g.floor-shown, .leaflet-overlay-pane svg.floor-only g.floor-shown g { display:inline; }
   #settings { grid-column:1; grid-row:2; z-index:1200; min-height:0; overflow:auto; background:var(--bg); padding:18px 24px 40px; }
   #app:not(.tab-settings) #settings { display:none; }
+  #crafts { grid-column:1; grid-row:2; z-index:1200; min-height:0; overflow:auto; background:var(--bg); padding:12px 18px 40px; }
+  #app:not(.tab-crafts) #crafts { display:none; }
+  #craftTop { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; margin-bottom:10px; font-size:13px; }
+  #craftTop .muted { font-size:12px; }
+  /* station buttons look like the power switch of the hideout: a hexagon, green and lit when on, dark red when off */
+  #craftStations { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .stbtn { all:unset; cursor:pointer; width:40px; height:46px; display:block; --hex:polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  .stbtn .hex { display:block; width:100%; height:100%; clip-path:var(--hex); background:#3a1a1a; padding:2px; box-sizing:border-box; }
+  .stbtn .in { display:flex; align-items:center; justify-content:center; width:100%; height:100%; clip-path:var(--hex); background:radial-gradient(#1a0f0f, #0b0909); }
+  .stbtn img { width:26px; height:26px; filter:grayscale(1) sepia(1) saturate(5) hue-rotate(-35deg) brightness(.45); opacity:.8; }
+  .stbtn:hover .hex { background:#5a2626; }
+  .stbtn.on { filter:drop-shadow(0 0 5px #6fe03a99); }
+  .stbtn.on .hex { background:#6fe03a; }
+  .stbtn.on .in { background:radial-gradient(#1f3a12, #0c160a); }
+  .stbtn.on img { filter:grayscale(1) sepia(1) saturate(6) hue-rotate(50deg) brightness(1.15); opacity:1; }
+  .stbtn.on:hover .hex { background:#9cff6a; }
+  .crafttab .stn { position:relative; width:30px; height:30px; }
+  .crafttab .stn img { width:30px; height:30px; }
+  .crafttab .stn small { position:absolute; right:-6px; bottom:-3px; font-size:10px; line-height:1; color:var(--text); text-shadow:0 0 2px #000, 0 0 2px #000; font-variant-numeric:tabular-nums; }
+  .crafttab { width:100%; border-collapse:collapse; font-size:13px; }
+  .crafttab th { text-align:left; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); padding:4px 6px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  .crafttab td { padding:5px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .crafttab .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .crafttab .prod { display:flex; gap:6px; align-items:center; min-width:180px; }
+  .crafttab .prod img { width:32px; height:32px; flex:none; background:#0006; border-radius:3px; }
+  .crafttab .parts { font-size:12px; color:var(--muted); }
+  .crafttab .parts div { overflow-wrap:anywhere; margin-bottom:2px; }   /* a long name goes on to the next line */
+  .crafttab .parts .price { white-space:nowrap; }
+  .crafttab .parts b { color:var(--text); font-weight:400; }
+  .crafttab .src { font-size:11px; color:var(--muted); display:block; }
+  .crafttab .gain { color:var(--pmc); } .crafttab .loss { color:var(--danger); }
+  .crafttab tr.lvlstart td { border-top:2px solid var(--line); }
   #statusPart, #aboutPart { max-width:860px; }   /* the Settings tab also shows the status of the app */
   #statusPart { margin-top:8px; }
   #statCards { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:16px; }
@@ -204,6 +236,7 @@
   .conn .dot { width:8px; height:8px; border-radius:50%; flex:none; background:var(--muted); }
   .conn .name { width:120px; flex:none; font-weight:600; }
   .conn .detail { flex:1; min-width:0; color:var(--muted); overflow-wrap:anywhere; }
+  .conn .pbtn { flex:none; }
   .conn .pill { font-size:11px; padding:1px 8px; border:1px solid var(--line); border-radius:9px; color:var(--muted); white-space:nowrap; }
   .conn.good .dot { background:var(--pmc); } .conn.good .pill { color:var(--pmc); border-color:var(--pmc); }
   .conn.wait .dot { background:var(--accent); } .conn.wait .pill { color:var(--accent); border-color:var(--accent); }
@@ -252,6 +285,7 @@
     <div id="tabs">
       <button id="tabTasks" class="tab" title="Your task list and the task lines of each trader"><svg viewBox="0 0 16 16"><path d="M2 2h3v3H2zM7 2.5h7v2H7zM2 6.5h3v3H2zM7 7h7v2H7zM2 11h3v3H2zM7 11.5h7v2H7z"/></svg>Tasks</button>
       <button id="tabMap" class="tab" title="The map with your mission list"><svg viewBox="0 0 16 16"><path d="M8 1a5 5 0 0 0-5 5c0 3.6 5 9 5 9s5-5.400 5-9a5 5 0 0 0-5-5zm0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>Map</button>
+      <button id="tabCrafts" class="tab" title="The crafts of each hideout station and their profit at flea prices"><svg viewBox="0 0 16 16"><path d="M9.500 1.500l5 5-2 2-1.500-1.500-6.300 6.300a1.400 1.400 0 0 1-2-2L9 5 7.500 3.500z"/></svg>Crafts</button>
       <button id="tabSettings" class="tab" title="Tokens, folders and options"><svg viewBox="0 0 16 16"><path d="M6.700 1h2.600l.4 1.800 1.300.6 1.600-1 1.800 1.800-1 1.600.6 1.300 1.800.4v2.600l-1.800.4-.6 1.300 1 1.600-1.800 1.800-1.600-1-1.300.6-.4 1.800H6.700l-.4-1.800-1.300-.6-1.600 1-1.800-1.800 1-1.600-.6-1.300L.2 9.300V6.700L2 6.300l.6-1.300-1-1.600 1.800-1.800 1.600 1 1.300-.6zM8 5.500a2.500 2.500 0 1 0 0 5 2.500 2.500 0 0 0 0-5z"/></svg>Settings</button>
     </div>
     </div>
@@ -365,6 +399,21 @@
       <p>Not affiliated with or approved by Battlestate Games. Escape from Tarkov is a trademark of Battlestate Games Limited. This app reads only the game's log files and the names of your screenshots. The game's license agreement does not give permission for tools that do this; use the app at your own risk.</p>
     </div>
   </div>
+  </section>
+  <section id="crafts">
+    <div id="craftTop">
+      <input type="text" id="craftSearch" placeholder="Search crafts…">
+      <label>Sort <select id="craftSort" title="The order of the crafts in a station">
+        <option value="level">Level</option><option value="profit">Profit</option><option value="hour">Profit per hour</option>
+      </select></label>
+      <label title="The flea price of an item">Flea price <select id="craftPrice">
+        <option value="avg">24 h average</option><option value="low">Lowest offer</option>
+      </select></label>
+      <label title="Buy a component from a trader when the trader is cheaper than the flea. Trader level and task unlocks are not checked."><input type="checkbox" id="craftTraders" checked> Trader prices</label>
+      <span id="craftNote" class="muted"></span>
+    </div>
+    <div id="craftStations" title="Show or hide the crafts of a station"></div>
+    <div id="craftList"></div>
   </section>
 
   <div id="layersPanel">
@@ -543,6 +592,7 @@ async function loadGameData() {
   getJSON(`${JSON_API}/${m}/items_en`).then((d) => {
     if (S.mode !== m) return;
     S.itemsEn = d.data || {};
+    renderCrafts();   // the crafts show item names
     renderTasks();
     if (S.current && S.layers.extracts) drawExtracts(S.current);
     drawLocks();   // the lock tooltips name the keys
@@ -1768,7 +1818,7 @@ function renderStatus() {
     + card("Log lines read", (st.logLines || 0).toLocaleString())
     + card("Changes waiting", String(st.writes?.pending ?? 0))
     + card("Writes left today", left === null || left === undefined ? "Not known" : String(left));
-  const row = (cls, name, detail, pill) => `<div class="conn ${cls}"><span class="dot"></span><span class="name">${esc(name)}</span><span class="detail">${esc(detail)}</span><span class="pill">${esc(pill)}</span></div>`;
+  const row = (cls, name, detail, pill, button = "") => `<div class="conn ${cls}"><span class="dot"></span><span class="name">${esc(name)}</span><span class="detail">${esc(detail)}</span>${button}<span class="pill">${esc(pill)}</span></div>`;
   const rows = [];
   // TarkovTracker
   if (!st.hasToken) rows.push(row("", "TarkovTracker", "No token. Add one under TarkovTracker above.", "No token"));
@@ -1782,6 +1832,15 @@ function renderStatus() {
   // game data, which this page loads itself
   rows.push(S.dataError ? row("fail", "Game data", `tarkov.dev: ${S.dataError}`, "Not loaded")
     : row(S.tasks.length ? "good" : "", "Game data", `tarkov.dev · ${S.tasks.length} tasks · ${S.mapCfgs.length} maps`, S.tasks.length ? "Loaded" : "Loading"));
+  // flea prices for the Crafts tab, which the app saves for some hours
+  const f = st.flea || {}, hm = (s) => new Date(s * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const fbtn = `<button type="button" id="fleaRefresh" class="pbtn" title="Download the crafts and the flea prices again"${f.busy ? " disabled" : ""}>↻ Download now</button>`;
+  const fage = f.fetched ? st.now - f.fetched : null;
+  const fdetail = f.fetched ? `tarkov.dev · ${MODE_NAMES[st.mode] || st.mode} · ${f.items} items, ${f.crafts} crafts · loaded ${hm(f.fetched)}`
+    + (fage < f.maxAge ? ` · new download after ${hm(f.fetched + f.maxAge)}` : " · new download when you open the Crafts tab") : "Loads when you open the Crafts tab";
+  rows.push(f.busy ? row("wait", "Flea prices", fdetail, "Downloading", fbtn)
+    : f.error ? row(f.fetched ? "wait" : "fail", "Flea prices", `${f.fetched ? fdetail + " · " : ""}last try ${hhmmss(f.errorTime)}: ${f.error}`, f.fetched ? "Old prices" : "Not loaded", fbtn)
+    : row(f.fetched ? "good" : "", "Flea prices", fdetail, f.fetched ? (fage < f.maxAge ? "Saved" : "Old") : "Not loaded", fbtn));
   // game logs
   rows.push(st.logsFound ? row("good", "Game logs", `${st.session} · ${st.logFiles} file${st.logFiles === 1 ? "" : "s"}`, "Reading")
     : row("fail", "Game logs", st.logsDir ? `No session folder in ${st.logsDir}` : "The game's Logs folder was not found. Type its path under Folders above.", "Not found"));
@@ -1796,6 +1855,14 @@ function renderStatus() {
   else rows.push(row("", "Game", quiet === null ? "No log line yet" : `No log line for ${quiet} minutes`, "Not running"));
   $("connRows").innerHTML = rows.join("");
 }
+$("connRows").addEventListener("click", async (e) => {
+  if (e.target.id !== "fleaRefresh") return;
+  e.target.disabled = true;
+  const done = loadCrafts(true);
+  setTimeout(loadStatus, 300);   // shows "Downloading"
+  await done;
+  loadStatus();
+});
 async function loadStatus() {
   try {
     S.status = await getJSON("/api/status");
@@ -1854,9 +1921,142 @@ async function applyConfig(cfg) {
   S.cfg = cfg;
   S.mode = cfg.gameMode;
   S.progressJson = null;
-  if (S.mode !== prevMode) { await loadGameData(); await loadQuests(); populateMapSelect(); populateTaskSearch(); await showMap(S.current?.key); }
+  if (S.mode !== prevMode) { await loadGameData(); await loadQuests(); populateMapSelect(); populateTaskSearch(); await showMap(S.current?.key); if ($("app").dataset.tab === "crafts") loadCrafts(); }
   if (S.cfg.hasToken) await loadProgress(); else renderTasks();
 }
+
+// ------------------------------------------------------------------ crafts
+// The crafts of each hideout station, with the cost of the components and the value of the product
+// at flea and trader prices (tarkov.dev, for the game mode of the token). Tools are not used up, so they
+// are not in the cost. Fuel and the time of the station are not in the cost.
+const ROUBLES = "5449016a4bdc2d6f028b456f";
+// The local server downloads the files, keeps only the prices of the craft items, and saves the
+// result for 8 hours (crafts.py), so a reload of the page does not download them again. The
+// Flea prices row of the Settings tab shows the saved data and can start a new download.
+async function loadCrafts(force) {
+  const m = S.mode;
+  if (!m || (S.craftData?.mode === m && !force)) return renderCrafts();
+  if (S.craftLoading === m) return;
+  S.craftLoading = m;
+  $("craftList").innerHTML = '<p class="muted">Loading the crafts and the prices from tarkov.dev…</p>';
+  try {
+    const d = await getJSON(`/api/crafts?mode=${encodeURIComponent(m)}${force ? "&force=1" : ""}`);
+    if (S.mode !== m) return;
+    S.craftData = { ...d, prices: new Map(Object.entries(d.prices || {})) };
+  } catch (e) {
+    if (S.mode === m) $("craftList").innerHTML = `<p class="bad">Could not load the crafts: ${esc(e.message)}</p>`;
+    return;
+  } finally { if (S.craftLoading === m) S.craftLoading = null; }
+  // a button for each station with crafts: a click shows or hides its crafts
+  const box = $("craftStations");
+  box.innerHTML = "";
+  for (const s of Object.values(S.craftData.stations).filter((s) => S.craftData.crafts.some((c) => c.station === s.id))
+    .sort((a, b) => stationName(a).localeCompare(stationName(b)))) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "stbtn"; b.dataset.station = s.id; b.title = stationName(s);
+    b.innerHTML = `<span class="hex"><span class="in">${s.imageLink ? `<img src="${esc(s.imageLink)}" alt="${esc(stationName(s))}">` : esc(stationName(s).slice(0, 2))}</span></span>`;
+    b.addEventListener("click", () => {
+      const off = new Set(store.get("craftHidden", []));
+      off.has(s.id) ? off.delete(s.id) : off.add(s.id);
+      store.set("craftHidden", [...off]);
+      renderCrafts();
+    });
+    box.appendChild(b);
+  }
+  renderCrafts();
+}
+const stationName = (s) => t(S.craftData?.stationsEn || {}, s.name, s.normalizedName);
+// the flea fee for selling `count` items at `price` each (the formula that tarkov.dev uses)
+function fleaFee(base, price, count = 1) {
+  if (!base || !price) return 0;
+  const f = S.craftData?.flea || {}, ti = f.sellOfferFeeRate ?? 0.05, tr = f.sellRequirementFeeRate ?? 0.05;
+  let po = Math.log10(base / price), pr = Math.log10(price / base);
+  if (price < base) po = po ** 1.08; else pr = pr ** 1.08;
+  return Math.ceil(base * ti * 4 ** po * count + price * tr * 4 ** pr * count);
+}
+const traderName = (o) => `${S.traders?.[o.trader]?.name || "Trader"}${o.minTraderLevel ? " " + o.minTraderLevel : ""}`;
+const fleaPrice = (p) => (store.get("craftPrice", "avg") === "low" ? p.low || p.avg : p.avg || p.low);
+// the cheapest way to get one item: { price, src } or null
+function buyPrice(id) {
+  if (id === ROUBLES) return { price: 1, src: "" };
+  const p = S.craftData.prices.get(id);
+  if (!p) return null;
+  const opts = [];
+  if (!p.noFlea && fleaPrice(p)) opts.push({ price: fleaPrice(p), src: "Flea" });
+  if (store.get("craftTraders", true) && p.buy) opts.push({ price: p.buy.priceRUB, src: traderName(p.buy) });
+  return opts.sort((a, b) => a.price - b.price)[0] || null;
+}
+// the best way to sell `count` items: flea (less the fee) or a trader
+function sellPrice(id, count) {
+  const p = S.craftData.prices.get(id);
+  if (!p) return null;
+  const opts = [];
+  const f = fleaPrice(p);
+  if (!p.noFlea && f) opts.push({ price: f * count - fleaFee(p.base, f, count), src: "Flea, less the fee" });
+  if (p.sell) opts.push({ price: p.sell.priceRUB * count, src: `Sell to ${S.traders?.[p.sell.trader]?.name || "a trader"}` });
+  return opts.sort((a, b) => b.price - a.price)[0] || null;
+}
+function craftCalc(c) {
+  const parts = c.requiredItems.map((r) => {
+    const tool = !!r.attributes?.tool, unit = tool ? null : buyPrice(r.item);
+    return { id: r.item, count: r.count, tool, unit, cost: unit ? unit.price * r.count : null };
+  });
+  const cost = parts.some((x) => !x.tool && x.cost == null) ? null : parts.reduce((n, x) => n + (x.cost || 0), 0);
+  const sale = sellPrice(c.productItem.item, c.productItem.count);
+  const profit = cost != null && sale ? sale.price - cost : null;
+  return { c, parts, cost, sale, profit, hour: profit != null && c.duration > 0 ? profit / (c.duration / 3600) : null };
+}
+const rub = (n) => (n == null ? "?" : `${n < 0 ? "−" : ""}${Math.round(Math.abs(n)).toLocaleString("en-US")} ₽`);
+function craftTime(s) {
+  const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  return h ? `${h} h${m ? ` ${m} min` : ""}` : `${m || 1} min`;
+}
+function craftRow(x, first) {
+  const c = x.c, name = itemName(c.productItem.item, c.productItem.item), p = S.craftData.prices.get(c.productItem.item);
+  const parts = x.parts.map((q) => {
+    const n = itemName(q.id, q.id);
+    if (q.tool) return `<div>${esc(n)} <span title="A tool: the craft gives it back">(tool)</span></div>`;
+    const src = q.unit ? `${rub(q.unit.price)} each${q.unit.src ? ", " + q.unit.src : ""}` : "No price";
+    // 5.45x39mm HP @ 66 ₽ × 120 = 7,920 ₽; one item: Pile of meds @ 36,662 ₽
+    const price = !q.unit ? `@ ?${q.count > 1 ? ` × ${q.count}` : ""}`
+      : `@ ${rub(q.unit.price)}${q.count > 1 ? ` × ${q.count} = ${rub(q.cost)}` : ""}`;
+    return `<div title="${esc(src)}"><b>${esc(n)}</b> <span class="price">${price}</span></div>`;
+  }).join("") + (c.requiredQuestItems?.length ? '<div title="Items that you get from a task">+ task items</div>' : "");
+  const ed = c.gameEditions?.length ? ' <span class="muted" title="Only for some game editions">(edition)</span>' : "";
+  const cls = (n) => (n == null ? "" : n >= 0 ? "gain" : "loss");
+  const s = S.craftData.stations[c.station];
+  const sn = s ? stationName(s) : "?";
+  return `<tr class="${first ? "lvlstart" : ""}"><td><div class="stn" title="${esc(sn)}, level ${c.level}">${s?.imageLink ? `<img src="${esc(s.imageLink)}" alt="${esc(sn)}">` : esc(sn.slice(0, 2))}<small>${String(c.level).padStart(2, "0")}</small></div></td>
+    <td class="parts">${parts}</td><td class="num">${rub(x.cost)}</td><td class="num">${craftTime(c.duration)}</td>
+    <td><div class="prod">${p?.icon ? `<img src="${esc(p.icon)}" alt="" loading="lazy">` : ""}<span>${esc(name)}${c.productItem.count > 1 ? ` × ${c.productItem.count}` : ""}${ed}</span></div></td>
+    <td class="num">${x.sale ? rub(x.sale.price) : "?"}${x.sale && c.productItem.count > 1 ? `<span class="src">${rub(x.sale.price / c.productItem.count)} each</span>` : ""}<span class="src">${x.sale ? esc(x.sale.src) : "No price"}</span></td>
+    <td class="num ${cls(x.profit)}">${x.profit == null ? "?" : rub(x.profit)}</td><td class="num ${cls(x.hour)}">${x.hour == null ? "?" : rub(x.hour)}</td></tr>`;
+}
+function renderCrafts() {
+  const D = S.craftData;
+  if (!D || D.mode !== S.mode) return;
+  const q = $("craftSearch").value.trim().toLowerCase(), sort = $("craftSort").value, off = new Set(store.get("craftHidden", []));
+  for (const b of $("craftStations").children) b.classList.toggle("on", !off.has(b.dataset.station));
+  const rows = D.crafts.filter((c) => !off.has(c.station)).map(craftCalc).filter((x) => !q
+    || [x.c.productItem.item, ...x.parts.map((p) => p.id)].some((id) => itemName(id, "").toLowerCase().includes(q)));
+  const key = { profit: (x) => x.profit, hour: (x) => x.hour }[sort];
+  const stn = (x) => (D.stations[x.c.station] ? stationName(D.stations[x.c.station]) : "");
+  const order = (a, b) => key ? (key(b) ?? -Infinity) - (key(a) ?? -Infinity)
+    : a.c.level - b.c.level || stn(a).localeCompare(stn(b)) || itemName(a.c.productItem.item, "").localeCompare(itemName(b.c.productItem.item, ""));
+  rows.sort(order);
+  const when = D.fetched ? new Date(D.fetched * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+  $("craftNote").textContent = `${MODE_NAMES[S.mode] || S.mode} prices from tarkov.dev${when ? `, loaded at ${when}` : ""}${D.stale ? " (could not load new prices)" : ""}. Profit = value of the product − cost of the components.`;
+  $("craftList").innerHTML = rows.length ? `<table class="crafttab"><thead><tr><th>Station</th><th>Components</th><th class="num">Cost</th><th class="num">Time</th><th>Product</th><th class="num">Value</th><th class="num">Profit</th><th class="num">Per hour</th></tr></thead>
+    <tbody>${rows.map((x, i) => craftRow(x, !key && i > 0 && x.c.level !== rows[i - 1].c.level)).join("")}</tbody></table>`
+    : '<p class="muted">No crafts match.</p>';
+}
+$("craftSearch").addEventListener("input", renderCrafts);
+$("craftSort").value = store.get("craftSort", "level");
+$("craftSort").addEventListener("change", () => { store.set("craftSort", $("craftSort").value); renderCrafts(); });
+$("craftPrice").value = store.get("craftPrice", "avg");
+$("craftPrice").addEventListener("change", () => { store.set("craftPrice", $("craftPrice").value); renderCrafts(); });
+$("craftTraders").checked = store.get("craftTraders", true);
+$("craftTraders").addEventListener("change", () => { store.set("craftTraders", $("craftTraders").checked); renderCrafts(); });
 
 function populateMapSelect() {
   $("mapSelect").innerHTML = S.mapCfgs.map((m) => `<option value="${m.key}">${esc(m.displayName)}</option>`).join("");
@@ -1957,6 +2157,8 @@ async function boot() {
   await showMap(startKey);
   if (state.game) await applyGame(state.game);
   if (S.cfg.hasToken) await loadProgress(); else { renderProfile(); renderTasks(); setStatus("Add your TarkovTracker token in Settings.", true); setTab("settings"); }
+  S.booted = true;
+  if ($("app").dataset.tab === "crafts") loadCrafts();
   connectEvents();
   getJSON("/api/writes").then(onWrites).catch(() => {});
   setInterval(() => { if (S.cfg.hasToken && document.visibilityState === "visible") loadProgress(); }, POLL_MS);
@@ -1996,16 +2198,18 @@ $("addTask").addEventListener("keydown", (e) => { if (e.key === "Enter") addTask
 // Two tabs: the map, and the task list. The map tab has two places for the mission list.
 function setTab(tab) {
   if (tab === "status") tab = "settings";   // the status is part of the Settings tab
-  tab = ["tasks", "settings"].includes(tab) ? tab : "map";
+  tab = ["tasks", "settings", "crafts"].includes(tab) ? tab : "map";
   if (tab === "settings") loadStatus();
+  if (tab === "crafts" && S.booted) loadCrafts();   // at page start, boot() loads them after the game data
   if (tab === "settings" && S.cfg) { fillSettings(); $("savedNote").textContent = ""; }
-  $("app").classList.remove("tab-map", "tab-tasks", "tab-settings");
+  $("app").classList.remove("tab-map", "tab-tasks", "tab-settings", "tab-crafts");
   $("app").classList.add("tab-" + tab);
   $("app").dataset.tab = tab;
   $("tabMap").classList.toggle("on", tab === "map");
   $("tabTasks").classList.toggle("on", tab === "tasks");
   $("tabSettings").classList.toggle("on", tab === "settings");
-  if (tab === "tasks" || tab === "map") store.set("tab", tab); // a reload opens Tasks or Map
+  $("tabCrafts").classList.toggle("on", tab === "crafts");
+  if (tab !== "settings") store.set("tab", tab); // a reload opens the same tab, but not Settings
   layoutHeader();
   setTimeout(() => S.lmap?.invalidateSize(), 50);
 }
@@ -2047,6 +2251,7 @@ setTab(store.get("tab", "tasks"));
 $("tabMap").addEventListener("click", () => { S.viewAuto = false; setTab("map"); });
 $("tabTasks").addEventListener("click", () => { S.viewAuto = false; setTab("tasks"); });
 $("tabSettings").addEventListener("click", () => setTab("settings"));
+$("tabCrafts").addEventListener("click", () => { S.viewAuto = false; setTab("crafts"); });
 $("layersBtn").addEventListener("click", () => { const open = $("layersPanel").classList.toggle("open"); $("layersBtn").classList.toggle("on", open); });
 $("copyActivity").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText(S.activity.map(activityLine).join("\n")); setStatus("Activity lines copied."); }

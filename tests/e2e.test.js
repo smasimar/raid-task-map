@@ -48,7 +48,7 @@ const routes = {
   "/api/writes": { type: "writes", pending: 0, error: null },
   "/api/status": { logLines: 4812, logSeen: Date.now() / 1000 - 30, logFiles: 3, session: "log_2026.11.15_6-56-39", logsFound: true, shotsFound: true, shotTime: null,
     trackerTime: Date.now() / 1000 - 5, trackerOk: true, trackerError: null, now: Date.now() / 1000, mode: "regular", hasToken: true, writeTT: true, canWrite: true,
-    writes: { type: "writes", pending: 2, error: null, remaining: "93" }, game: { mode: "regular", raid: { phase: "idle" } }, logsDir: "C:/g/Logs",
+    writes: { type: "writes", pending: 2, error: null, remaining: "93" }, flea: { busy: false, maxAge: 28800, error: null, errorTime: null, fetched: Date.now() / 1000 - 600, items: 360, crafts: 214 }, game: { mode: "regular", raid: { phase: "idle" } }, logsDir: "C:/g/Logs",
     activity: [{ time: 1, kind: "raid", text: "loading Woods", err: false, raid: { phase: "loading", scenePath: "maps/woods_preset.bundle" } },
                { time: 2, kind: "task", text: "finished in the game", err: false, taskId: "debut", status: "finished" },
                { time: 3, kind: "tracker", text: "TarkovTracker not reachable", err: true }] },
@@ -59,8 +59,24 @@ const routes = {
   "https://json.tarkov.dev/regular/maps": { data: { maps: apiMaps } },
   "https://json.tarkov.dev/regular/maps_en": { data: mapsEn },
   "https://json.tarkov.dev/regular/traders": { data: { [PRAPOR]: { id: PRAPOR, name: "p", normalizedName: "prapor" }, [JAEGER]: { id: JAEGER, name: "j", normalizedName: "jaeger" } } },
-  "https://json.tarkov.dev/regular/items_en": { data: { "k206 Name": "Dorm room 206 key", "k206 ShortName": "Dorm 206", "k207 Name": "Spare key", "k208 Name": "Customs office key", "k208 ShortName": "Office", "rub Name": "Roubles" } },
+  "https://json.tarkov.dev/regular/items_en": { data: { "k206 Name": "Dorm room 206 key", "k206 ShortName": "Dorm 206", "k207 Name": "Spare key", "k208 Name": "Customs office key", "k208 ShortName": "Office", "rub Name": "Roubles", "a1 Name": "Bolts", "t1 Name": "Toolset", "p1 Name": "Weapon parts", "p2 Name": "Gunpowder" } },
   "https://json.tarkov.dev/regular/traders_en": { data: { p: "Prapor", j: "Jaeger" } },
+  "/api/crafts?mode=regular": { mode: "regular", fetched: 1700000000, crafts: [
+    { id: "c1", station: "st1", level: 1, duration: 7200, gameEditions: [], requiredQuestItems: [],
+      requiredItems: [{ item: "a1", count: 2, attributes: {} }, { item: "t1", count: 1, attributes: { tool: true } }], productItem: { item: "p1", count: 1, attributes: {} } },
+    { id: "c2", station: "st1", level: 2, duration: 3600, gameEditions: [], requiredQuestItems: [],
+      requiredItems: [{ item: "a1", count: 1, attributes: {} }], productItem: { item: "p2", count: 3, attributes: {} } },
+    { id: "c3", station: "st2", level: 1, duration: 60, gameEditions: [], requiredQuestItems: [],
+      requiredItems: [{ item: "zz", count: 1, attributes: {} }], productItem: { item: "p1", count: 1, attributes: {} } },
+  ],
+  stations: { st1: { id: "st1", name: "area_10", normalizedName: "workbench", levels: [] }, st2: { id: "st2", name: "area_7", normalizedName: "medstation", levels: [] }, st3: { id: "st3", name: "area_3", normalizedName: "stash", levels: [] } },
+  stationsEn: { area_10: "Workbench", area_7: "Medstation" },
+  flea: { sellOfferFeeRate: 0.05, sellRequirementFeeRate: 0.05 }, prices: {
+    a1: { avg: 1000, low: 900, base: 500, noFlea: false, buy: { trader: PRAPOR, priceRUB: 800, minTraderLevel: 2 }, sell: null },
+    t1: { avg: 50000, low: 0, base: 10000, noFlea: false, buy: null, sell: null },
+    p1: { avg: 10000, low: 9000, base: 5000, noFlea: false, buy: null, sell: { trader: PRAPOR, priceRUB: 3000 }, icon: "p1.webp" },
+    p2: { avg: 0, low: 0, base: 400, noFlea: true, buy: null, sell: { trader: JAEGER, priceRUB: 400 } },
+  } },
 };
 // a small copy of the helper's quest list (state.json): it applies the changes and sends the "quests" event
 const quests = { modes: {}, migrated: [] };
@@ -393,6 +409,14 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(conn("TarkovTracker").classList.contains("good") && conn("TarkovTracker").textContent.includes("read and write"), "TarkovTracker row shows the token rights");
   assert(conn("Game data").textContent.includes("tasks") && conn("Game logs").textContent.includes("3 files"), "game data and game logs rows");
   assert(conn("Screenshots").classList.contains("wait") && conn("Game").querySelector(".pill").textContent === "Running", "screenshots wait for a position; the game runs");
+  assert(conn("Flea prices").classList.contains("good") && conn("Flea prices").textContent.includes("360 items, 214 crafts") && conn("Flea prices").textContent.includes("new download after")
+    && conn("Flea prices").querySelector(".pill").textContent === "Saved" && d.getElementById("fleaRefresh"), "the flea prices row shows the saved prices and a download button");
+  routes["/api/status"].flea = { ...routes["/api/status"].flea, error: "offline", errorTime: Date.now() / 1000 };
+  await w.eval("loadStatus()");
+  assert(conn("Flea prices").classList.contains("wait") && conn("Flea prices").querySelector(".pill").textContent === "Old prices" && conn("Flea prices").textContent.includes("offline"), "a failed download keeps the old prices");
+  routes["/api/status"].flea = { busy: false, maxAge: 28800, error: null, errorTime: null };
+  await w.eval("loadStatus()");
+  assert(conn("Flea prices").querySelector(".pill").textContent === "Not loaded" && conn("Flea prices").textContent.includes("open the Crafts tab"), "no saved prices yet");
   const act = text("#activity div");
   assert(act[0].endsWith("raid loading Woods") && act[1].endsWith("task finished: Debut"), "activity lines name the map and the task");
   assert(d.querySelector("#activity div.err").textContent.includes("not reachable"), "a fault line is marked");
@@ -668,6 +692,54 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   await sleep(20);
   assert(d.getElementById("status").textContent.includes("no TarkovTracker token"), "warns when the game mode has no token");
 
+  // Crafts tab: each station with its crafts, and the profit at flea and trader prices
+  d.getElementById("tabCrafts").click();
+  await sleep(60);
+  assert(app.dataset.tab === "crafts" && w.eval("!!S.craftData"), "the Crafts tab loads the crafts");
+  const stBtns = [...d.querySelectorAll("#craftStations .stbtn")];
+  assert(stBtns.map((b) => b.title).join() === "Medstation,Workbench" && stBtns.every((b) => b.classList.contains("on")), "a button for each station with crafts, by name, all on");
+  const crow = () => [...d.querySelectorAll("#craftList tbody tr .stn")].map((e) => e.title);
+  assert(text("#craftList tbody tr .stn").join() === "Me01,Wo01,Wo02", "the station column has the icon and the level number only");
+  assert(crow().join("|") === "Medstation, level 1|Workbench, level 1|Workbench, level 2" && d.querySelectorAll("#craftList tbody tr")[2].classList.contains("lvlstart"),
+    "one table in level order, then station; a line at a new level");
+  stBtns[1].click();
+  assert(crow().join() === "Medstation, level 1" && !stBtns[1].classList.contains("on") && w.localStorage.getItem("tqm.craftHidden").includes("st1"), "a station button hides its crafts, and the choice is kept");
+  stBtns[1].click();
+  assert(crow().length === 3 && stBtns[1].classList.contains("on"), "a second click shows them again");
+  const fee = w.eval("fleaFee(5000, 10000)");
+  assert(fee > 0 && fee < 10000, "the flea fee is calculated");
+  const c1 = w.eval("craftCalc(S.craftData.crafts[0])");
+  assert(c1.cost === 1600 && c1.parts[0].unit.src === "Prapor 2", "a component comes from the cheaper of flea and trader; a tool costs nothing");
+  assert(c1.sale.price === 10000 - fee && c1.profit === 10000 - fee - 1600 && c1.hour === c1.profit / 2, "profit = flea price less the fee, less the cost; per hour");
+  const c2 = w.eval("craftCalc(S.craftData.crafts[1])");
+  assert(c2.sale.price === 1200 && c2.sale.src === "Sell to Jaeger", "a product that cannot go on the flea sells to a trader, times the count");
+  assert(w.eval("craftCalc(S.craftData.crafts[2]).profit") === null && d.querySelector("#craftList tbody td.num:nth-last-child(2)").textContent === "?", "a component with no price gives no profit");
+  d.getElementById("craftTraders").click();
+  assert(w.eval("craftCalc(S.craftData.crafts[0]).cost") === 2000, "with no trader prices the components come from the flea");
+  d.getElementById("craftTraders").click();
+  d.getElementById("craftPrice").value = "low"; d.getElementById("craftPrice").dispatchEvent(new w.Event("change"));
+  assert(w.eval("craftCalc(S.craftData.crafts[0]).sale.price") === 9000 - w.eval("fleaFee(5000, 9000)"), "the lowest offer can be the flea price");
+  d.getElementById("craftPrice").value = "avg"; d.getElementById("craftPrice").dispatchEvent(new w.Event("change"));
+  d.getElementById("craftSort").value = "hour"; d.getElementById("craftSort").dispatchEvent(new w.Event("change"));
+  assert(text("#craftList tbody tr .prod")[0].startsWith("Weapon parts"), "sort by profit per hour");
+  d.getElementById("craftSort").value = "level"; d.getElementById("craftSort").dispatchEvent(new w.Event("change"));
+  const wrow = [...d.querySelectorAll("#craftList tbody tr")].find((r) => r.textContent.includes("Gunpowder"));
+  assert(wrow.querySelector(".parts").textContent.includes("Bolts @ 800 ₽") && !wrow.querySelector(".parts").textContent.includes("×") && wrow.querySelector(".parts").textContent.indexOf("each") < 0, "one component: no price each");
+  const prow = [...d.querySelectorAll("#craftList tbody tr")].find((r) => r.textContent.includes("Weapon parts") && r.textContent.includes("Bolts"));
+  assert(prow.querySelector(".parts").textContent.includes("Bolts @ 800 ₽ × 2 = 1,600 ₽"), "two or more components: the price as a formula");
+  assert(wrow.textContent.includes("400 ₽ each") && !prow.querySelectorAll("td.num")[2].textContent.includes("each"), "a product made in a stack shows the value of one");
+  d.getElementById("craftSearch").value = "gunpow"; d.getElementById("craftSearch").dispatchEvent(new w.Event("input"));
+  assert(d.querySelectorAll("#craftList tbody tr").length === 1, "the search finds a craft by an item name");
+  d.getElementById("craftSearch").value = ""; d.getElementById("craftSearch").dispatchEvent(new w.Event("input"));
+  routes["/api/crafts?mode=regular&force=1"] = { ...routes["/api/crafts?mode=regular"], fetched: 1700003600 };
+  assert(!d.getElementById("craftRefresh"), "the download button is in Settings, not on the Crafts tab");
+  d.getElementById("tabSettings").click();
+  await sleep(30);
+  d.getElementById("fleaRefresh").click();
+  await sleep(60);
+  assert(w.eval("S.craftData.fetched") === 1700003600, "the Settings button downloads the prices again");
+  d.getElementById("tabTasks").click();
+
   // completing Checking in TarkovTracker drops it automatically
   routes["/api/progress"].data.tasksProgress.push({ id: "checking", complete: true });
   d.getElementById("refreshBtn").click();
@@ -676,5 +748,34 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   console.log("ticked on the helper:", JSON.stringify(quests.modes.regular));
   console.log("errors:", errors);
   assert(!errors.filter((e) => !e.startsWith("warn")).length, "no page errors");
+
+  // a reload on the Crafts tab: the item names come after the crafts, and the task list comes last
+  const dom2 = new JSDOM(html, {
+    runScripts: "dangerously", pretendToBeVisual: true, url: "http://localhost:3000/",
+    beforeParse(w2) {
+      w2.localStorage.setItem("tqm.tab", JSON.stringify("crafts"));
+      // a PvE token: the page starts with the PvP mode until it has read the config
+      w2.fetch = async (url) => {
+        const u = String(url).replace("/pve/", "/regular/").replace("mode=pve", "mode=regular");
+        const wait = { "/api/quests": 200, "https://json.tarkov.dev/regular/items_en": 80 }[u] || 0;
+        if (wait) await new Promise((r) => setTimeout(r, wait));
+        const pve = { "/api/config": { ...routes["/api/config"], gameMode: "pve" }, "/api/crafts?mode=regular": { ...routes["/api/crafts?mode=regular"], mode: String(url).includes("mode=pve") ? "pve" : "regular" } }[u];
+        if (pve) return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(pve)) };
+        if (u === "/api/quests") return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(quests)) };
+        if (u.endsWith(".svg")) return { ok: true, status: 200, text: async () => svg };
+        if (!(u in routes)) return { ok: false, status: 404, statusText: "nf", json: async () => ({}) };
+        return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(routes[u])) };
+      };
+      w2.EventSource = function () {};
+      w2.SVGElement.prototype.getBBox = () => ({ x: 0, y: 0, width: 0, height: 0 });
+      w2.SVGSVGElement.prototype.createSVGRect = () => ({});
+    },
+  });
+  await sleep(600);
+  const d2 = dom2.window.document;
+  assert(d2.getElementById("app").dataset.tab === "crafts" && [...d2.querySelectorAll("#craftList tbody tr .prod")].map((e) => e.textContent.trim()).includes("Weapon parts"),
+    "a reload on the Crafts tab shows the item names");
+  assert(d2.getElementById("craftNote").textContent.startsWith("PvE"), "and the prices of the game mode of the token");
+  dom2.window.close();
   process.exit();
 })();

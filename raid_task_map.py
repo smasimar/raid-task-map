@@ -34,6 +34,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import crafts
 import game_logs
 import updater
 
@@ -188,6 +189,7 @@ class EventHub:
 
 HUB = EventHub()
 UPDATER = updater.Updater(APP_DIR, HUB.publish)
+CRAFTS = crafts.CraftCache(APP_DIR / "cache")   # crafts and prices from tarkov.dev, saved for 8 hours
 RESTART = threading.Event()   # set by the page after an update: main() starts the app again
 
 # --------------------------------------------------------------------------- status and activity
@@ -570,7 +572,7 @@ def status_report() -> dict:
             "canWrite": None if perms is None else "WP" in perms,
             "writes": writes_status(), "game": HUB.state.get("game"),
             "shotTime": STATS["shotTime"] or position.get("time"),
-            "logsDir": logs_dir(), "activity": list(ACTIVITY)}
+            "logsDir": logs_dir(), "activity": list(ACTIVITY), "flea": CRAFTS.status(mode)}
 
 
 def writes_status() -> dict:
@@ -779,6 +781,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._events()
         if path == "/api/update":
             return self._json(200, UPDATER.snapshot())
+        if path == "/api/crafts":
+            args = urllib.parse.parse_qs(query)
+            mode = (args.get("mode") or [""])[0]
+            if mode not in GAME_MODES:
+                return self._json(400, {"error": "unknown game mode"})
+            try:
+                return self._json(200, CRAFTS.get(mode, force=(args.get("force") or [""])[0] == "1"))
+            except Exception as exc:
+                return self._json(502, {"error": f"Could not load the crafts from tarkov.dev: {exc}"})
         if path == "/api/update/notes":
             try:
                 return self._json(200, {"notes": UPDATER.notes()})

@@ -9,5 +9,7 @@ state.test.json
 state.test.json.tmp
 config.test.json
 config.test.json.tmp
+# crafts and prices from tarkov.dev
+cache/
 # local tool settings
 .claude/

@@ -25,8 +25,12 @@ Use the app at your own risk.
   [TarkovTracker.org](https://tarkovtracker.org), so completed tasks and steps drop off
   your lists. If you allow it, it also sends task
   changes, step counts and your level.
-- **Settings tab:** your settings, and the state of TarkovTracker, game data, logs and
-  screenshots, the changes that wait to be sent, and a list of what the app did.
+- **Crafts tab:** the crafts of each hideout station and level, with the cost of the
+  components, the value of the product, and the profit (value less cost), also per hour of
+  craft time. Prices are flea
+  market and trader prices from tarkov.dev for your game mode.
+- **Settings tab:** your settings, and the state of TarkovTracker, game data, flea prices,
+  logs and screenshots, the changes that wait to be sent, and a list of what the app did.
 - PvP and PvE have separate task lists.
 - **Updates:** at start the app looks for a newer version on GitHub and asks before it
   installs it. Settings can turn this off or check now. A git clone is updated with
@@ -85,6 +89,14 @@ as not found, type its path.
   hides objectives, extract names, landmark names, transits and locked doors. With **"Any map" tasks apart**
   (on by default), tasks for any map get their own column on the right (list down the side)
   or their own row at the bottom (list across the top).
+- **Crafts tab.** Click a station button to hide or show its crafts. **Flea price** selects
+  the 24-hour average or the lowest offer on the flea market (the in-game player market).
+  A component costs the cheaper of the flea market and a trader; untick **Trader prices**
+  to use only the flea market. A trader offer counts even if your trader level or tasks do
+  not give you that offer yet. A tool (an item that the craft needs but gives back) costs nothing.
+  The product value is the higher of the flea price less the fee for a flea market sale and
+  the best trader price. The fuel that the hideout generator uses is not in the cost. The app keeps the prices for 8 hours;
+  **↻ Download now** in the Flea prices row on the Settings tab gets new ones.
 - **Progress** (with sending on). Type a step count, mark a step or task done with
   **✓**, undo with **↺**. On the Map tab, mission cards have **−**, **+** and **✓** for each
   step. Type your level in the box next to your name; the game logs
@@ -120,6 +132,8 @@ Map markers:
 | "Read past logs" proposes completed tasks | The game deletes old logs. Tasks that TarkovTracker shows as completed are left out; untick the others. |
 | "TarkovTracker daily write limit reached" | A free account can send 100 changes a day. The app sends the rest after 00:00 UTC. |
 | "TarkovTracker answered 401" | The token is wrong, revoked or for the other game mode. |
+| The Crafts tab shows "?" for a profit | The craft uses or makes an item with no price, such as a task item. The app cannot calculate that profit. |
+| The Flea prices row shows "Old prices" | tarkov.dev did not answer. The app uses the saved prices. Click **↻ Download now** again after some minutes. |
 
 ## Privacy
 
@@ -144,9 +158,11 @@ cd tests; npm install; npm test          page tests (Node.js and jsdom)
 | `raid_task_map.py` | Local server: page, TarkovTracker proxy, screenshot and log watchers |
 | `game_logs.py` | Game log reader and raid state |
 | `updater.py` | Update check and update from GitHub |
+| `crafts.py` | Crafts and prices from tarkov.dev, saved in `cache/` for 8 hours |
 | `index.html` | The page: map, task lists, settings |
 | `maps.json` | Map projection settings, from tarkov.dev |
 | `config.json`, `state.json` | Your settings and task lists. Made by the app; git ignores them |
+| `cache/` | Saved crafts and prices. Made by the app; git ignores it |
 | `tests/fixtures` | Log lines from a real game session, IDs and addresses masked |
 
 ## Credits and licenses

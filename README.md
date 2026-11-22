@@ -82,7 +82,7 @@ as not found, type its path.
   them. **List ↔ / ↕ / ✕** puts
   the mission list across the top, down the side, or hides it. **Mini** (key **M**)
   shows only the map, extracts and task locations. **M** or **Esc** goes back. **Layers** sets PMC or Scav extracts and shows or
-  hides objectives, extract names, landmark names and transits. With **"Any map" tasks apart**
+  hides objectives, extract names, landmark names, transits and locked doors. With **"Any map" tasks apart**
   (on by default), tasks for any map get their own column on the right (list down the side)
   or their own row at the bottom (list across the top).
 - **Progress** (with sending on). Type a step count, mark a step or task done with
@@ -105,6 +105,7 @@ Map markers:
 | Pale arrow | Extract or transit with a requirement (payment, key, no backpack, Red Rebel and paracord, partner, other condition). Point at it to see what it needs |
 | Red ✕ (mission list) | Kill step with no area on the map |
 | White or gold magnifier (mission list) | Item to obtain; gold: the item must be found in raid |
+| Orange key | Locked door or car trunk (Layers → Locked doors). Bigger: a ticked task needs its key |
 | 🔑 | Key that a task or step needs |
 
 ## Troubleshooting

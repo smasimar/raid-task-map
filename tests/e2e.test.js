@@ -28,7 +28,9 @@ const en = { "debut name": "Debut", "checking name": "Checking", "woodsTask name
   o1: "Kill 5 Scavs on Customs", o2: "Hand over 2 bolts", o3: "Locate the warehouse", o3b: "Find the folder", o4: "Visit the sawmill", o5: "x", o6: "x", o7: "x", o8: "Do the follow up on Customs", o9: "x", "extraZone name": "Extra Zone", o10: "Visit the extra zone",
   "nades name": "Nade Kills", o11: "Eliminate any target with grenades", "gunsmith name": "Gun Build", o12: "Modify a weapon", "arena name": "Arena Match", o13: "Play a match" };
 const apiMaps = {
-  [CUST]: { id: CUST, name: `${CUST} Name`, normalizedName: "customs", nameId: "bigmap", scenePath: "maps/customs_preset.bundle", raidDuration: 35, extracts: [
+  [CUST]: { id: CUST, name: `${CUST} Name`, normalizedName: "customs", nameId: "bigmap", scenePath: "maps/customs_preset.bundle", raidDuration: 35,
+    locks: [{ id: "lk1", lockType: "door", key: "k208", position: { x: 20, y: 0, z: 20 } }, { id: "lk2", lockType: "trunk", key: "k209", position: { x: 40, y: 0, z: 20 } }, { id: "lk3", key: "k209" }],
+    extracts: [
     { id: "e1", name: "ex_pmc_a", faction: "pmc", position: { x: 300, y: 0, z: -100 }, outline: [{ x: 1, y: 0, z: 1 }, { x: 2, y: 0, z: 2 }, { x: 3, y: 0, z: 1 }], switches: [], transferItem: { item: "rub", count: 20000 } },
     { id: "e2", name: "ex_scav_b", faction: "scav", position: { x: 0, y: 0, z: 0 }, switches: [] },
     { id: "e3", name: "ex_shared_c", faction: "shared", position: { x: -200, y: 0, z: 50 }, switches: ["s"] },
@@ -57,7 +59,7 @@ const routes = {
   "https://json.tarkov.dev/regular/maps": { data: { maps: apiMaps } },
   "https://json.tarkov.dev/regular/maps_en": { data: mapsEn },
   "https://json.tarkov.dev/regular/traders": { data: { [PRAPOR]: { id: PRAPOR, name: "p", normalizedName: "prapor" }, [JAEGER]: { id: JAEGER, name: "j", normalizedName: "jaeger" } } },
-  "https://json.tarkov.dev/regular/items_en": { data: { "k206 Name": "Dorm room 206 key", "k206 ShortName": "Dorm 206", "k207 Name": "Spare key", "rub Name": "Roubles" } },
+  "https://json.tarkov.dev/regular/items_en": { data: { "k206 Name": "Dorm room 206 key", "k206 ShortName": "Dorm 206", "k207 Name": "Spare key", "k208 Name": "Customs office key", "k208 ShortName": "Office", "rub Name": "Roubles" } },
   "https://json.tarkov.dev/regular/traders_en": { data: { p: "Prapor", j: "Jaeger" } },
 };
 // a small copy of the helper's quest list (state.json): it applies the changes and sends the "quests" event
@@ -233,6 +235,22 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(w.eval('stepText({ description: "fir1" })') === "Find in raid: Salewa first aid kit" && w.eval('stepText({ description: "ob1" })') === "Obtain: Golden rooster", "short step openings");
   // steps with no spot on the map: red X (kill), white magnifier (obtain), gold magnifier (find in raid)
   assert(w.eval('stepIcon({ type: "shoot" })').includes("si-kill") && w.eval('stepIcon({ type: "findItem", foundInRaid: false })').includes("si-obtain") && w.eval('stepIcon({ type: "findItem", foundInRaid: true })').includes("si-fir") && w.eval('stepIcon({ type: "visit" })') === "• ", "step icons for steps with no spot");
+  // locked doors layer: off by default; orange bars, brighter when a ticked task needs the key
+  const locks = () => d.querySelectorAll(".leaflet-marker-pane .lock-mark");
+  assert(locks().length === 0 && !d.getElementById("showLocks").checked, "the locked doors layer is off by default");
+  d.getElementById("showLocks").click();
+  assert(locks().length === 2 && w.localStorage.getItem("tqm.showLocks") === "true", "the layer shows each lock that has a position");
+  assert(d.querySelectorAll(".leaflet-marker-pane .lock-mark.need").length === 0, "no lock is marked before a ticked task needs its key");
+  const needLock = w.eval(`(() => {
+    const o = tasksForMap(S.current).filter((it) => isShown(it.task.id)).flatMap((it) => it.objs).find((x) => !x.done).obj, before = o.requiredKeys;
+    o.requiredKeys = [["k208"]]; drawLocks();
+    const n = document.querySelectorAll(".leaflet-marker-pane .lock-mark.need").length;
+    o.requiredKeys = before; drawLocks();
+    return n;
+  })()`);
+  assert(needLock === 1, "the lock of a key that a ticked task needs is brighter");
+  d.getElementById("showLocks").click();
+  assert(locks().length === 0, "the option hides the layer");
   // keys that a task needs
   assert(w.eval('keyText([["k206", "k207"]])') === "Dorm 206 or Spare key" && w.eval('keyText([{ map: "m", keys: ["k206"] }])') === "Dorm 206", "key names for a step and for a task: the icon name, else the full name");
   assert(w.eval('keyText([["k206", "k207"]], { full: true })') === "Dorm room 206 key or Spare key", "full key names for tooltips");

@@ -1438,6 +1438,7 @@ function drawExtracts(mc) {
     });
     const extra = needs.length ? `<div class="exneed">Needs: ${esc(needs.join(", "))}</div>` : "";
     m.bindPopup(`<b>${esc(name)}</b><div class="muted">${{ pmc: "PMC extract", scav: "Scav extract" }[faction] || "Shared extract (PMC & Scav)"}</div>${extra}`);
+    floorOnClick(m, ex.position);
     m.addTo(S.layers.extracts);
     if (ex.outline?.length) {
       const poly = L.polygon(ex.outline.map(pos), { color: EX_COLORS[look], weight: 1, fillOpacity: 0.15, interactive: false });
@@ -1463,6 +1464,7 @@ function drawTransits(mc) {
       icon: L.divIcon({ className: "", iconSize: null, html: `<div class="ex-icon ex-transit${cond ? " ex-need" : ""}">${EX_ARROW}${showName ? `<span>${esc(name)}</span>` : ""}</div>` }),
     });
     m.bindPopup(`<b>${esc(name)}</b><div class="muted">Transit to another map</div>${cond ? `<div class="exneed">Needs: ${esc(cond)}</div>` : ""}`);
+    floorOnClick(m, tr.position);
     m.addTo(S.layers.extracts);
     if (tr.outline?.length) {
       const poly = L.polygon(tr.outline.map(pos), { color: EX_COLORS.transit, weight: 1, fillOpacity: 0.15, interactive: false });
@@ -1534,8 +1536,9 @@ function drawLocks() {
     const floorName = floor < 0 ? "Ground level" : S.current.layers[floor].name;
     const size = needed ? 18 : 14;
     const icon = L.divIcon({ className: "", iconSize: [size, size], iconAnchor: [size / 2, size / 2], html: `<div class="lock-mark${needed ? " need" : ""}">${KEY_SVG}</div>` });
-    L.marker(pos(lock.position), { icon, zIndexOffset: needed ? 400 : 300, opacity: offFloor ? 0.5 : 1, keyboard: false })
-      .bindTooltip(`<div class="keynote">🔑 ${esc(itemShort(key, "Unknown key"))}</div><div class="muted">${esc(itemName(key, ""))}</div>`
+    const lm = L.marker(pos(lock.position), { icon, zIndexOffset: needed ? 400 : 300, opacity: offFloor ? 0.5 : 1, keyboard: false });
+    floorOnClick(lm, lock.position);
+    lm.bindTooltip(`<div class="keynote">🔑 ${esc(itemShort(key, "Unknown key"))}</div><div class="muted">${esc(itemName(key, ""))}</div>`
         + `<div class="muted" style="font-size:11px">${lock.lockType === "trunk" ? "Car trunk" : "Door"}${needed ? " · a ticked task needs this key" : ""} · ${esc(floorName)}</div>`,
         { direction: "top", offset: [0, -4], opacity: 1, className: "q-tip" })
       .addTo(S.layers.locks);
@@ -1571,6 +1574,7 @@ function drawQuestMarkers() {
             .bindTooltip(tip, { sticky: true, direction: "top", offset: [0, -10], opacity: 1, className: "q-tip" }).addTo(S.layers.quests);
           hit.on("mouseover", () => line.setStyle({ weight: 3, fillOpacity: 0.18 }));
           hit.on("mouseout", () => line.setStyle({ weight: 2, fillOpacity: fill }));
+          floorOnClick(hit, p.pos);
           S.markersByKey.set(`${it.task.id}:${o.obj.id}:${i}`, hit);
           return;
         }
@@ -1582,6 +1586,7 @@ function drawQuestMarkers() {
           m.on("mouseover", () => poly.setStyle({ weight: 2, fillOpacity: 0.3 }));
           m.on("mouseout", () => poly.setStyle({ weight: 1, fillOpacity: offFloor ? 0.05 : 0.15 }));
         }
+        floorOnClick(m, p.pos);
         m.addTo(S.layers.quests);
         S.markersByKey.set(`${it.task.id}:${o.obj.id}:${i}`, m);
       });
@@ -1589,8 +1594,17 @@ function drawQuestMarkers() {
   }
 }
 
+// show the floor of a point (a click on a marker, or on a step in the mission list)
+function goFloor(p) {
+  if (!S.current || !p) return;
+  const f = floorOf(S.current, p);
+  if (f !== S.floorIndex) showFloor(f);
+}
+// for a marker: switch the floor after the click (the floor change draws the task markers again)
+const floorOnClick = (layer, p) => layer.on("click", () => setTimeout(() => goFloor(p), 0));
 function focusPos(p, key) {
   if (!S.lmap) return;
+  goFloor(p);   // draws the markers again, so the marker is looked up after it
   const m = S.markersByKey.get(key);
   // an area (kill zone) is shown whole
   if (m?.getBounds) S.lmap.flyToBounds(m.getBounds(), { padding: [40, 40], duration: 0.6 });

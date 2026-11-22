@@ -251,6 +251,14 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(needLock === 1, "the lock of a key that a ticked task needs is brighter");
   d.getElementById("showLocks").click();
   assert(locks().length === 0, "the option hides the layer");
+  // a click on a marker shows the floor of that marker (Customs dorms: 2nd floor)
+  const floorBefore = w.eval("S.floorIndex");
+  w.eval("goFloor({ x: 200, y: 4, z: 150 })");
+  assert(w.eval("S.floorIndex") === 0, "a point in the dorms at 2nd-floor height selects the 2nd floor");
+  w.eval("[...S.markersByKey.values()][0].fire('click')");
+  await sleep(30);
+  assert(w.eval("S.floorIndex") === -1, "a click on a ground-level task marker goes back to the ground level");
+  w.eval(`showFloor(${floorBefore})`);
   // keys that a task needs
   assert(w.eval('keyText([["k206", "k207"]])') === "Dorm 206 or Spare key" && w.eval('keyText([{ map: "m", keys: ["k206"] }])') === "Dorm 206", "key names for a step and for a task: the icon name, else the full name");
   assert(w.eval('keyText([["k206", "k207"]], { full: true })') === "Dorm room 206 key or Spare key", "full key names for tooltips");

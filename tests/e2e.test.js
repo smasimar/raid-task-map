@@ -267,6 +267,13 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   await sleep(30);
   assert(w.eval("S.floorIndex") === -1, "a click on a ground-level task marker goes back to the ground level");
   w.eval(`showFloor(${floorBefore})`);
+  // − / + / ✓ on a mission card step, only when progress can be sent
+  const cardBtns = (o) => w.eval(`[...cardButtons(${o}).querySelectorAll("button")].map((b) => b.textContent).join("")`);
+  w.eval("S.cfgSaved = S.cfg; S.cfg = { ...S.cfg, hasToken: true, writeTT: true, canWrite: true }");
+  w.eval("S.objDone.set('cb1', { id: 'cb1', count: 2 })");
+  assert(cardBtns('{ id: "cb1", count: 5 }') === "−+✓" && cardBtns('{ id: "cb0", count: 5 }') === "+✓" && cardBtns('{ id: "cb2", count: 1 }') === "✓", "counted steps get − and +, every step gets ✓");
+  w.eval("S.objDone.delete('cb1'); S.cfg = S.cfgSaved");
+  assert(w.eval("canWrite()") || cardBtns('{ id: "cb2" }') === "", "no buttons when progress cannot be sent");
   // keys that a task needs
   assert(w.eval('keyText([["k206", "k207"]])') === "Dorm 206 or Spare key" && w.eval('keyText([{ map: "m", keys: ["k206"] }])') === "Dorm 206", "key names for a step and for a task: the icon name, else the full name");
   assert(w.eval('keyText([["k206", "k207"]], { full: true })') === "Dorm room 206 key or Spare key", "full key names for tooltips");

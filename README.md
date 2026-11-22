@@ -86,7 +86,8 @@ as not found, type its path.
   (on by default), tasks for any map get their own column on the right (list down the side)
   or their own row at the bottom (list across the top).
 - **Progress** (with sending on). Type a step count, mark a step or task done with
-  **✓**, undo with **↺**. Type your level in the box next to your name; the game logs
+  **✓**, undo with **↺**. On the Map tab, mission cards have **−**, **+** and **✓** for each
+  step. Type your level in the box next to your name; the game logs
   do not give it.
 
 Map markers:

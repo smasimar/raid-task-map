@@ -43,6 +43,8 @@
   #writesNote.err { color:var(--danger); white-space:normal; max-width:320px; }
   .pbtn { all:unset; cursor:pointer; display:inline-block; text-indent:0; min-width:14px; text-align:center; padding:0 3px; margin-left:3px; border:1px solid var(--line); border-radius:4px; color:var(--muted); font-size:11px; line-height:15px; }
   .pbtn:hover { color:var(--accent); border-color:var(--accent); }
+  .cardbtns { white-space:nowrap; }
+  .cardbtns .pbtn { margin-left:4px; }
   #raidTimer.low { color:var(--danger); border-color:var(--danger); }
   aside { grid-column:1; grid-row:2; z-index:1200; min-height:0; display:flex; flex-direction:column; background:var(--bg); }
   #map { grid-column:1; grid-row:2; background:#0c0e10; min-width:0; min-height:0; }
@@ -822,6 +824,26 @@ function progressButtons(obj) {
   add("✓", "Step done", { state: "completed", ...(total ? { count: total } : {}) });
   return box;
 }
+// Small buttons for one step on a mission card (Map tab): − and + for a counted step, ✓ for done.
+// Only when progress can be sent; a done step is not on the card.
+function cardButtons(obj) {
+  const box = document.createElement("span");
+  box.className = "cardbtns";
+  if (!canWrite()) return box;
+  const prog = S.objDone?.get(obj.id), total = obj.count > 1 ? obj.count : 0, now = Math.min(prog?.count || 0, total || 0);
+  const add = (label, title, patch) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "pbtn"; b.textContent = label; b.title = title;
+    b.addEventListener("click", (e) => { e.stopPropagation(); setObjective(obj, patch); });
+    box.appendChild(b);
+  };
+  if (total) {
+    if (now > 0) add("−", "One less", { count: now - 1, state: "uncompleted" });
+    add("+", "One more", { count: Math.min(total, now + 1), state: now + 1 >= total ? "completed" : "uncompleted" });
+  }
+  add("✓", "Step done", { state: "completed", ...(total ? { count: total } : {}) });
+  return box;
+}
 function setTaskState(task, state) {
   if (!writeReady()) return;
   if (state === "completed" && !confirm(`Mark "${taskName(task)}" as completed on TarkovTracker?`)) return;
@@ -1225,6 +1247,7 @@ function missionCard(task, here) {
     st.className = "step" + (go ? " go" : "") + (elsewhere ? " elsewhere" : "");
     const mark = go ? `<span class="step-mark"><div class="${markerClass(obj, mo.positions[0].kind, keyText(obj.requiredKeys, { on: S.current }), !!mo.positions[0].outline?.length)}"></div></span>` : stepIcon(obj);
     st.innerHTML = `${mark}${esc(stepText(obj))}${obj.optional ? ' <span class="muted">(optional)</span>' : ""}${cnt}${keyNote(obj.requiredKeys, here ? { on: S.current } : { mapIds: obj.maps || [] })}`;
+    st.appendChild(cardButtons(obj));
     if (go) st.addEventListener("click", () => focusPos(mo.positions[0].pos, `${task.id}:${obj.id}:0`));
     card.appendChild(st);
   }

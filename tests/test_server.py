@@ -83,6 +83,18 @@ class Quests(unittest.TestCase):
         self.assertEqual(self.q.public()["modes"]["regular"]["selected"], ["a"])
         self.assertEqual(app.QuestList(self.path).log_time(), 300.0)
 
+    def test_story_ticks(self):
+        self.q.tick_story("pve", done=["s1", "s2", "s1"])
+        self.q.tick_story("pve", undone=["s1"], done=["s3"])
+        self.q.tick_story("regular", done=["r1"])
+        again = app.QuestList(self.path)
+        self.assertEqual([again.story(m)["done"] for m in ("pve", "regular", "pvp-season")], [["s2", "s3"], ["r1"], []])
+        self.assertEqual(self.events[-2], {"type": "story", "mode": "pve", "done": ["s2", "s3"], "failed": []}, "the open pages get the ticks")
+        self.q.tick_story("pve", failed=["s2", "s4"])
+        self.assertEqual(self.q.story("pve"), {"done": ["s3"], "failed": ["s2", "s4"]}, "a failed step is no longer done")
+        self.q.tick_story("pve", done=["s4"], unfailed=["s2"])
+        self.assertEqual(app.QuestList(self.path).story("pve"), {"done": ["s3", "s4"], "failed": []}, "a done step is no longer failed")
+
     def test_migrated_flag(self):
         self.q.apply("pve", add=["a"], migrated=True)
         self.assertEqual(self.q.public()["migrated"], ["pve"])

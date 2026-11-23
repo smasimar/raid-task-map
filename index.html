@@ -223,6 +223,63 @@
   .crafttab .src { font-size:11px; color:var(--muted); display:block; }
   .crafttab .gain { color:var(--pmc); } .crafttab .loss { color:var(--danger); }
   .crafttab tr.lvlstart td { border-top:2px solid var(--line); }
+  .tab .beta { font-size:10px; margin-left:2px; color:#e0c050; text-transform:none; }
+  #story { grid-column:1; grid-row:2; z-index:1200; min-height:0; overflow:auto; background:var(--bg); padding:12px 18px 40px; }
+  #app:not(.tab-story) #story { display:none; }
+  #storyTop { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; margin-bottom:10px; font-size:13px; }
+  #storyTop .muted { font-size:12px; }
+  #storyBody { display:flex; gap:16px; align-items:flex-start; }
+  /* the chapter selector: a column of icon tiles, as in the game */
+  #storyNav { display:flex; flex-direction:column; gap:6px; flex:none; position:sticky; top:0; }
+  .ctile { all:unset; box-sizing:border-box; cursor:pointer; position:relative; width:64px; height:64px; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(#2a2a24, #1a1a17); border:1px solid #3a3a30; border-radius:3px; overflow:hidden; }
+  .ctile img { max-width:44px; max-height:44px; filter:grayscale(1) brightness(1.4); opacity:.75; }
+  .ctile .alt { font-size:18px; font-weight:600; color:var(--muted); }
+  .ctile:hover { border-color:#8a7a4a; }
+  .ctile:hover img { opacity:1; }
+  .ctile.on { background:linear-gradient(#a8873e, #6e5524); border-color:#d9b860; }
+  .ctile.on img { filter:grayscale(1) brightness(1.8); opacity:1; }
+  .ctile .prog { position:absolute; left:0; bottom:0; height:3px; background:var(--pmc); }
+  .ctile.complete::after { content:""; position:absolute; top:0; right:0; border-style:solid; border-width:0 14px 14px 0; border-color:transparent var(--pmc) transparent transparent; }
+  .ctile.nomatch { opacity:.3; }
+  #storyList { flex:1; min-width:0; max-width:1100px; }
+  .chead { display:flex; align-items:flex-end; gap:14px; margin-bottom:6px; }
+  .chead .t { flex:1; min-width:0; }
+  .chead small { display:block; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .chead h2 { margin:0; font-size:26px; font-weight:400; }
+  .chead h2.complete { color:var(--pmc); }
+  .chead .bar { width:160px; height:6px; border-radius:3px; background:#0006; overflow:hidden; flex:none; margin-bottom:8px; }
+  .chead .bar i { display:block; height:100%; background:var(--pmc); }
+  .chead .scnt { font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; margin-bottom:4px; }
+  .cview .meta { color:var(--muted); font-size:12px; margin:2px 0; }
+  .cview .meta b { color:var(--text); font-weight:600; }
+  .ssteps { list-style:none; margin:10px 0 0; padding:0; font-size:13px; }
+  .sstep { display:flex; align-items:center; gap:8px; padding:4px 0; border-top:1px solid var(--line); }
+  .sstep.kid { padding-left:52px; }
+  .sstep .txt { flex:1; min-width:0; }
+  .sstep.done .stxt { color:var(--muted); text-decoration:line-through; }
+  .sstep.failed .stxt { color:var(--danger); text-decoration:line-through; }
+  .sstep.blocked { opacity:.45; }
+  .sbtn { all:unset; box-sizing:border-box; cursor:pointer; width:20px; height:20px; flex:none; display:flex; align-items:center; justify-content:center;
+    border:1.5px solid #5a5f66; border-radius:2px; color:transparent; font-size:13px; line-height:1; }
+  .sbtn:hover { border-color:var(--text); color:var(--muted); }
+  .sbtn.sdo.on { border-color:var(--pmc); color:var(--pmc); }
+  .sbtn.sno.on { border-color:var(--danger); color:var(--danger); }
+  .sbtn:disabled { cursor:default; opacity:.6; }
+  .sbtn.gap { visibility:hidden; }
+  .sstep .stag { font-size:11px; padding:0 6px; border:1px solid var(--line); border-radius:8px; color:var(--muted); white-space:nowrap; margin-left:4px; }
+  .sstep .stag.path { border-color:#c9a227; color:#e0c050; }
+  .sstep .stag.fail { border-color:var(--danger); color:var(--danger); }
+  .sstep .sunl { flex:none; max-width:40%; font-size:11px; color:var(--muted); text-align:right; }
+  #story a.warrow { color:var(--muted); text-decoration:none; flex:none; width:14px; text-align:center; } #story a.warrow:hover { color:var(--accent); }
+  .cview .cbtns { display:flex; gap:8px; margin-top:10px; }
+  #routeBar { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:8px 0 2px; font-size:13px; }
+  #routeBar button.on { border-color:var(--accent); color:var(--accent); }
+  #routeBar .muted { font-size:12px; }
+  .ssec { padding:10px 0 4px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .snote { padding:4px 0 4px 56px; font-size:12px; color:var(--muted); font-style:italic; border-top:1px solid var(--line); }
+  .sstep .stag.ach { border-color:#3f8fd8; color:#7ab8f0; }
+  .sstep .stag.must { border-color:var(--danger); color:var(--danger); }
   #statusPart, #aboutPart { max-width:860px; }   /* the Settings tab also shows the status of the app */
   #statusPart { margin-top:8px; }
   #statCards { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:16px; }
@@ -283,6 +340,7 @@
     <div id="brand">
     <h1>Raid Task Map</h1>
     <div id="tabs">
+      <button id="tabStory" class="tab" title="The story chapters and their steps, with a link to the wiki for each step"><svg viewBox="0 0 16 16"><path d="M2 2.500C3.500 1.800 5.800 1.800 7.500 3v11C5.800 12.800 3.500 12.800 2 13.500zM14 2.500C12.500 1.800 10.200 1.800 8.500 3v11c1.700-1.200 4-1.200 5.500-.5z"/></svg>Story<sup class="beta" title="Beta: the story data is incomplete and may have mistakes">β</sup></button>
       <button id="tabTasks" class="tab" title="Your task list and the task lines of each trader"><svg viewBox="0 0 16 16"><path d="M2 2h3v3H2zM7 2.5h7v2H7zM2 6.5h3v3H2zM7 7h7v2H7zM2 11h3v3H2zM7 11.5h7v2H7z"/></svg>Tasks</button>
       <button id="tabMap" class="tab" title="The map with your mission list"><svg viewBox="0 0 16 16"><path d="M8 1a5 5 0 0 0-5 5c0 3.6 5 9 5 9s5-5.400 5-9a5 5 0 0 0-5-5zm0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>Map</button>
       <button id="tabCrafts" class="tab" title="The crafts of each hideout station and their profit at flea prices"><svg viewBox="0 0 16 16"><path d="M9.500 1.500l5 5-2 2-1.500-1.500-6.300 6.300a1.400 1.400 0 0 1-2-2L9 5 7.500 3.500z"/></svg>Crafts</button>
@@ -414,6 +472,15 @@
     </div>
     <div id="craftStations" title="Show or hide the crafts of a station"></div>
     <div id="craftList"></div>
+  </section>
+
+  <section id="story">
+    <div id="storyTop">
+      <input type="text" id="storySearch" placeholder="Search steps…">
+      <label title="Hide the steps that you marked done or failed, and the paths that you did not take"><input type="checkbox" id="storyHideDone"> Hide done steps</label>
+      <span id="storyNote" class="muted"></span>
+    </div>
+    <div id="storyBody"><nav id="storyNav" title="Select a chapter"></nav><div id="storyList"></div></div>
   </section>
 
   <div id="layersPanel">
@@ -1709,6 +1776,7 @@ function drawPlayer(pan) {
 function onEvent(ev) {
   if (ev.type === "game") return applyGame(ev);
   if (ev.type === "quests") return onQuests(ev);
+  if (ev.type === "story") return onStory(ev);
   if (ev.type === "writes") return onWrites(ev);
   if (ev.type === "activity") return onActivity(ev);
   if (ev.type === "progress") return S.cfg?.hasToken && loadProgress();
@@ -1841,6 +1909,15 @@ function renderStatus() {
   rows.push(f.busy ? row("wait", "Flea prices", fdetail, "Downloading", fbtn)
     : f.error ? row(f.fetched ? "wait" : "fail", "Flea prices", `${f.fetched ? fdetail + " · " : ""}last try ${hhmmss(f.errorTime)}: ${f.error}`, f.fetched ? "Old prices" : "Not loaded", fbtn)
     : row(f.fetched ? "good" : "", "Flea prices", fdetail, f.fetched ? (fage < f.maxAge ? "Saved" : "Old") : "Not loaded", fbtn));
+  // story chapters for the Story tab, which the app saves for a day
+  const g = st.story || {};
+  const gbtn = `<button type="button" id="storyRefresh" class="pbtn" title="Download the story chapters again"${g.busy ? " disabled" : ""}>↻ Download now</button>`;
+  const gage = g.fetched ? st.now - g.fetched : null;
+  const gdetail = g.fetched ? `TarkovTracker.org · ${g.chapters} chapters, ${g.steps} steps · loaded ${hm(g.fetched)}`
+    + (gage < g.maxAge ? "" : " · new download when you open the Story tab") : "Loads when you open the Story tab";
+  rows.push(g.busy ? row("wait", "Story chapters", gdetail, "Downloading", gbtn)
+    : g.error ? row(g.fetched ? "wait" : "fail", "Story chapters", `${g.fetched ? gdetail + " · " : ""}last try ${hhmmss(g.errorTime)}: ${g.error}`, g.fetched ? "Old data" : "Not loaded", gbtn)
+    : row(g.fetched ? "good" : "", "Story chapters", gdetail, g.fetched ? (gage < g.maxAge ? "Saved" : "Old") : "Not loaded", gbtn));
   // game logs
   rows.push(st.logsFound ? row("good", "Game logs", `${st.session} · ${st.logFiles} file${st.logFiles === 1 ? "" : "s"}`, "Reading")
     : row("fail", "Game logs", st.logsDir ? `No session folder in ${st.logsDir}` : "The game's Logs folder was not found. Type its path under Folders above.", "Not found"));
@@ -1856,9 +1933,10 @@ function renderStatus() {
   $("connRows").innerHTML = rows.join("");
 }
 $("connRows").addEventListener("click", async (e) => {
-  if (e.target.id !== "fleaRefresh") return;
+  const load = { fleaRefresh: loadCrafts, storyRefresh: loadStory }[e.target.id];
+  if (!load) return;
   e.target.disabled = true;
-  const done = loadCrafts(true);
+  const done = load(true);
   setTimeout(loadStatus, 300);   // shows "Downloading"
   await done;
   loadStatus();
@@ -1921,9 +1999,205 @@ async function applyConfig(cfg) {
   S.cfg = cfg;
   S.mode = cfg.gameMode;
   S.progressJson = null;
-  if (S.mode !== prevMode) { await loadGameData(); await loadQuests(); populateMapSelect(); populateTaskSearch(); await showMap(S.current?.key); if ($("app").dataset.tab === "crafts") loadCrafts(); }
+  if (S.mode !== prevMode) { await loadGameData(); await loadQuests(); populateMapSelect(); populateTaskSearch(); await showMap(S.current?.key); if ($("app").dataset.tab === "crafts") loadCrafts(); if ($("app").dataset.tab === "story") loadStory(); }
   if (S.cfg.hasToken) await loadProgress(); else renderTasks();
 }
+
+// ------------------------------------------------------------------ story
+// The story chapters come from TarkovTracker.org through the local server, which saves them for a
+// day and finds the wiki section of each step (story.py). The game logs do not show story progress,
+// so you tick the steps here. The server keeps the ticks of each game mode in state.json.
+async function loadStory(force) {
+  const m = S.mode;
+  if (!m || (S.storyData?.mode === m && !force)) return renderStory();
+  if (S.storyLoading === m) return;
+  S.storyLoading = m;
+  $("storyList").innerHTML = '<p class="muted">Loading the story chapters from TarkovTracker.org…</p>';
+  try {
+    const d = await getJSON(`/api/story?mode=${encodeURIComponent(m)}${force ? "&force=1" : ""}`);
+    if (S.mode !== m) return;
+    S.storyData = d;
+    S.storyDone = new Set(d.done || []);
+    S.storyFailed = new Set(d.failed || []);
+  } catch (e) {
+    if (S.mode === m) $("storyList").innerHTML = `<p class="bad">Could not load the story chapters: ${esc(e.message)}</p>`;
+    return;
+  } finally { if (S.storyLoading === m) S.storyLoading = null; }
+  renderStory();
+}
+function onStory(ev) {   // a tick from another open page
+  if (ev.mode !== S.mode || !S.storyData) return;
+  S.storyDone = new Set(ev.done);
+  S.storyFailed = new Set(ev.failed || []);
+  renderStory();
+}
+// A step is done, failed or neither. The server removes the other state.
+async function tickStory(done, undone, failed = [], unfailed = []) {
+  for (const id of [...undone, ...failed]) S.storyDone.delete(id);
+  for (const id of [...unfailed, ...done]) S.storyFailed.delete(id);
+  for (const id of done) S.storyDone.add(id);
+  for (const id of failed) S.storyFailed.add(id);
+  renderStory();
+  const r = await postJSON("/api/story", { mode: S.mode, done, undone, failed, unfailed }).catch(() => null);
+  if (!r?.ok) setStatus("Could not save the story ticks.", true);
+}
+const endingName = (n) => String(n || "").replace(/([a-z])([A-Z])/g, "$1 $2");
+// The state of each step of a chapter. A chapter can have pairs of paths (stages) where you do
+// only one, and endings where you get only one. When you tick a step of one side, the steps of the
+// other side are "blocked" and do not count.
+function storySteps(c) {
+  const side = new Map();   // stage id -> [pair number, 0 or 1]
+  c.exclusive.forEach((pair, i) => pair.forEach((stage, j) => side.set(stage, [i, j])));
+  const started = new Set();
+  for (const s of c.steps) {
+    if (!S.storyDone.has(s.id)) continue;
+    if (side.has(s.stage)) started.add(`p${side.get(s.stage).join(".")}`);
+    if (s.ending) started.add(`e${s.ending}`);
+  }
+  const anyEnding = c.steps.some((s) => s.ending && S.storyDone.has(s.id));
+  return c.steps.map((s) => {
+    const p = side.get(s.stage);
+    const blocked = (p && !started.has(`p${p.join(".")}`) && started.has(`p${p[0]}.${1 - p[1]}`))
+      || (s.ending && anyEnding && !started.has(`e${s.ending}`));
+    const path = p ? `Choice${c.exclusive.length > 1 ? " " + (p[0] + 1) : ""}: path ${"AB"[p[1]]}` : null;
+    const failed = !s.tutorial && S.storyFailed.has(s.id);
+    return { s, done: !failed && (s.tutorial || S.storyDone.has(s.id)), failed, blocked: !!blocked, path };
+  });
+}
+function storyRow(x, c, kid) {
+  const { s } = x;
+  const ending = s.ending ? endingName(c.endings.find((e) => e.id === s.ending)?.name) || "Ending" : "";
+  const tags = [s.optional ? '<span class="stag">Optional</span>' : "",
+    x.path ? `<span class="stag path" title="Two paths: you do only one of them">${esc(x.path)}</span>` : "",
+    ending ? `<span class="stag path" title="An ending of the chapter: you get only one">${esc(ending)}</span>` : "",
+    s.tutorial ? '<span class="stag">Done in the tutorial</span>' : "",
+    x.failed ? '<span class="stag fail">Failed</span>' : "",
+    x.blocked ? '<span class="stag" title="You marked a step of the other side">Other path taken</span>' : "",
+    x.extra || ""].join("");
+  const unl = s.unlocks.length ? `<span class="sunl">Opens ${s.unlocks.map((u) => `<span title="${esc(u.note || "")}">${esc(u.type)} ${esc(u.name)}</span>`).join(", ")}</span>` : "";
+  const wiki = s.wiki ? `<a class="warrow" href="${esc(s.wiki)}" target="_blank" rel="noopener" title="${s.wiki.includes("#") ? "The wiki section of this step" : "The wiki page of the chapter"}">↗</a>` : '<span class="warrow"></span>';
+  const ok = `<button type="button" class="sbtn sdo${x.done ? " on" : ""}" data-done="${esc(s.id)}"${s.tutorial ? " disabled" : ""} title="${s.tutorial ? "Done in the tutorial" : x.done ? "Remove the done mark" : "Mark this step done"}">✓</button>`;
+  const no = s.tutorial ? '<span class="sbtn gap"></span>'
+    : `<button type="button" class="sbtn sno${x.failed ? " on" : ""}" data-fail="${esc(s.id)}" title="${x.failed ? "Remove the failed mark" : "Mark this step failed"}">✕</button>`;
+  return `<li class="sstep${x.done ? " done" : ""}${x.failed ? " failed" : ""}${kid ? " kid" : ""}${x.blocked ? " blocked" : ""}">`
+    + `${ok}${no}<span class="txt"><span class="stxt">${esc(s.text)}</span>${tags}</span>${unl}${wiki}</li>`;
+}
+// The numbers of one chapter: done steps of the steps that count, and the step rows to show.
+function storyChapter(c, q, hide) {
+  const xs = storySteps(c), count = xs.filter((x) => !x.s.optional && !x.blocked && !x.failed);
+  const n = count.filter((x) => x.done).length, all = count.length;
+  const show = (x) => (!q || x.s.text.toLowerCase().includes(q)) && !(hide && (x.done || x.failed || x.blocked));
+  // a step with a parent goes under its parent
+  const ids = new Set(c.steps.map((s) => s.id)), kids = new Map();
+  const hasParent = (x) => x.s.parent && ids.has(x.s.parent);
+  for (const x of xs) if (hasParent(x)) kids.set(x.s.parent, [...(kids.get(x.s.parent) || []), x]);
+  const rows = xs.filter((x) => !hasParent(x))
+    .flatMap((x) => [show(x) ? storyRow(x, c, false) : "", ...(kids.get(x.s.id) || []).filter(show).map((k) => storyRow(k, c, true))]).join("");
+  return { n, all, complete: all > 0 && n === all, rows, match: !q || xs.some((x) => x.s.text.toLowerCase().includes(q)) };
+}
+// The ending routes of The Ticket, written by hand from the Story Endings flowchart
+// (story_routes.json). A route step with "ref" is a TarkovTracker step and shares its marks.
+// The case choice (keep it: A, hand it to Prapor: B) decides which "if" steps apply.
+function storyRouteView(c, route, q, hide) {
+  const R = S.storyData.routes, byId = new Map(c.steps.map((s) => [s.id, s]));
+  const has = (id) => S.storyDone.has(id);
+  const steps = route.sections.flatMap((k) => R.sections[k].steps.filter((st) => st.kind !== "note"));
+  const choice = steps.find((st) => st.choice && has(st.mark))?.choice || null;
+  let n = 0, all = 0, pairDone = null;
+  const rows = [];
+  for (const k of route.sections) {
+    const sec = R.sections[k], secRows = [];
+    for (const st of sec.steps) {
+      if (st.kind === "note") { if (!q && !hide) secRows.push(`<li class="snote">${esc(st.text)}</li>`); continue; }
+      const tt = st.ref && byId.get(st.ref);
+      const failed = S.storyFailed.has(st.mark), done = !failed && has(st.mark);
+      const blocked = (st.choice && choice && st.choice !== choice) || (st.when && choice && st.when !== choice);
+      // what counts: main steps, the chosen side of the case choice (one item), and "if" steps of the chosen side
+      if (st.choice) { pairDone = pairDone || done; }
+      else if (!st.optional && !failed && !blocked && (!st.if || (st.when && st.when === choice))) { all++; if (done) n++; }
+      const x = { s: { id: st.mark, text: st.text, optional: !!st.optional, unlocks: [], wiki: tt?.wiki || R.source.url, tutorial: false, ending: null },
+        done, failed, blocked: !!blocked, path: st.choice ? `Choice: ${st.choice === "A" ? "keep the case" : "hand it over"}` : null,
+        extra: (st.if ? `<span class="stag path" title="This step applies only in this case">If: ${esc(st.if)}</span>` : "")
+          + (st.mandatory ? '<span class="stag must">Mandatory</span>' : "")
+          + (st.achievement ? `<span class="stag ach" title="Achievement">🏆 ${esc(st.achievement)}</span>` : "") };
+      if ((!q || st.text.toLowerCase().includes(q)) && !(hide && (done || failed || blocked))) secRows.push(storyRow(x, c, false));
+    }
+    if (secRows.length) rows.push(`<li class="ssec">${esc(sec.title)}</li>`, ...secRows);
+  }
+  if (route.sections.length) { all++; if (pairDone) n++; }   // the case choice counts once
+  return { n, all, rows: rows.join("") };
+}
+const STORY_ICONS = "https://tarkovtracker.org/img/storyline/";
+function renderStory() {
+  const D = S.storyData;
+  if (!D || D.mode !== S.mode) return;
+  const q = $("storySearch").value.trim().toLowerCase(), hide = $("storyHideDone").checked;
+  const info = new Map(D.chapters.map((c) => [c.id, storyChapter(c, q, hide)]));
+  // the selected chapter; a search moves to the first chapter with a match
+  let sel = store.get("storyChapter", D.chapters[0]?.id);
+  if (!info.has(sel) || (q && !info.get(sel).match)) sel = (D.chapters.find((c) => info.get(c.id).match) || D.chapters[0])?.id;
+  $("storyNav").innerHTML = D.chapters.map((c) => {
+    const i = info.get(c.id);
+    return `<button type="button" class="ctile${c.id === sel ? " on" : ""}${i.complete ? " complete" : ""}${i.match ? "" : " nomatch"}" data-chap="${esc(c.id)}" title="${esc(c.name)}: ${i.n}/${i.all}">`
+      + `<img src="${STORY_ICONS}${encodeURIComponent(c.id)}.webp" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'alt',textContent:'${String(c.order).padStart(2, "0")}'}))">`
+      + `<span class="prog" style="width:${i.all ? Math.round(100 * i.n / i.all) : 0}%"></span></button>`;
+  }).join("");
+  const c = D.chapters.find((c) => c.id === sel);
+  if (!c) { $("storyList").innerHTML = '<p class="muted">No chapters.</p>'; return; }
+  let i = info.get(c.id), routeBar = "";
+  const R = D.routes?.chapter === c.id ? D.routes : null;
+  if (R) {   // The Ticket: a button for each ending route, or all the TarkovTracker steps
+    const rid = store.get("storyRoute", "all"), route = R.routes.find((r) => r.id === rid);
+    routeBar = `<div id="routeBar"><span>Ending route:</span><button type="button" data-route="all"${route ? "" : ' class="on"'} title="All the steps that TarkovTracker lists for this chapter">All steps</button>`
+      + R.routes.map((r) => `<button type="button" data-route="${esc(r.id)}"${route === r ? ' class="on"' : ""}>${esc(r.name)}</button>`).join("")
+      + `<span class="muted">Routes from the <a class="warrow" style="width:auto" href="${esc(R.source.url)}" target="_blank" rel="noopener">${esc(R.source.title)} ↗</a> by ${esc(R.source.author)}, version ${esc(R.source.version)}</span></div>`;
+    if (route) i = { ...i, ...storyRouteView(c, route, q, hide) };
+  }
+  // TarkovTracker's notes for some chapters are for developers (field names in backticks): not shown
+  const txt = (t) => (t && !t.includes("`") ? t : "");
+  const meta = [txt(c.description) && `<div class="meta">${esc(c.description)}</div>`,
+    c.requires.length && `<div class="meta"><b>Needs:</b> ${c.requires.map((r) => esc(r.name)).join(", ")}</div>`,
+    txt(c.activation) && `<div class="meta"><b>Starts:</b> ${esc(c.activation)}</div>`,
+    txt(c.notes) && `<div class="meta"><b>Note:</b> ${esc(c.notes)}</div>`,
+    c.rewards && `<div class="meta"><b>Reward:</b> ${esc(c.rewards)}</div>`, routeBar].filter(Boolean).join("");
+  $("storyList").innerHTML = `<div class="cview" data-chap="${esc(c.id)}"><div class="chead"><div class="t"><small>Chapter ${c.order}</small>`
+    + `<h2${i.complete ? ' class="complete"' : ""}>${esc(c.name)}${c.wiki ? ` <a class="warrow" href="${esc(c.wiki)}" target="_blank" rel="noopener" title="The wiki page of the chapter">↗</a>` : ""}</h2></div>`
+    + `<span class="scnt">${i.n}/${i.all}</span><span class="bar"><i style="width:${i.all ? Math.round(100 * i.n / i.all) : 0}%"></i></span></div>`
+    + `${meta}<ol class="ssteps">${i.rows || `<li class="sstep muted">${q ? "No steps match." : "All steps are done."}</li>`}</ol>`
+    + `<div class="cbtns"><button type="button" data-tick-all="${esc(c.id)}" title="Mark done the main steps that are not part of a choice and not failed">Mark all done</button>`
+    + `<button type="button" data-untick-all="${esc(c.id)}" title="Remove the done and failed marks of the chapter">Clear all marks</button></div></div>`;
+  const complete = D.chapters.filter((c) => info.get(c.id).complete).length;
+  $("storyNote").textContent = `${complete} of ${D.chapters.length} chapters done · chapters from TarkovTracker.org, guides on the Escape from Tarkov Wiki. The game logs do not show story progress, so mark the steps here.${D.stale ? " (Could not load new data.)" : ""}`;
+}
+$("storySearch").addEventListener("input", renderStory);
+$("storyHideDone").checked = store.get("storyHideDone", false);
+$("storyHideDone").addEventListener("change", () => { store.set("storyHideDone", $("storyHideDone").checked); renderStory(); });
+$("storyNav").addEventListener("click", (e) => {
+  const id = e.target.closest?.(".ctile")?.dataset.chap;
+  if (!id) return;
+  store.set("storyChapter", id);
+  $("storySearch").value = "";
+  renderStory();
+});
+$("storyList").addEventListener("click", (e) => {
+  const b = e.target.closest?.("button");
+  if (!b) return;
+  const { done: did, fail: fid, route } = b.dataset;
+  if (route) { store.set("storyRoute", route); return renderStory(); }
+  if (did) return S.storyDone.has(did) ? tickStory([], [did]) : tickStory([did], []);
+  if (fid) return S.storyFailed.has(fid) ? tickStory([], [], [], [fid]) : tickStory([], [], [fid], []);
+  const c = S.storyData?.chapters.find((c) => c.id === (b.dataset.tickAll || b.dataset.untickAll));
+  if (!c) return;
+  // in a route view of The Ticket the buttons act on the steps of the route
+  const R = S.storyData.routes, rview = R?.chapter === c.id && R.routes.find((r) => r.id === store.get("storyRoute", "all"));
+  if (rview) {
+    const rs = rview.sections.flatMap((k) => R.sections[k].steps).filter((st) => st.mark);
+    if (b.dataset.tickAll) return tickStory(rs.filter((st) => !st.optional && !st.if && !st.choice && !S.storyFailed.has(st.mark) && !S.storyDone.has(st.mark)).map((st) => st.mark), []);
+    return tickStory([], rs.map((st) => st.mark).filter((id) => S.storyDone.has(id)), [], rs.map((st) => st.mark).filter((id) => S.storyFailed.has(id)));
+  }
+  if (b.dataset.tickAll) tickStory(c.steps.filter((s) => !s.optional && !s.tutorial && !s.ending && !c.exclusive.flat().includes(s.stage) && !S.storyFailed.has(s.id)).map((s) => s.id), []);
+  else tickStory([], c.steps.map((s) => s.id).filter((id) => S.storyDone.has(id)), [], c.steps.map((s) => s.id).filter((id) => S.storyFailed.has(id)));
+});
 
 // ------------------------------------------------------------------ crafts
 // The crafts of each hideout station, with the cost of the components and the value of the product
@@ -2159,6 +2433,7 @@ async function boot() {
   if (S.cfg.hasToken) await loadProgress(); else { renderProfile(); renderTasks(); setStatus("Add your TarkovTracker token in Settings.", true); setTab("settings"); }
   S.booted = true;
   if ($("app").dataset.tab === "crafts") loadCrafts();
+  if ($("app").dataset.tab === "story") loadStory();
   connectEvents();
   getJSON("/api/writes").then(onWrites).catch(() => {});
   setInterval(() => { if (S.cfg.hasToken && document.visibilityState === "visible") loadProgress(); }, POLL_MS);
@@ -2198,17 +2473,19 @@ $("addTask").addEventListener("keydown", (e) => { if (e.key === "Enter") addTask
 // Two tabs: the map, and the task list. The map tab has two places for the mission list.
 function setTab(tab) {
   if (tab === "status") tab = "settings";   // the status is part of the Settings tab
-  tab = ["tasks", "settings", "crafts"].includes(tab) ? tab : "map";
+  tab = ["tasks", "settings", "crafts", "story"].includes(tab) ? tab : "map";
   if (tab === "settings") loadStatus();
   if (tab === "crafts" && S.booted) loadCrafts();   // at page start, boot() loads them after the game data
+  if (tab === "story" && S.booted) loadStory();   // boot() knows the game mode
   if (tab === "settings" && S.cfg) { fillSettings(); $("savedNote").textContent = ""; }
-  $("app").classList.remove("tab-map", "tab-tasks", "tab-settings", "tab-crafts");
+  $("app").classList.remove("tab-map", "tab-tasks", "tab-settings", "tab-crafts", "tab-story");
   $("app").classList.add("tab-" + tab);
   $("app").dataset.tab = tab;
   $("tabMap").classList.toggle("on", tab === "map");
   $("tabTasks").classList.toggle("on", tab === "tasks");
   $("tabSettings").classList.toggle("on", tab === "settings");
   $("tabCrafts").classList.toggle("on", tab === "crafts");
+  $("tabStory").classList.toggle("on", tab === "story");
   if (tab !== "settings") store.set("tab", tab); // a reload opens the same tab, but not Settings
   layoutHeader();
   setTimeout(() => S.lmap?.invalidateSize(), 50);
@@ -2252,6 +2529,7 @@ $("tabMap").addEventListener("click", () => { S.viewAuto = false; setTab("map");
 $("tabTasks").addEventListener("click", () => { S.viewAuto = false; setTab("tasks"); });
 $("tabSettings").addEventListener("click", () => setTab("settings"));
 $("tabCrafts").addEventListener("click", () => { S.viewAuto = false; setTab("crafts"); });
+$("tabStory").addEventListener("click", () => { S.viewAuto = false; setTab("story"); });
 $("layersBtn").addEventListener("click", () => { const open = $("layersPanel").classList.toggle("open"); $("layersBtn").classList.toggle("on", open); });
 $("copyActivity").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText(S.activity.map(activityLine).join("\n")); setStatus("Activity lines copied."); }

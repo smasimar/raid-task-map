@@ -29,7 +29,11 @@ Use the app at your own risk.
   components, the value of the product, and the profit (value less cost), also per hour of
   craft time. Prices are flea
   market and trader prices from tarkov.dev for your game mode.
-- **Settings tab:** your settings, and the state of TarkovTracker, game data, flea prices,
+- **Story tab:** the chapters of the game's main story and their steps, from
+  TarkovTracker.org, with a link to the Escape from Tarkov Wiki guide of each step. You
+  mark the steps done or failed yourself. The tab has a **β** (beta) mark: the story data
+  is incomplete and can have mistakes.
+- **Settings tab:** your settings, and the state of TarkovTracker, game data, flea prices, story chapters,
   logs and screenshots, the changes that wait to be sent, and a list of what the app did.
 - PvP and PvE have separate task lists.
 - **Updates:** at start the app looks for a newer version on GitHub and asks before it
@@ -97,6 +101,42 @@ as not found, type its path.
   The product value is the higher of the flea price less the fee for a flea market sale and
   the best trader price. The fuel that the hideout generator uses is not in the cost. The app keeps the prices for 8 hours;
   **↻ Download now** in the Flea prices row on the Settings tab gets new ones.
+- **Story tab.** The column of icons on the left has one icon for each chapter, as in the
+  game. Click an icon to show that chapter: its name, a count of done steps, its description
+  and its steps. A green line under an icon shows the progress; a green corner shows a
+  finished chapter. **↗** next to the chapter name opens its wiki page.
+  - Click **✓** at the left of a step when you have done it, or **✕** when you failed it. A
+    failed step is red and does not count. Click the same button again to remove the mark.
+    The marks stay in this app and are not sent to TarkovTracker. Each game mode has its
+    own marks.
+  - The app cannot mark steps for you: the game logs do not show story progress.
+  - The text on the right of a step, such as "Opens map Customs", tells which map or trader
+    the step unlocks in the game. Clicking it does nothing.
+  - Steps with an **Optional** label are under the step that they help with. They do not
+    count.
+  - Some chapters have a choice of two paths, labelled **path A** and **path B**. When you
+    mark a step of one path, the other path goes grey and does not count. Remove the mark to
+    get the other path back.
+  - **↗** at the right end of a step opens its wiki section. If the app finds no matching
+    section, it opens the chapter page.
+  - The search box above the chapters shows the first chapter with a matching step and dims
+    the icons of chapters with no match.
+  - **Ending routes.** The last chapter, The Ticket, ends in one of four endings: Survivor,
+    Savior, Debtor or Fallen. TarkovTracker lists the steps of only one of them (Savior), so
+    the app also has the four routes, written by hand from the Story Endings flowchart on the
+    wiki.
+    Click a route button above the steps to see that route, or **All steps** to see the
+    TarkovTracker list. A route has sections in the order you play them, with notes at the
+    decisions. A step can have these labels:
+    - **If:** followed by a condition: the step applies only in that case and does not count.
+    - **Choice**: keep the armored case (found in the chapter Falling Skies) or hand it over
+      to Prapor. When you mark one, the other choice and the steps for it go grey.
+    - **Mandatory**: the route cannot finish without it.
+    - **🏆**: the achievement that the step gives.
+
+    Many route steps are also TarkovTracker steps; a mark on one shows on both.
+  - The app downloads the chapters when you first open the tab and keeps them for a day.
+    **↻ Download now** in the Story chapters row on the Settings tab downloads them at once.
 - **Progress** (with sending on). Type a step count, mark a step or task done with
   **✓**, undo with **↺**. On the Map tab, mission cards have **−**, **+** and **✓** for each
   step. Type your level in the box next to your name; the game logs
@@ -134,14 +174,18 @@ Map markers:
 | "TarkovTracker answered 401" | The token is wrong, revoked or for the other game mode. |
 | The Crafts tab shows "?" for a profit | The craft uses or makes an item with no price, such as a task item. The app cannot calculate that profit. |
 | The Flea prices row shows "Old prices" | tarkov.dev did not answer. The app uses the saved prices. Click **↻ Download now** again after some minutes. |
+| The Story tab cannot load the chapters | TarkovTracker.org did not answer. Click **↻ Download now** in the Story chapters row after some minutes. |
+| A step's **↗** opens the wrong wiki section | The app finds a section by its words, and some wiki headings use other words. Use the **↗** next to the chapter name. |
 
 ## Privacy
 
 - The app listens only on `127.0.0.1` and refuses requests from other sites.
 - Tokens are in `config.json` in plain text. Do not share it. Git ignores it.
-- Ticked tasks and unsent changes are in `state.json`.
+- Ticked tasks, story marks and unsent changes are in `state.json`.
 - The app contacts only `tarkov.dev`, `unpkg.com` (Leaflet), `api.tarkovtracker.org`
-  and `github.com` (update check; off in Settings).
+  (with your token), `tarkovtracker.org` (story chapters and icons, no token),
+  `escapefromtarkov.fandom.com` (wiki section names, no token) and `github.com` (update
+  check; off in Settings).
 - Screenshots are deleted only if you tick that option in Settings (off by default).
 
 ## Development
@@ -159,10 +203,12 @@ cd tests; npm install; npm test          page tests (Node.js and jsdom)
 | `game_logs.py` | Game log reader and raid state |
 | `updater.py` | Update check and update from GitHub |
 | `crafts.py` | Crafts and prices from tarkov.dev, saved in `cache/` for 8 hours |
-| `index.html` | The page: map, task lists, settings |
+| `story.py` | Story chapters from TarkovTracker.org with wiki links, saved in `cache/` for a day |
+| `story_routes.json` | The four ending routes of The Ticket, written by hand from the Story Endings flowchart |
+| `index.html` | The page: map, task lists, crafts, story, settings |
 | `maps.json` | Map projection settings, from tarkov.dev |
 | `config.json`, `state.json` | Your settings and task lists. Made by the app; git ignores them |
-| `cache/` | Saved crafts and prices. Made by the app; git ignores it |
+| `cache/` | Saved crafts, prices and story chapters. Made by the app; git ignores it |
 | `tests/fixtures` | Log lines from a real game session, IDs and addresses masked |
 
 ## Credits and licenses
@@ -176,7 +222,13 @@ cd tests; npm install; npm test          page tests (Node.js and jsdom)
   use in cheat software.
 - Game data: the [tarkov.dev](https://tarkov.dev) API. `maps.json` is from the
   tarkov-dev project (MIT).
-- Task progress: [TarkovTracker.org](https://tarkovtracker.org).
+- Task progress, story chapters and chapter icons: [TarkovTracker.org](https://tarkovtracker.org).
+  The icons are loaded from their site at run time; none are in this repository.
+- Story guides: the [Escape from Tarkov Wiki](https://escapefromtarkov.fandom.com). The app
+  links to it and reads only its section names.
+- Ending routes: the [Story Endings flowchart](https://escapefromtarkov.fandom.com/wiki/Endings)
+  by Callsign_Smokey (Kay08x), version 1.7.6. `story_routes.json` describes its routes in
+  text; the image is not in this repository.
 - Map library: [Leaflet](https://leafletjs.com) (BSD 2-Clause), loaded from unpkg.com.
 
 This project is not affiliated with or approved by Battlestate Games. Escape from

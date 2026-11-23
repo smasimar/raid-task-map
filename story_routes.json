@@ -1,0 +1,127 @@
+{
+  "about": "The four ending routes of the chapter The Ticket, written by hand from the Story Endings flowchart. A step with \"ref\" is a TarkovTracker step: it shares its marks and wiki link. A step with \"if\" applies only in that case and does not count. A \"note\" row has no buttons.",
+  "chapter": "the-ticket",
+  "source": {
+    "title": "Story Endings flowchart",
+    "author": "Callsign_Smokey (Kay08x)",
+    "version": "1.7.6",
+    "url": "https://escapefromtarkov.fandom.com/wiki/Endings"
+  },
+  "sections": {
+    "case": {
+      "title": "The armored case",
+      "steps": [
+        { "ref": "679cdee4ce3a208fee0ad65a", "text": "Retrieve the armored case from the crashed plane on Woods" },
+        { "kind": "note", "text": "Decision: keep the case or hand it over to Prapor. The choice changes some steps of the Survivor and Fallen routes." },
+        { "ref": "690177dcaaed5ef80cdcd1ef", "text": "Keep the case for yourself", "choice": "A" },
+        { "ref": "679cdee4ce3a208fee0ad65b", "text": "Hand over the case to Prapor", "choice": "B" },
+        { "ref": "67bc700fbbf2563b14c50abc", "text": "Find compromising material on Prapor on Lighthouse", "if": "You handed the case to Prapor", "when": "B" },
+        { "ref": "692eb8a5997e309c890d4ac1", "text": "Gain access to Lightkeeper (the To the Light task line)", "if": "You handed the case to Prapor", "when": "B" },
+        { "ref": "67bc79ed0e70fe1ee20ca3eb", "text": "Talk to Lightkeeper and pay him 3 TerraGroup \"Blue Folders\" materials", "if": "You handed the case to Prapor", "when": "B" },
+        { "ref": "67bc7aeb828af7a5f180b291", "text": "Launch a yellow signal flare in front of ULTRA's main entrance on Interchange", "if": "You handed the case to Prapor", "when": "B" },
+        { "ref": "67bc7afbff2e9e386993ea66", "text": "Eliminate 15 targets in one raid on Interchange without dying", "if": "You handed the case to Prapor", "when": "B" },
+        { "ref": "68e1d036248463ac81787373", "text": "Collect the case from Lightkeeper (it goes into the special slot)", "if": "You handed the case to Prapor", "when": "B" }
+      ]
+    },
+    "open": {
+      "title": "Open the case",
+      "steps": [
+        { "ref": "67bc885febc1b9a2446146c2", "text": "Find the experimental signal jammer in The Lab" },
+        { "ref": "68e2eb7fd393583cd94c4ea0", "text": "Use the signal jammer to open the case" },
+        { "kind": "note", "text": "Decision: work with Mr. Kerman (Savior, Debtor and Fallen) or not (Survivor)." }
+      ]
+    },
+    "kerman": {
+      "title": "Work with Mr. Kerman",
+      "steps": [
+        { "ref": "68e2e61ba1f1d0daa8d25101", "text": "Accept Mr. Kerman's offer" },
+        { "ref": "67bc9970a23671dbdd023d3a", "text": "Find the master keycard and the RFID device in The Lab" },
+        { "ref": "68e6a2cdfed9106cf6c920d2", "text": "You have the keycard but not the device: talk to Mechanic" },
+        { "ref": "67bc9f527b52304e9e27ee5a", "text": "Pay Mechanic 40 Physical Bitcoins" },
+        { "ref": "67bca0d332f7486973bcabbb", "text": "Take Mechanic's keys to Elektronik's apartment and get the RFID device" },
+        { "ref": "67bc943b38c9039da6e5a284", "text": "Activate the RFID card from the armored case" },
+        { "ref": "68e6b9b1ecabcb4c973b2cf4", "text": "Swipe the keycard at the intercom at the port entrance on Shoreline" },
+        { "kind": "note", "text": "Decision: help Mr. Kerman find evidence against TerraGroup (Savior), give him some and stop (Debtor), or refuse (Fallen)." }
+      ]
+    },
+    "survivor": {
+      "title": "Survivor: do not work with Mr. Kerman",
+      "steps": [
+        { "id": "r-sur-swipe", "text": "Swipe the keycard at the intercom at the port entrance on Shoreline", "achievement": "Easy Way" },
+        { "id": "r-sur-ask", "text": "The keycard does not work: ask Prapor for help" },
+        { "id": "r-sur-pay300", "text": "Pay Prapor 300 million roubles", "if": "You handed the case to Prapor", "when": "B" },
+        { "id": "r-sur-pay500", "text": "Pay Prapor 500 million roubles", "if": "You kept the case", "when": "A" },
+        { "id": "r-sur-folders", "text": "Find 4 TerraGroup report folders in The Lab" },
+        { "id": "r-sur-drive", "text": "Give Prapor the flash drive with the data", "achievement": "I am Speed (within 72 hours of game time)" },
+        { "id": "r-sur-kappa", "text": "Hand over the Kappa secure container", "if": "You gave the flash drive after more than 72 hours" },
+        { "id": "r-sur-streets", "text": "Eliminate 50 targets on Streets of Tarkov" },
+        { "id": "r-sur-pmc", "text": "Eliminate 4 PMCs in one raid and survive" },
+        { "id": "r-sur-note", "text": "Get Prapor's note for the soldiers at the Terminal" },
+        { "id": "r-sur-escape", "escape": true },
+        { "kind": "note", "text": "If the escape attempt fails, buy a new note from Prapor for 5 million roubles (2 per reset)." }
+      ]
+    },
+    "savior": {
+      "title": "Savior: help Mr. Kerman find evidence",
+      "steps": [
+        { "kind": "note", "text": "Listen to every audio tape and read every note that you find in all chapters: they are evidence." },
+        { "ref": "691e693540966bb93bd1d6a6", "text": "Agree to find dirt on TerraGroup for Mr. Kerman" },
+        { "ref": "68f0154a0066922971815219", "text": "Hand over 8 major pieces of evidence to Mr. Kerman" },
+        { "ref": "68f018886f7970e2c2cb4db7", "text": "Hand over all 32 minor pieces of evidence to Mr. Kerman", "optional": true, "achievement": "Little Triumphs" },
+        { "ref": "68f0cfd10cac71bba872ec3e", "text": "Upgrade the Intelligence Center to level 3", "mandatory": true },
+        { "ref": "68e90a73a3d110355b03e3a4", "text": "Mr. Kerman's trusted contact (Fence) gets in touch" },
+        { "ref": "68f6c3264d2db3fea5ea145b", "text": "Reach 4.0 reputation with Fence" },
+        { "id": "r-sav-pmc", "text": "Eliminate 5 PMCs in one raid on Shoreline and on Interchange without killing Scavs", "if": "You fail the Fence reputation" },
+        { "id": "r-sav-coop", "text": "Use the co-op extract with a Scav on Woods and on Reserve", "if": "You pass the Fence reputation" },
+        { "ref": "68eadb1dd5f0fec15aecfa7d", "text": "Reach 0.4 reputation with the BTR Driver (complete The Price of Independence)" },
+        { "kind": "note", "text": "If you fail the BTR Driver reputation because you sided with Skier, Mr. Kerman stops helping you, and you must follow the Survivor route from \"ask Prapor for help\"." },
+        { "ref": "68e3ce5660b161e1202ef2f0", "text": "Build the Solar Power zone in the Hideout", "mandatory": true },
+        { "id": "r-sav-craft", "text": "Craft the keycard (the final craft)" },
+        { "ref": "68f7eb1280b4d1114f1acb5e", "escape": true },
+        { "kind": "note", "text": "If the escape attempt fails, craft the keycard again. Each craft needs a new blank RFID card." }
+      ]
+    },
+    "debtor": {
+      "title": "Debtor: give Mr. Kerman some evidence, then stop",
+      "steps": [
+        { "ref": "68f0cfd10cac71bba872ec3e", "text": "Upgrade the Intelligence Center to level 3", "mandatory": true },
+        { "id": "r-deb-two", "text": "Hand over 2 major pieces of evidence to Mr. Kerman, then stop working with him", "achievement": "U Turn" },
+        { "id": "r-deb-access", "text": "Gain access to Lightkeeper (Network Provider part 1 is available)" },
+        { "id": "r-deb-talk", "text": "Talk to Lightkeeper" },
+        { "id": "r-deb-topo", "text": "Find the topographic reconnaissance: 5 in total, 1 on each of 5 maps" },
+        { "id": "r-deb-drive", "text": "Bring a special flash drive with the material to Lightkeeper" },
+        { "id": "r-deb-pmc", "text": "Eliminate 30 PMCs on Woods" },
+        { "id": "r-deb-tags", "text": "Hand over 100 PMC dogtags" },
+        { "id": "r-deb-amulets", "text": "Find a Cultist amulet in each marked room" },
+        { "id": "r-deb-place", "text": "Put all the amulets in the stash on Lightkeeper's island on Lighthouse" },
+        { "id": "r-deb-card", "text": "Get the keycard for the Terminal from Lightkeeper" },
+        { "id": "r-deb-escape", "escape": true },
+        { "kind": "note", "text": "If the escape attempt fails, barter a new keycard from Lightkeeper for 1 TerraGroup \"Blue Folders\" material." }
+      ]
+    },
+    "fallen": {
+      "title": "Fallen: refuse to help Mr. Kerman",
+      "steps": [
+        { "id": "r-fal-refuse", "text": "Refuse to help Mr. Kerman find evidence", "achievement": "Enough of your games!" },
+        { "id": "r-fal-prapor", "text": "Talk to Prapor" },
+        { "id": "r-fal-kits", "text": "Hand over 40 repair kits (100% durability, not found in raid)", "if": "You kept the case", "when": "A" },
+        { "id": "r-fal-container", "text": "Hand over a Kappa, Theta or Epsilon secure container", "if": "You kept the case", "when": "A" },
+        { "id": "r-fal-parts", "text": "Hand over 50 military components such as Virtex and COFDM (not found in raid)", "if": "You kept the case", "when": "A" },
+        { "id": "r-fal-cargo", "text": "Get the \"case with dangerous cargo\" and hand it over to Prapor" },
+        { "id": "r-fal-usd", "text": "Hand over 1 million dollars to Prapor", "achievement": "Will it Blow" },
+        { "id": "r-fal-usb", "text": "Get the USB stick with Prapor's hash code" },
+        { "ref": "68e3ce5660b161e1202ef2f0", "text": "Build the Solar Power zone in the Hideout", "mandatory": true },
+        { "id": "r-fal-craft", "text": "Craft the keycard (the final craft)" },
+        { "id": "r-fal-escape", "escape": true },
+        { "kind": "note", "text": "If the escape attempt fails, craft the keycard again. Each craft needs a new blank RFID card." }
+      ]
+    }
+  },
+  "escapeText": "Go to Shoreline between 21:00 and 06:00, talk to the intercom at the tower, swipe your keycard, go to the Terminal with no weapon in your hands, and start the escape attempt",
+  "routes": [
+    { "id": "survivor", "name": "Survivor", "ending": "68a6e8c834a37e244710d516", "sections": ["case", "open", "survivor"] },
+    { "id": "savior", "name": "Savior", "ending": "68a6e8f1a7455e5e23099ad8", "sections": ["case", "open", "kerman", "savior"] },
+    { "id": "debtor", "name": "Debtor", "ending": "68a6028ef4c23ebbbc49da4b", "sections": ["case", "open", "kerman", "debtor"] },
+    { "id": "fallen", "name": "Fallen", "ending": "68a6e8e4a8d0bee0b5324d96", "sections": ["case", "open", "kerman", "fallen"] }
+  ]
+}

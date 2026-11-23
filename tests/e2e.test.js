@@ -42,13 +42,44 @@ const apiMaps = {
 const mapsEn = { [`${CUST} Name`]: "Customs", [`${WOODS} Name`]: "Woods", ex_pmc_a: "Crossroads", ex_shared_c: "Boat", ex_null_d: "Coop thing" };
 const progress = { data: { tasksProgress: [{ id: "doneTask", complete: true }], taskObjectivesProgress: [{ id: "o1", complete: false, count: 3 }, { id: "o2", complete: true }], tradersProgress: [{ id: PRAPOR, level: 2, reputation: 0.2 }], displayName: "Tester", playerLevel: 12, pmcFaction: "USEC" }, meta: {} };
 
+const W = "https://wiki.test/wiki/";
+// ending routes for the "skies" chapter, in the form that story.routes() gives
+const storyRoutes = { chapter: "skies", source: { title: "Endings chart", author: "Someone", version: "1.0", url: W + "Endings" }, sections: {
+  start: { title: "The case", steps: [
+    { kind: "note", text: "Decision: keep the case or not." },
+    { ref: "f3", mark: "f3", text: "Route text for the last step" },
+    { id: "r-keep", mark: "r-keep", text: "Keep the case", choice: "A" },
+    { id: "r-give", mark: "r-give", text: "Give the case", choice: "B" },
+    { id: "r-extra", mark: "r-extra", text: "Pay more", if: "You kept the case", when: "A" } ] },
+  one: { title: "Route one", steps: [
+    { id: "r-one", mark: "r-one", text: "Do route one", achievement: "Fast", mandatory: true },
+    { id: "r-opt", mark: "r-opt", text: "Optional thing", optional: true } ] },
+  two: { title: "Route two", steps: [{ id: "r-two", mark: "r-two", text: "Do route two" }] } },
+  routes: [{ id: "one", name: "One", ending: "e1", sections: ["start", "one"] }, { id: "two", name: "Two", ending: "e2", sections: ["start", "two"] }] };
+const storyDone = { regular: [] }, storyFailed = { regular: [] }, storyPosts = [];
 const routes = {
+  "/api/story?mode=regular": { mode: "regular", fetched: 1700000000, chapters: [
+    { id: "tour", name: "Tour", order: 1, wiki: W + "Tour", autoStart: true, description: "The first chapter", activation: "", notes: "", rewards: "An achievement",
+      requires: [], unlocks: [], exclusive: [], endings: [], steps: [
+        { id: "s1", text: "Escape Ground Zero", optional: false, stage: "q1", parent: null, ending: null, tutorial: true, unlocks: [{ type: "trader", id: "t", name: "Therapist", note: null }], wiki: W + "Tour#Escape" },
+        { id: "s2", text: "Hand over cash to Therapist", optional: false, stage: "q2", parent: null, ending: null, tutorial: false, unlocks: [], wiki: W + "Tour#Cash" },
+        { id: "s3", text: "Collect the cash", optional: true, stage: "q2", parent: "s2", ending: null, tutorial: false, unlocks: [], wiki: W + "Tour#Cash" },
+        { id: "s4", text: "Talk to Ragman", optional: false, stage: "q3", parent: null, ending: null, tutorial: false, unlocks: [], wiki: W + "Tour" },
+      ] },
+    { id: "skies", name: "Falling Skies", order: 2, wiki: W + "Falling_Skies", autoStart: false, description: "", activation: "Ask Mechanic", notes: "", rewards: "",
+      requires: [{ id: "tour", name: "Tour" }], unlocks: [], exclusive: [["qa", "qb"]], endings: [], steps: [
+        { id: "f1", text: "Path A step", optional: false, stage: "qa", parent: null, ending: null, tutorial: false, unlocks: [], wiki: W + "Falling_Skies#A" },
+        { id: "f2", text: "Path B step", optional: false, stage: "qb", parent: null, ending: null, tutorial: false, unlocks: [], wiki: W + "Falling_Skies#B" },
+        { id: "f3", text: "Last step", optional: false, stage: "qc", parent: null, ending: null, tutorial: false, unlocks: [], wiki: W + "Falling_Skies" },
+      ] },
+  ] },
   "/maps.json": mapsCfg,
   "/api/config": { hasToken: true, tokenHint: "PVP_…abcd", gameMode: "regular", screenshotsDir: "C:/s", screenshotsDirExists: true, deleteScreenshots: false, logsDir: "", logsDirActive: "C:/g/Logs", logsDirExists: true, autoTick: true, tokens: { regular: "PVP_…abcd" }, writeTT: false, canWrite: null },
   "/api/writes": { type: "writes", pending: 0, error: null },
   "/api/status": { logLines: 4812, logSeen: Date.now() / 1000 - 30, logFiles: 3, session: "log_2026.11.15_6-56-39", logsFound: true, shotsFound: true, shotTime: null,
     trackerTime: Date.now() / 1000 - 5, trackerOk: true, trackerError: null, now: Date.now() / 1000, mode: "regular", hasToken: true, writeTT: true, canWrite: true,
-    writes: { type: "writes", pending: 2, error: null, remaining: "93" }, flea: { busy: false, maxAge: 28800, error: null, errorTime: null, fetched: Date.now() / 1000 - 600, items: 360, crafts: 214 }, game: { mode: "regular", raid: { phase: "idle" } }, logsDir: "C:/g/Logs",
+    writes: { type: "writes", pending: 2, error: null, remaining: "93" }, flea: { busy: false, maxAge: 28800, error: null, errorTime: null, fetched: Date.now() / 1000 - 600, items: 360, crafts: 214 },
+    story: { busy: false, maxAge: 86400, error: null, errorTime: null, fetched: Date.now() / 1000 - 600, chapters: 10, steps: 437 }, game: { mode: "regular", raid: { phase: "idle" } }, logsDir: "C:/g/Logs",
     activity: [{ time: 1, kind: "raid", text: "loading Woods", err: false, raid: { phase: "loading", scenePath: "maps/woods_preset.bundle" } },
                { time: 2, kind: "task", text: "finished in the game", err: false, taskId: "debut", status: "finished" },
                { time: 3, kind: "tracker", text: "TarkovTracker not reachable", err: true }] },
@@ -103,6 +134,15 @@ const dom = new JSDOM(html, {
       const u = String(url).replace("?force=1", "");
       const reply = (obj) => ({ ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(obj)) });
       if (u === "/api/quests") return reply(opts?.method === "POST" ? questPost(w, JSON.parse(opts.body)) : quests);
+      if (u === "/api/story" && opts?.method === "POST") {
+        const b = JSON.parse(opts.body);
+        storyPosts.push(b);
+        const change = (list, add, remove) => [...list.filter((x) => !remove.includes(x)), ...add.filter((x) => !list.includes(x) && !remove.includes(x))];
+        storyDone[b.mode] = change(storyDone[b.mode], b.done, [...b.undone, ...b.failed]);
+        storyFailed[b.mode] = change(storyFailed[b.mode], b.failed, [...b.unfailed, ...b.done]);
+        return reply({ type: "story", mode: b.mode, done: storyDone[b.mode], failed: storyFailed[b.mode] });
+      }
+      if (u === "/api/story?mode=regular") return reply({ ...routes[u], done: storyDone.regular, failed: storyFailed.regular, routes: storyRoutes });
       if (u.startsWith("/api/progress/")) { progressPosts.push([u, JSON.parse(opts.body)]); return reply({ type: "writes", pending: 1, error: null }); }
       if (u === "/api/config" && opts?.method === "POST") { Object.assign(routes["/api/config"], JSON.parse(opts.body), { canWrite: true }); return reply(routes["/api/config"]); }
       if (u === "/api/past-logs") {
@@ -411,6 +451,8 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(conn("Screenshots").classList.contains("wait") && conn("Game").querySelector(".pill").textContent === "Running", "screenshots wait for a position; the game runs");
   assert(conn("Flea prices").classList.contains("good") && conn("Flea prices").textContent.includes("360 items, 214 crafts") && conn("Flea prices").textContent.includes("new download after")
     && conn("Flea prices").querySelector(".pill").textContent === "Saved" && d.getElementById("fleaRefresh"), "the flea prices row shows the saved prices and a download button");
+  assert(conn("Story chapters").classList.contains("good") && conn("Story chapters").textContent.includes("10 chapters, 437 steps") && d.getElementById("storyRefresh"),
+    "the story chapters row shows the saved chapters and a download button");
   routes["/api/status"].flea = { ...routes["/api/status"].flea, error: "offline", errorTime: Date.now() / 1000 };
   await w.eval("loadStatus()");
   assert(conn("Flea prices").classList.contains("wait") && conn("Flea prices").querySelector(".pill").textContent === "Old prices" && conn("Flea prices").textContent.includes("offline"), "a failed download keeps the old prices");
@@ -738,6 +780,116 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   d.getElementById("fleaRefresh").click();
   await sleep(60);
   assert(w.eval("S.craftData.fetched") === 1700003600, "the Settings button downloads the prices again");
+
+  // Story tab: an icon for each chapter, the steps of the selected chapter with ✓ and ✕, a wiki arrow on each step
+  d.getElementById("tabStory").click();
+  await sleep(60);
+  const tiles = () => [...d.querySelectorAll("#storyNav .ctile")];
+  const head = () => d.querySelector("#storyList .chead");
+  const pickChap = (id) => d.querySelector(`#storyNav .ctile[data-chap="${id}"]`).click();
+  assert([...d.querySelectorAll("#tabs .tab")].map((b) => b.textContent).join() === "Storyβ,Tasks,Map,Crafts,Settings", "the tabs are in order, Story first, with a beta mark");
+  assert(app.dataset.tab === "story" && tiles().map((t) => t.dataset.chap).join() === "tour,skies" && tiles()[0].classList.contains("on")
+    && tiles()[0].querySelector("img").getAttribute("src") === "https://tarkovtracker.org/img/storyline/tour.webp", "a tile with an icon for each chapter; the first is selected");
+  assert(head().querySelector("h2").textContent === "Tour ↗" && head().querySelector("a.warrow").getAttribute("href") === W + "Tour", "the chapter name has a wiki arrow");
+  assert(head().querySelector(".scnt").textContent === "1/3", "a tutorial step is done; an optional step does not count");
+  const steps = () => [...d.querySelectorAll("#storyList .sstep")];
+  assert(steps().map((li) => li.querySelector(".stxt").textContent).join("|") === "Escape Ground Zero|Hand over cash to Therapist|Collect the cash|Talk to Ragman"
+    && steps()[2].classList.contains("kid"), "an optional step is under its parent");
+  assert(steps().map((li) => li.querySelector("a.warrow").getAttribute("href")).join() === [W + "Tour#Escape", W + "Tour#Cash", W + "Tour#Cash", W + "Tour"].join()
+    && steps().every((li) => li.lastElementChild.matches("a.warrow") && li.querySelector("a.warrow").textContent === "↗" && li.querySelector("a.warrow").target === "_blank"),
+    "each step ends with a ↗ to its wiki section in a new window");
+  assert(!d.querySelector("#storyList input[type=checkbox]") && steps()[1].querySelector("[data-done]").textContent === "✓" && steps()[1].querySelector("[data-fail]").textContent === "✕",
+    "each step has a ✓ and a ✕ button, no checkbox");
+  assert(steps()[0].querySelector("[data-done]").disabled && steps()[0].querySelector("[data-done]").classList.contains("on") && !steps()[0].querySelector("[data-fail]"),
+    "the tutorial step is done and cannot change");
+  const unl = steps()[0].querySelector(".sunl");
+  assert(unl.textContent === "Opens trader Therapist" && unl.parentElement === steps()[0] && unl.nextElementSibling.matches("a.warrow"), "what a step opens is on the right of its row, before the arrow");
+  steps()[1].querySelector("[data-done]").click();
+  await sleep(30);
+  assert(JSON.stringify(storyPosts.at(-1)) === JSON.stringify({ mode: "regular", done: ["s2"], undone: [], failed: [], unfailed: [] }) && head().querySelector(".scnt").textContent === "2/3"
+    && steps()[1].querySelector("[data-done]").classList.contains("on"), "✓ marks the step done on the server");
+  steps()[1].querySelector("[data-done]").click();
+  await sleep(30);
+  assert(JSON.stringify(storyPosts.at(-1).undone) === '["s2"]' && head().querySelector(".scnt").textContent === "1/3", "a second ✓ removes the done mark");
+  send({ type: "story", mode: "regular", done: ["s2", "s4"] });
+  await sleep(20);
+  assert(head().querySelector("h2").classList.contains("complete") && tiles()[0].classList.contains("complete") && w.eval("S.storyDone.has('s4')"),
+    "a mark from another page shows; all main steps done completes the chapter");
+  pickChap("skies");
+  assert(tiles()[1].classList.contains("on") && head().querySelector("h2").textContent.startsWith("Falling Skies") && w.localStorage.getItem("tqm.storyChapter") === '"skies"',
+    "a tile selects its chapter, and the choice is kept");
+  assert(steps()[0].textContent.includes("Choice: path A") && steps()[1].textContent.includes("Choice: path B"), "the two paths of a choice have a label");
+  steps()[1].querySelector("[data-done]").click();
+  await sleep(30);
+  assert(steps()[0].classList.contains("blocked") && head().querySelector(".scnt").textContent === "1/2", "a mark on path B blocks path A, which does not count");
+  d.getElementById("storyHideDone").click();
+  assert(steps().length === 1 && steps()[0].textContent.includes("Last step"), "hide done steps hides the done and the blocked steps");
+  d.getElementById("storyHideDone").click();
+  d.querySelector("#storyList [data-untick-all]").click();
+  await sleep(30);
+  assert(JSON.stringify(storyPosts.at(-1).undone) === '["f2"]' && !steps().some((li) => li.classList.contains("blocked")), "clear all marks removes the marks of the chapter");
+  d.querySelector("#storyList [data-tick-all]").click();
+  await sleep(30);
+  assert(JSON.stringify(storyPosts.at(-1).done) === '["f3"]', "mark all done leaves out the steps of a choice");
+  steps()[2].querySelector("[data-fail]").click();
+  await sleep(30);
+  assert(steps()[2].classList.contains("failed") && !steps()[2].querySelector("[data-done]").classList.contains("on") && steps()[2].querySelector("[data-fail]").classList.contains("on")
+    && steps()[2].textContent.includes("Failed") && JSON.stringify(storyFailed.regular) === '["f3"]' && !storyDone.regular.includes("f3"), "✕ marks a done step failed, and it is no longer done");
+  assert(head().querySelector(".scnt").textContent === "0/2", "a failed step leaves the total");
+  steps()[2].querySelector("[data-done]").click();
+  await sleep(30);
+  assert(!steps()[2].classList.contains("failed") && storyDone.regular.includes("f3") && !storyFailed.regular.length, "✓ on a failed step makes it done");
+  steps()[2].querySelector("[data-fail]").click();
+  await sleep(30);
+  steps()[2].querySelector("[data-fail]").click();
+  await sleep(30);
+  assert(!storyFailed.regular.length && !storyDone.regular.includes("f3") && !steps()[2].classList.contains("failed"), "a second ✕ removes the failed mark");
+  steps()[0].querySelector("[data-fail]").click();
+  await sleep(30);
+  d.querySelector("#storyList [data-untick-all]").click();
+  await sleep(30);
+  assert(!storyFailed.regular.length, "clear all marks also removes the failed marks");
+  // ending routes: a chapter with routes has a button for each route
+  const rbtn = (id) => d.querySelector(`#routeBar [data-route="${id}"]`);
+  assert(!d.getElementById("routeBar") === false && rbtn("all").classList.contains("on") && rbtn("one").textContent === "One" && d.getElementById("routeBar").textContent.includes("Endings chart ↗ by Someone, version 1.0"),
+    "a chapter with routes shows the route buttons and the source of the routes");
+  pickChap("tour");
+  assert(!d.getElementById("routeBar"), "a chapter with no routes has no route buttons");
+  pickChap("skies");
+  rbtn("one").click();
+  const secs = () => [...d.querySelectorAll("#storyList .ssec")].map((e) => e.textContent);
+  assert(secs().join() === "The case,Route one" && d.querySelector("#storyList .snote").textContent === "Decision: keep the case or not." && w.localStorage.getItem("tqm.storyRoute") === '"one"',
+    "a route shows its sections, notes and steps, and the choice is kept");
+  const rstep = (t) => steps().find((li) => li.querySelector(".stxt").textContent === t);
+  assert(rstep("Route text for the last step").querySelector("a.warrow").getAttribute("href") === W + "Falling_Skies" && rstep("Keep the case").querySelector("a.warrow").getAttribute("href") === W + "Endings",
+    "a step with a ref has the wiki link of the TarkovTracker step; the others link to the source");
+  assert(rstep("Do route one").textContent.includes("Mandatory") && rstep("Do route one").textContent.includes("Fast") && rstep("Pay more").textContent.includes("If: You kept the case"), "route steps show their tags");
+  assert(head().querySelector(".scnt").textContent === "0/3", "the count: main steps and the case choice once; optional and if steps do not count");
+  rstep("Route text for the last step").querySelector("[data-done]").click();
+  await sleep(30);
+  assert(storyDone.regular.includes("f3") && head().querySelector(".scnt").textContent === "1/3", "a step with a ref uses the mark of the TarkovTracker step");
+  rstep("Give the case").querySelector("[data-done]").click();
+  await sleep(30);
+  assert(rstep("Keep the case").classList.contains("blocked") && rstep("Pay more").classList.contains("blocked") && head().querySelector(".scnt").textContent === "2/3",
+    "a case choice blocks the other side and its if steps");
+  rstep("Give the case").querySelector("[data-done]").click();
+  rstep("Keep the case").querySelector("[data-done]").click();
+  await sleep(40);
+  assert(!rstep("Pay more").classList.contains("blocked") && head().querySelector(".scnt").textContent === "2/4", "the if steps of the chosen side count");
+  d.querySelector("#storyList [data-tick-all]").click();
+  await sleep(30);
+  assert(JSON.stringify(storyPosts.at(-1).done) === '["r-one"]', "mark all done in a route marks its main steps, not choices, if steps or optional steps");
+  d.querySelector("#storyList [data-untick-all]").click();
+  await sleep(30);
+  assert(JSON.stringify(storyPosts.at(-1).undone.sort()) === '["f3","r-keep","r-one"]', "clear all marks in a route clears the marks of its steps");
+  rbtn("two").click();
+  assert(secs().join() === "The case,Route two", "another route shows its own sections");
+  rbtn("all").click();
+  assert(!d.querySelector("#storyList .ssec") && steps().length === 3, "all steps shows the TarkovTracker steps again");
+  const search = d.getElementById("storySearch");
+  search.value = "ragman"; search.dispatchEvent(new w.Event("input"));
+  assert(tiles()[0].classList.contains("on") && tiles()[1].classList.contains("nomatch") && steps().length === 1, "a search moves to the first chapter with a match and dims the others");
+  search.value = ""; search.dispatchEvent(new w.Event("input"));
   d.getElementById("tabTasks").click();
 
   // completing Checking in TarkovTracker drops it automatically

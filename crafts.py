@@ -70,12 +70,17 @@ def build(mode: str, fetch=fetch_json) -> dict:
 
 
 class CraftCache:
-    """The craft data of each game mode, in memory and in a file in the cache folder."""
+    """The data of each game mode, in memory and in a file in the cache folder.
 
-    def __init__(self, folder: Path, fetch=fetch_json, max_age: int = MAX_AGE):
+    build(mode, fetch) makes the data; the default is the crafts. story.py uses the same cache
+    for the story chapters, with a different build and file name."""
+
+    def __init__(self, folder: Path, fetch=fetch_json, max_age: int = MAX_AGE, build=None, name: str = "crafts"):
         self.folder = Path(folder)
         self.fetch = fetch
         self.max_age = max_age
+        self.build = build or globals()["build"]
+        self.name = name
         self.mem = {}
         self.locks = {}
         self.busy = set()     # game modes that are downloading now
@@ -83,7 +88,7 @@ class CraftCache:
         self.lock = threading.Lock()
 
     def _path(self, mode: str) -> Path:
-        return self.folder / f"crafts-{mode}.json"
+        return self.folder / f"{self.name}-{mode}.json"
 
     def _saved(self, mode: str):
         if mode in self.mem:
@@ -106,7 +111,7 @@ class CraftCache:
                 return old
             self.busy.add(mode)
             try:
-                data = build(mode, self.fetch)
+                data = self.build(mode, self.fetch)
             except Exception as exc:
                 self.errors[mode] = (time.time(), str(exc)[:200])
                 if old:
@@ -132,4 +137,6 @@ class CraftCache:
         out = {"busy": mode in self.busy, "maxAge": self.max_age, "error": err[1] if err else None, "errorTime": err[0] if err else None}
         if data:
             out.update(fetched=data.get("fetched"), items=len(data.get("prices") or {}), crafts=len(data.get("crafts") or []))
+            if "chapters" in data:   # the story chapters of story.py
+                out.update(chapters=len(data["chapters"]), steps=sum(len(c.get("steps") or []) for c in data["chapters"]))
         return out

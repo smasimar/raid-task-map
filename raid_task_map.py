@@ -36,6 +36,7 @@ from pathlib import Path
 
 import crafts
 import game_logs
+import story
 import updater
 
 
@@ -190,6 +191,7 @@ class EventHub:
 HUB = EventHub()
 UPDATER = updater.Updater(APP_DIR, HUB.publish)
 CRAFTS = crafts.CraftCache(APP_DIR / "cache")   # crafts and prices from tarkov.dev, saved for 8 hours
+STORY = crafts.CraftCache(APP_DIR / "cache", max_age=story.MAX_AGE, build=story.build, name="story")   # chapters from TarkovTracker.org
 RESTART = threading.Event()   # set by the page after an update: main() starts the app again
 
 # --------------------------------------------------------------------------- status and activity
@@ -246,6 +248,28 @@ class QuestList:
 
     def _mode(self, mode: str) -> dict:
         return self.data["modes"].setdefault(mode, {"selected": [], "custom": []})
+
+    def story(self, mode: str) -> dict:
+        """The story steps that you marked done or failed in this game mode."""
+        with self.lock:
+            return {"done": list(self.data.setdefault("story", {}).get(mode, [])),
+                    "failed": list(self.data.setdefault("storyFailed", {}).get(mode, []))}
+
+    def tick_story(self, mode: str, done=(), undone=(), failed=(), unfailed=()) -> dict:
+        """Mark story steps done, failed or neither, save them, and tell the open pages.
+        A step is done or failed, not both: marking one state removes the other."""
+        def change(items, add, remove):
+            gone = set(remove)
+            items[:] = [x for x in items if x not in gone] + [x for x in dict.fromkeys(add) if x not in items and x not in gone]
+        with self.lock:
+            ticks = self.data.setdefault("story", {}).setdefault(mode, [])
+            fails = self.data.setdefault("storyFailed", {}).setdefault(mode, [])
+            change(ticks, done, [*undone, *failed])
+            change(fails, failed, [*unfailed, *done])
+            save_json(self.path, self.data)
+            event = {"type": "story", "mode": mode, "done": list(ticks), "failed": list(fails)}
+        self.publish(event)
+        return event
 
     def public(self) -> dict:
         with self.lock:
@@ -572,7 +596,7 @@ def status_report() -> dict:
             "canWrite": None if perms is None else "WP" in perms,
             "writes": writes_status(), "game": HUB.state.get("game"),
             "shotTime": STATS["shotTime"] or position.get("time"),
-            "logsDir": logs_dir(), "activity": list(ACTIVITY), "flea": CRAFTS.status(mode)}
+            "logsDir": logs_dir(), "activity": list(ACTIVITY), "flea": CRAFTS.status(mode), "story": STORY.status(mode)}
 
 
 def writes_status() -> dict:
@@ -790,6 +814,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, CRAFTS.get(mode, force=(args.get("force") or [""])[0] == "1"))
             except Exception as exc:
                 return self._json(502, {"error": f"Could not load the crafts from tarkov.dev: {exc}"})
+        if path == "/api/story":
+            args = urllib.parse.parse_qs(query)
+            mode = (args.get("mode") or [""])[0]
+            if mode not in GAME_MODES:
+                return self._json(400, {"error": "unknown game mode"})
+            try:
+                data = STORY.get(mode, force=(args.get("force") or [""])[0] == "1")
+            except Exception as exc:
+                return self._json(502, {"error": f"Could not load the story chapters from TarkovTracker.org: {exc}"})
+            return self._json(200, {**data, **QUESTS.story(mode), "routes": story.routes()})
         if path == "/api/update/notes":
             try:
                 return self._json(200, {"notes": UPDATER.notes()})
@@ -881,6 +915,12 @@ class Handler(BaseHTTPRequestHandler):
             if mode not in GAME_MODES or not all(isinstance(x, list) and all(isinstance(i, str) and 0 < len(i) <= 200 for i in x) for x in lists):
                 return self._json(400, {"error": "mode must be a game mode; add, remove, addCustom and removeCustom must be lists of text"})
             return self._json(200, QUESTS.apply(mode, *lists, migrated=bool(data.get("migrated"))))
+        if path == "/api/story":
+            mode = data.get("mode")
+            lists = [data.get(k, []) for k in ("done", "undone", "failed", "unfailed")]
+            if mode not in GAME_MODES or not all(isinstance(x, list) and all(isinstance(i, str) and 0 < len(i) <= 100 for i in x) for x in lists):
+                return self._json(400, {"error": "mode must be a game mode; done, undone, failed and unfailed must be lists of step ids"})
+            return self._json(200, QUESTS.tick_story(mode, *lists))
         if path == "/api/past-logs":
             # with "apply": false this only reports what the old logs say
             token_mode = active_mode()

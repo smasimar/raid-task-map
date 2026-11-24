@@ -30,6 +30,8 @@ const en = { "debut name": "Debut", "checking name": "Checking", "woodsTask name
 const apiMaps = {
   [CUST]: { id: CUST, name: `${CUST} Name`, normalizedName: "customs", nameId: "bigmap", scenePath: "maps/customs_preset.bundle", raidDuration: 35,
     locks: [{ id: "lk1", lockType: "door", key: "k208", position: { x: 20, y: 0, z: 20 } }, { id: "lk2", lockType: "trunk", key: "k209", position: { x: 40, y: 0, z: 20 } }, { id: "lk3", key: "k209" }],
+    lootLoose: [{ position: { x: 60, y: 0, z: 30 }, items: ["6a31807f17005505b70d5827", "6a3181f178450ec91c0ea1aa", "x1"] }, { position: { x: 60.01, y: 0, z: 30 }, items: ["6a31807f17005505b70d5827"] },
+      { position: { x: 80, y: 0, z: 30 }, items: ["6a3181f178450ec91c0ea1aa"] }, { position: { x: 90, y: 0, z: 30 }, items: ["x1"] }],
     extracts: [
     { id: "e1", name: "ex_pmc_a", faction: "pmc", position: { x: 300, y: 0, z: -100 }, outline: [{ x: 1, y: 0, z: 1 }, { x: 2, y: 0, z: 2 }, { x: 3, y: 0, z: 1 }], switches: [], transferItem: { item: "rub", count: 20000 } },
     { id: "e2", name: "ex_scav_b", faction: "scav", position: { x: 0, y: 0, z: 0 }, switches: [] },
@@ -331,6 +333,13 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(otherMap === 0, "a key that the task needs on another map does not mark the lock here");
   d.getElementById("showLocks").click();
   assert(locks().length === 0, "the option hides the layer");
+  // battle pass documents layer: off by default; one mark for each place, not for other loot
+  const docs = () => [...d.querySelectorAll(".leaflet-marker-pane .doc-mark")];
+  assert(docs().length === 0 && !d.getElementById("showDocs").checked, "the documents layer is off by default");
+  d.getElementById("showDocs").click();
+  assert(docs().length === 2 && w.localStorage.getItem("tqm.showDocs") === "true", "the layer shows each document place once, and no other loot");
+  d.getElementById("showDocs").click();
+  assert(docs().length === 0, "the option hides the documents");
   // a click on a marker shows the floor of that marker (Customs dorms: 2nd floor)
   const floorBefore = w.eval("S.floorIndex");
   w.eval("goFloor({ x: 200, y: 4, z: 150 })");

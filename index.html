@@ -180,12 +180,16 @@
   #app.mini.tab-map .leaflet-control-container, #app.mini.tab-map .ex-icon span, #app.mini.tab-map .map-label { display:none !important; }
   #app.mini.tab-map .ex-icon { transform:translate(-5px,-5px); }
   #app.mini.tab-map .ex-icon .box { width:10px; height:10px; }
-  #app.mini.tab-map .q-icon, #app.mini.tab-map .q-item, #app.mini.tab-map .lock-mark { scale:.7; }
+  #app.mini.tab-map .q-icon, #app.mini.tab-map .q-item, #app.mini.tab-map .lock-mark, #app.mini.tab-map .doc-mark { scale:.7; }
   /* a locked door or car trunk: a small orange key (the color of the key emoji); bigger when a ticked task needs it */
   .lock-mark { width:14px; height:14px; opacity:.85; }
   .lock-mark svg { width:100%; height:100%; display:block; overflow:visible; }
   .lock-mark .edge { fill:none; stroke:#000; stroke-width:4.4; stroke-linecap:round; }
   .lock-mark .body { fill:none; stroke:var(--lock); stroke-width:2.2; stroke-linecap:round; }
+  .doc-mark { width:14px; height:14px; }
+  .doc-mark svg { width:100%; height:100%; display:block; overflow:visible; }
+  .doc-mark path { fill:#e8e2c8; stroke:#000; stroke-width:1.5; stroke-linejoin:round; }
+  .doc-mark .fold { fill:none; stroke:#6b6247; stroke-width:1.2; }
   .lock-mark.need { width:18px; height:18px; opacity:1; filter:drop-shadow(0 0 3px #f6a049); }
   #miniExit { display:none; grid-column:1; grid-row:2; z-index:1100; justify-self:end; align-self:start; margin:4px; padding:0 6px; opacity:0; transition:opacity .15s; }
   #app.mini.tab-map #miniExit { display:block; }
@@ -501,6 +505,7 @@
     <label class="row"><input type="checkbox" id="showLandmarks" checked> Landmark names</label>
     <label class="row" title="Exits to another map"><input type="checkbox" id="showTransits" checked> Transits</label>
     <label class="row" title="Doors and car trunks that need a key. Brighter: a ticked task needs the key"><input type="checkbox" id="showLocks"> Locked doors</label>
+    <label class="row" title="Places where a battle pass document can spawn (tarkov.dev loot data). Not every place has a document in each raid"><input type="checkbox" id="showDocs"> Battle pass documents</label>
     <label class="row" title="Mission list: a second column on the right (list down the side) or a second row at the bottom (list across the top)"><input type="checkbox" id="splitList" checked> "Any map" tasks apart</label>
     <div class="row">Extracts
       <select id="extractMode">
@@ -1484,7 +1489,7 @@ async function showMap(key) {
   S.styles = styles;
   styleButton();
 
-  S.layers = { base: null, locks: L.layerGroup().addTo(map), quests: L.layerGroup().addTo(map), extracts: L.layerGroup().addTo(map), labels: L.layerGroup(), player: L.layerGroup().addTo(map) };
+  S.layers = { base: null, locks: L.layerGroup().addTo(map), docs: L.layerGroup().addTo(map), quests: L.layerGroup().addTo(map), extracts: L.layerGroup().addTo(map), labels: L.layerGroup(), player: L.layerGroup().addTo(map) };
   await buildBase(mc);
   if (S.current !== mc || S.lmap !== map) return; // another map was selected while this one loaded
   buildFloorSelect(mc);
@@ -1765,8 +1770,38 @@ function drawLocks() {
       .addTo(S.layers.locks);
   }
 }
+// Battle pass documents: tarkov.dev gives their spawn places as loose loot of the map.
+const BP_DOCS = {
+  "6a31807f17005505b70d5827": "Financial documents", "6a3181f178450ec91c0ea1aa": "Project documentation",
+  "6a31824878450ec91c0ea1ae": "Blueprints and technical documentation", "6a31828557705071410ca00e": "Test documentation",
+  "6a3182b72fd891345e047eef": "User documentation", "6a3182dc6cd8de21cf0a3a7d": "Medical documents",
+  "6a31830dde69ceafd805afa0": "Technical documentation", "6a3183258f113efdb7093622": "Classified documents",
+};
+const DOC_SVG = `<svg viewBox="0 0 14 16"><path d="M1 1H9L13 5V15H1Z"/><polyline class="fold" points="9,1 9,5 13,5"/><polyline class="fold" points="4,9 10,9"/><polyline class="fold" points="4,12 10,12"/></svg>`;
+function drawDocs() {
+  if (!S.lmap || !S.current || !S.layers.docs) return;
+  S.layers.docs.clearLayers();
+  if (!$("showDocs").checked) return;
+  const seen = new Set();
+  for (const loot of S.current.primary.lootLoose || []) {
+    const docs = (loot.items || []).filter((id) => BP_DOCS[id]);
+    const at = loot.position && `${loot.position.x.toFixed(1)},${loot.position.z.toFixed(1)}`;
+    if (!docs.length || seen.has(at)) continue;
+    seen.add(at);
+    const floor = floorOf(S.current, loot.position), offFloor = floor !== S.floorIndex;
+    const floorName = floor < 0 ? "Ground level" : S.current.layers[floor].name;
+    const icon = L.divIcon({ className: "", iconSize: [14, 16], iconAnchor: [7, 8], html: `<div class="doc-mark">${DOC_SVG}</div>` });
+    const dm = L.marker(pos(loot.position), { icon, zIndexOffset: 350, opacity: offFloor ? 0.45 : 1, keyboard: false });
+    floorOnClick(dm, loot.position);
+    dm.bindTooltip(`<div class="keynote">📄 ${docs.map((id) => esc(itemName(id, BP_DOCS[id]))).join("<br>")}</div>`
+        + `<div class="muted" style="font-size:11px">Battle pass document spawn · ${esc(floorName)}</div>`,
+        { direction: "top", offset: [0, -4], opacity: 1, className: "q-tip" })
+      .addTo(S.layers.docs);
+  }
+}
 function drawQuestMarkers() {
   drawLocks();
+  drawDocs();
   if (!S.lmap || !S.current) return;
   S.layers.quests.clearLayers();
   S.markersByKey.clear();
@@ -2547,6 +2582,8 @@ $("showLabels").checked = store.get("showLabels", true);
 $("showLandmarks").checked = store.get("showLandmarks", true);
 $("showLocks").checked = store.get("showLocks", false);
 $("showLocks").addEventListener("change", () => { store.set("showLocks", $("showLocks").checked); drawLocks(); });
+$("showDocs").checked = store.get("showDocs", false);
+$("showDocs").addEventListener("change", () => { store.set("showDocs", $("showDocs").checked); drawDocs(); });
 $("showTransits").checked = store.get("showTransits", true);
 $("showTransits").addEventListener("change", () => { store.set("showTransits", $("showTransits").checked); if (S.current) drawExtracts(S.current); });
 $("showLandmarks").addEventListener("change", () => { store.set("showLandmarks", $("showLandmarks").checked); showLandmarks(); });

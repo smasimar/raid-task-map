@@ -226,6 +226,17 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(w.eval('extractNeeds({ name: "ex_pmc_a", transferItem: { item: "rub", count: 20000 } }, "Crossroads").join()') === "20,000 Roubles", "an extract shows the payment");
   assert(w.eval('extractNeeds({ name: "Alpinist" }, "Cliff Descent").join()') === "Red Rebel ice pick,Paracord,no body armor", "a climb extract shows the Red Rebel rule");
   assert(w.eval('extractNeeds({ name: "EXFIL_vent" }, "Sewer Manhole").join()') === "no backpack" && w.eval('extractNeeds({ name: "x" }, "Old Road").length') === 0, "no backpack rule; no note for a usual extract");
+  // a fix for old tarkov.dev data applies only while tarkov.dev has the old text of the step
+  const fixed = w.eval(`(() => {
+    const keep = [S.tasksById, S.tasksEn], f = TASK_FIXES[0], run = (text) => {
+      const obj = { id: f.step, description: "d", maps: ["old"] };
+      S.tasksById = new Map([[f.task, { id: f.task, objectives: [obj] }]]); S.tasksEn = { d: text };
+      applyTaskFixes(); return [S.tasksEn.d === f.text, obj.maps.join() === f.maps.join()];
+    };
+    const out = [run(f.was), run("New text from tarkov.dev")];
+    [S.tasksById, S.tasksEn] = keep; return JSON.stringify(out);
+  })()`);
+  assert(fixed === "[[true,true],[false,false]]", "a task fix changes the old step, and stops when tarkov.dev has new text");
   // a step that places, marks with or uses a special-slot item has a blue diamond
   assert(w.eval('isToolStep({ type: "plantItem", items: [{ id: "5b4391a586f7745321235ab2" }] })') && w.eval('isToolStep({ type: "mark", markerItem: "5991b51486f77447b112d44f" })'), "camera and marker steps are tool steps");
   assert(!w.eval('isToolStep({ type: "plantItem", items: ["5448fee04bdc2dbc018b4567"] })') && !w.eval('isToolStep({ type: "findItem", items: ["5991b51486f77447b112d44f"] })'), "other items and other step types are not");

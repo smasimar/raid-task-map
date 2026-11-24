@@ -618,6 +618,23 @@ function extractNeeds(ex, name) {
   return needs;
 }
 
+// Steps that tarkov.dev has from an older version of the game. A fix applies only while tarkov.dev
+// still has the old text of the step ("was"), so it stops when tarkov.dev has the new data.
+const TASK_FIXES = [
+  { task: "64f5deac39e45b527a7c4232", step: "64f5deac39e45b527a7c4235",   // Job for a Patriot
+    was: "Eliminate 20 PMCs with AK-12 with the proprietary suppressor and PS-320 scope on Lighthouse, Customs, or Reserve",
+    text: "Eliminate PMCs with AK-12 with proprietary suppressor and PS-320 scope on Streets of Tarkov, Shoreline, or Ground Zero",
+    maps: ["5714dc692459777137212e12", "5704e554d2720bac5b8b456e", "653e6760052c01c1c805532f", "65b8d6f5cdde2479cb2a3125"] },
+];
+function applyTaskFixes() {
+  for (const fix of TASK_FIXES) {
+    const obj = (S.tasksById.get(fix.task)?.objectives || []).find((o) => o.id === fix.step);
+    if (!obj || S.tasksEn[obj.description] !== fix.was) continue;
+    S.tasksEn[obj.description] = fix.text;
+    if (fix.maps) obj.maps = fix.maps.slice();
+  }
+}
+
 // tarkov.dev can keep a location from an older version of a task. Vitamins: the step says "on Factory",
 // but the data also has a location on Shoreline, with the key for that room. When the text of a step
 // names one of its maps, the locations on the maps that it does not name are removed, with their keys.
@@ -681,6 +698,7 @@ async function loadGameData() {
     if (!S.keyLocks.has(ref(lock.key))) S.keyLocks.set(ref(lock.key), new Set());
     S.keyLocks.get(ref(lock.key)).add(a.id);
   }
+  applyTaskFixes();
   pruneStaleLocations();
   // item names (keys, extract payments): a large file, so the page does not wait for it
   getJSON(`${JSON_API}/${m}/items_en`).then((d) => {

@@ -14,6 +14,9 @@
   #app { display:grid; grid-template-columns: 1fr; grid-template-rows: auto 1fr; height:100%; }
   #app:not(.tab-tasks) aside { display:none; }
   #app:not(.tab-map) .maptool { display:none; }
+  .floorbtn { padding:5px 7px; margin-left:-6px; }   /* level buttons: close to the floor list */
+  .floorbtn:disabled { opacity:.35; cursor:default; }
+  .toolsep { width:1px; height:20px; background:#58616b; }   /* between the map controls and the List button */
   #tabs { display:flex; margin-right:10px; filter:drop-shadow(0 1px 0 #000); }
   .tab { all:unset; box-sizing:border-box; cursor:pointer; height:30px; padding:0 30px 0 18px; margin-right:-12px; display:flex; align-items:center; gap:7px;
     font-size:13px; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; color:#c5cbce;
@@ -356,10 +359,13 @@
     <div id="maptools" class="maptool">
     <select id="mapSelect" class="maptool" title="Map"></select>
     <select id="floorSelect" class="maptool" title="Floor"></select>
-    <select id="styleSelect" class="maptool" title="Map style"></select>
+    <button id="floorUp" class="maptool floorbtn" title="One level up">↑</button>
+    <button id="floorDown" class="maptool floorbtn" title="One level down">↓</button>
+    <button id="styleBtn" class="maptool" title="Map style"></button>
     <button id="resetViewBtn" class="maptool" title="Put the full map back in the window">⌖ Reset view</button>
-    <button id="layersBtn" class="maptool" title="Select what the map shows">Layers ▾</button>
     <button id="miniBtn" class="maptool" title="Mini view: only the map, the extract icons and the task locations. Key: M">Mini</button>
+    <button id="layersBtn" class="maptool" title="Select what the map shows">Layers ▾</button>
+    <span class="toolsep" aria-hidden="true"></span>
     <button id="viewBtn" class="maptool" title="Put the mission list across the top or down the side of the map, or hide it"></button>
     </div>
     <div id="info">
@@ -1457,9 +1463,8 @@ async function showMap(key) {
   if (mc.tilePath) styles.push(["tile", "Satellite"]);
   const saved = store.get("style", "svg");
   S.baseStyle = styles.some((s) => s[0] === saved) ? saved : styles[0][0];
-  $("styleSelect").innerHTML = styles.map(([v, n]) => `<option value="${v}">${n}</option>`).join("");
-  $("styleSelect").value = S.baseStyle;
-  $("styleSelect").disabled = styles.length < 2;
+  S.styles = styles;
+  styleButton();
 
   S.layers = { base: null, locks: L.layerGroup().addTo(map), quests: L.layerGroup().addTo(map), extracts: L.layerGroup().addTo(map), labels: L.layerGroup(), player: L.layerGroup().addTo(map) };
   await buildBase(mc);
@@ -1526,6 +1531,24 @@ function buildFloorSelect(mc) {
   sel.innerHTML = `<option value="-1">Ground level</option>` + layers.map((l, i) => `<option value="${i}">${esc(l.name)}</option>`).join("");
   sel.disabled = !layers.length;
   sel.value = "-1";
+  floorButtons(mc, -1);
+}
+// The levels of a map from the lowest to the highest: -1 is the ground level. A layer that goes down
+// without a limit (Underground, Bunkers) is below the ground level; the other layers are above it.
+// Each layer has its place from the lowest height of its parts.
+function floorOrder(mc) {
+  const low = (l) => Math.min(...(l.extents || []).map((e) => e.height?.[0] ?? 0));
+  const layers = (mc?.layers || []).map((l, i) => ({ i, low: low(l) })).sort((a, b) => a.low - b.low);
+  return [...layers.filter((l) => l.low <= -1000).map((l) => l.i), -1, ...layers.filter((l) => l.low > -1000).map((l) => l.i)];
+}
+function floorStep(dir) {
+  const order = floorOrder(S.current), next = order[order.indexOf(S.floorIndex ?? -1) + dir];
+  if (next !== undefined) showFloor(next);
+}
+function floorButtons(mc = S.current, index = S.floorIndex ?? -1) {
+  const order = floorOrder(mc), at = order.indexOf(index);
+  $("floorDown").disabled = at <= 0;
+  $("floorUp").disabled = at < 0 || at >= order.length - 1;
 }
 
 async function showFloor(index) {
@@ -1536,6 +1559,7 @@ async function showFloor(index) {
   if (!(mc.layers || [])[index]) index = -1;
   S.floorIndex = index;
   $("floorSelect").value = String(index);
+  floorButtons();
   drawQuestMarkers();
   if (S.floorLayer) { map.removeLayer(S.floorLayer); S.floorLayer = null; }
   if (S.svgEl) S.svgEl.classList.remove("dim-base");
@@ -2475,8 +2499,26 @@ async function boot() {
 }
 
 $("mapSelect").addEventListener("change", (e) => showMap(e.target.value));
-$("styleSelect").addEventListener("change", async (e) => { S.baseStyle = e.target.value; store.set("style", S.baseStyle); await buildBase(S.current); await showFloor(-1); });
+// the style button shows the current style; a click changes to the other style
+function styleButton() {
+  const styles = S.styles || [], at = styles.findIndex((x) => x[0] === S.baseStyle), next = styles[(at + 1) % styles.length];
+  const btn = $("styleBtn");
+  btn.textContent = styles[at]?.[1] || "";
+  btn.disabled = styles.length < 2;
+  btn.title = styles.length < 2 ? "This map has only this style" : `Map style. Click to show the ${next[1].toLowerCase()} map`;
+}
+$("styleBtn").addEventListener("click", async () => {
+  const styles = S.styles || [];
+  if (styles.length < 2) return;
+  S.baseStyle = styles[(styles.findIndex((x) => x[0] === S.baseStyle) + 1) % styles.length][0];
+  store.set("style", S.baseStyle);
+  styleButton();
+  await buildBase(S.current);
+  await showFloor(S.floorIndex);
+});
 $("floorSelect").addEventListener("change", (e) => showFloor(Number(e.target.value)));
+$("floorDown").addEventListener("click", () => floorStep(-1));
+$("floorUp").addEventListener("click", () => floorStep(1));
 $("refreshBtn").addEventListener("click", () => loadProgress(true));
 $("resetViewBtn").addEventListener("click", () => { if (S.lmap && S.current) S.lmap.fitBounds(getBounds(S.current.bounds)); });
 $("showQuests").checked = store.get("showQuests", true);

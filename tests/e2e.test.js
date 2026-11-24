@@ -570,7 +570,24 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   d.getElementById("mapSelect").value = "customs";
   d.getElementById("mapSelect").dispatchEvent(new w.Event("change"));
   await sleep(300);
-  console.log("floors:", text("#floorSelect option"), "styles:", text("#styleSelect option"));
+  console.log("floors:", text("#floorSelect option"), "style:", d.getElementById("styleBtn").textContent);
+  // the level buttons go through the levels from the lowest to the highest
+  const floorName = () => d.getElementById("floorSelect").selectedOptions[0].textContent;
+  const up = d.getElementById("floorUp"), down = d.getElementById("floorDown");
+  w.eval("showFloor(-1)");
+  const seen = [floorName()];
+  while (!up.disabled) { up.click(); seen.push(floorName()); }
+  assert(seen.join() === "Ground level,2nd Floor,3rd Floor,4th Floor", "the up button goes up to the highest level: " + seen.join());
+  down.click(); down.click(); down.click(); down.click();
+  assert(floorName() === "Underground" && down.disabled && !up.disabled, "the down button goes below the ground level and stops at the lowest level");
+  w.eval("showFloor(-1)");
+  // the style button shows the current style and changes to the other one
+  const styleBtn = d.getElementById("styleBtn");
+  assert(styleBtn.textContent === "Abstract" && !styleBtn.disabled, "the style button shows the current style");
+  styleBtn.click(); await sleep(100);
+  assert(styleBtn.textContent === "Satellite" && w.localStorage.getItem("tqm.style") === '"tile"', "a click changes to the satellite map and keeps the choice");
+  styleBtn.click(); await sleep(100);
+  assert(styleBtn.textContent === "Abstract", "a second click goes back to the abstract map");
 
   // quest messages from the game logs arrive as "quests" events with a note
   const send = (ev) => w.__es.onmessage({ data: JSON.stringify(ev) });

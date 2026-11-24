@@ -34,12 +34,13 @@ const apiMaps = {
     { id: "e1", name: "ex_pmc_a", faction: "pmc", position: { x: 300, y: 0, z: -100 }, outline: [{ x: 1, y: 0, z: 1 }, { x: 2, y: 0, z: 2 }, { x: 3, y: 0, z: 1 }], switches: [], transferItem: { item: "rub", count: 20000 } },
     { id: "e2", name: "ex_scav_b", faction: "scav", position: { x: 0, y: 0, z: 0 }, switches: [] },
     { id: "e3", name: "ex_shared_c", faction: "shared", position: { x: -200, y: 0, z: 50 }, switches: ["s"] },
-    { id: "e4", name: "ex_null_d", faction: null, position: { x: -100, y: 0, z: 60 }, switches: [] }],
+    { id: "e4", name: "EXFIL_Bunker", faction: null, position: { x: -100, y: 0, z: 60 }, switches: [] }],
+    switches: [{ id: "sw1", name: "switch_autoId_00632_EXFIL_reserve_electric_switcher_lever", position: { x: -90, y: 0, z: 70 } }, { id: "sw2", name: "other_switch", position: { x: 0, y: 0, z: 9 } }],
     transits: [{ id: "9", description: "CUS_TRANSIT_9_DESC", map: WOODS, position: { x: 50, y: 0, z: 50 }, outline: [] },
       { id: "10", description: "CUS_TRANSIT_10_DESC", map: "unknownMap", conditions: "CUS_TRANSIT_10_COND", position: { x: 60, y: 0, z: 50 } }] },
   [WOODS]: { id: WOODS, name: `${WOODS} Name`, normalizedName: "woods", nameId: "Woods", scenePath: "maps/woods_preset.bundle", raidDuration: 35, extracts: [], locks: [{ id: "l1", key: "k206" }] },
 };
-const mapsEn = { [`${CUST} Name`]: "Customs", [`${WOODS} Name`]: "Woods", ex_pmc_a: "Crossroads", ex_shared_c: "Boat", ex_null_d: "Coop thing" };
+const mapsEn = { [`${CUST} Name`]: "Customs", [`${WOODS} Name`]: "Woods", ex_pmc_a: "Crossroads", ex_shared_c: "Boat", EXFIL_Bunker: "Coop thing", "switch_autoId_00632_EXFIL_reserve_electric_switcher_lever": "Bunker Power Switch" };
 const progress = { data: { tasksProgress: [{ id: "doneTask", complete: true }], taskObjectivesProgress: [{ id: "o1", complete: false, count: 3 }, { id: "o2", complete: true }], tradersProgress: [{ id: PRAPOR, level: 2, reputation: 0.2 }], displayName: "Tester", playerLevel: 12, pmcFaction: "USEC" }, meta: {} };
 
 const W = "https://wiki.test/wiki/";
@@ -203,8 +204,12 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   pick("My tasks");
   assert(rows(".st-active").join() === "Extra Zone", "moved tick shows under My tasks");
   assert(d.querySelectorAll(".leaflet-marker-pane .q-icon").length === 1 && d.querySelectorAll(".leaflet-marker-pane .q-item").length === 0, "only the moved tick has a marker before ticking");
-  const ex = text(".ex-icon:not(.ex-transit) span");
-  assert(d.querySelectorAll(".ex-icon").length > 0 && [...d.querySelectorAll(".ex-icon")].every((x) => x.querySelector("svg.box path")), "extracts and transits are arrows");
+  const ex = text(".ex-icon:not(.ex-transit):not(.ex-lever) span");
+  assert(d.querySelectorAll(".ex-icon").length > 0 && [...d.querySelectorAll(".ex-icon:not(.ex-lever)")].every((x) => x.querySelector("svg.box path")), "extracts and transits are arrows");
+  // the power lever of an extract shows with it; other switches do not show
+  const levers = [...d.querySelectorAll(".ex-lever")];
+  assert(levers.map((x) => x.textContent).join() === "⚡Bunker Power Switch", "the lever of an extract shows, with its name");
+  assert(w.eval('extractNeeds({ name: "EXFIL_Bunker" }, "Bunker Hermetic Door").join()') === "power lever on", "the extract needs the lever");
   console.log("extracts:", ex);
   assert([...d.querySelectorAll(".ex-shared")].length > 0 && [...d.querySelectorAll(".ex-shared")].every((x) => x.classList.contains("ex-pmc")), "with no raid, a shared extract has the PMC color");
   assert(ex.length === 3 && ex.includes("Crossroads") && ex.includes("Boat") && !ex.some((x) => x.includes("scav")), "PMC + shared extracts only");
@@ -213,7 +218,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(trs.map((x) => x.textContent).join() === "Transit to Woods,Transit to another map", "transits show with their names");
   assert(trs[1].classList.contains("ex-need") && !trs[0].classList.contains("ex-need"), "a transit with a condition is dimmed");
   d.getElementById("showTransits").checked = false; d.getElementById("showTransits").dispatchEvent(new w.Event("change"));
-  assert(d.querySelectorAll(".ex-transit").length === 0 && text(".ex-icon span").length === 3, "the Layers option hides the transits only");
+  assert(d.querySelectorAll(".ex-transit").length === 0 && text(".ex-icon:not(.ex-lever) span").length === 3 && d.querySelectorAll(".ex-lever").length === 1, "the Layers option hides the transits only");
   d.getElementById("showTransits").checked = true; d.getElementById("showTransits").dispatchEvent(new w.Event("change"));
   // extracts with a special requirement are dimmed and say what they need
   const exIcon = (name) => [...d.querySelectorAll(".ex-icon")].find((x) => x.textContent === name);
@@ -415,7 +420,7 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   const app = d.getElementById("app"), vb = d.getElementById("viewBtn");
   // top bar: the map controls are one group, the timer and the status line are a second group
   assert(d.querySelector("#maptools #mapSelect") && d.querySelector("#maptools #layersBtn") && d.querySelector("#maptools #viewBtn"), "the map controls are one group in the top bar");
-  assert(d.querySelector("#info #raidTimer") && d.querySelector("#info #status") && d.querySelector("#brand #tabs"), "the timer and the status line are a group at the right");
+  assert(d.querySelector("#info #raidTimer") && d.querySelector("header > #status") && d.querySelector("#brand #tabs"), "the timer is at the right; the status line is apart, so it can go on the second row");
   assert(!d.getElementById("status").textContent.includes("tasks available"), "the status line does not count the available tasks");
   // two tabs; on the Map tab the view button moves the mission list
   d.getElementById("tabMap").click();

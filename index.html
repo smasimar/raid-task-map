@@ -23,24 +23,28 @@
   .tab.on { position:relative; z-index:1; color:#101214; font-weight:700; background:linear-gradient(#f1f3f4, #b9c0c4); }
   .tab svg { width:14px; height:14px; flex:none; fill:currentColor; }
   header { grid-column: 1 / -1; grid-row:1; display:flex; gap:8px 10px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
-  /* first row: name and tabs on the left, raid timer and status on the right. The map controls go
-     between them if there is room, and on a second row if there is not (class two-rows, set by layoutHeader) */
+  /* one row: name and tabs, map controls, status, then the raid timer at the right edge. When the
+     map controls do not fit (class two-rows, set by layoutHeader), they go on a second row with the status.
+     The status takes the room that is left and cuts its text with "…", so the header never changes its height. */
   #brand { display:flex; align-items:center; flex:none; order:1; }
   #maptools { display:flex; gap:10px; align-items:center; flex:none; order:2; flex-wrap:wrap; }
-  #info { display:flex; gap:10px; align-items:center; flex:none; max-width:100%; margin-left:auto; order:3; }
-  header.two-rows #maptools { order:4; flex-basis:100%; }
+  #info { display:flex; gap:10px; align-items:center; flex:0 1 auto; min-width:0; max-width:calc(100% - var(--brand-w, 0px) - 180px); order:4; }   /* leaves room for the status */
+  header.two-rows #info { order:2; flex:1 1 0; min-width:calc(100% - var(--brand-w, 0px) - 10px); max-width:none; justify-content:flex-end; }   /* fills the first row; a long TarkovTracker error is cut, not put on a third row */
+  #raidTimer { flex:none; } #writesNote { min-width:0; }
+  header.two-rows #maptools { order:4; }
+  header.two-rows #status { order:5; }
   header h1 { font-size:15px; margin:0 8px 0 0; font-weight:600; }
   select, button, input[type=text], input[type=password] { background:#0f1215; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font:inherit; }
   button { cursor:pointer; }
   button:hover { border-color:#58616b; }
-  #status { color:var(--muted); font-size:12px; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:460px; }
+  #status { color:var(--muted); font-size:12px; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1 1 0; min-width:0; order:3; }
   #status.err { color:var(--danger); }
   #raidTimer { display:none; padding:3px 9px; border:1px solid var(--line); border-radius:6px; font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
   #raidTimer.on { display:block; }
   #about a { color:var(--accent); } #about p { margin:6px 0; }
-  #writesNote { display:none; font-size:12px; color:var(--muted); white-space:nowrap; }
+  #writesNote { display:none; font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #writesNote.on { display:block; }
-  #writesNote.err { color:var(--danger); white-space:normal; max-width:320px; }
+  #writesNote.err { color:var(--danger); overflow:hidden; text-overflow:ellipsis; max-width:320px; }
   .pbtn { all:unset; cursor:pointer; display:inline-block; text-indent:0; min-width:14px; text-align:center; padding:0 3px; margin-left:3px; border:1px solid var(--line); border-radius:4px; color:var(--muted); font-size:11px; line-height:15px; }
   .pbtn:hover { color:var(--accent); border-color:var(--accent); }
   .cardbtns { white-space:nowrap; }
@@ -162,6 +166,8 @@
   .ex-transit .box { transform:rotate(45deg); }
   .ex-icon span { font-size:12px; font-weight:600; text-shadow:0 0 3px #000, 0 0 3px #000, 0 0 2px #000; }
   .ex-pmc { color:var(--ex-pmc); } .ex-scav { color:var(--ex-scav); } .ex-transit { color:var(--transit); }
+  .ex-lever { color:#ffd23f; }   /* the power lever of an extract */
+  .ex-lever .box { transform:none; font-size:14px; line-height:16px; text-align:center; text-shadow:0 0 2px #000, 0 0 2px #000; }
   .ex-need { filter:saturate(.3); opacity:.8; }   /* an extract with a special requirement */
   .exneed { color:var(--accent); }
   .keynote { color:var(--accent); text-decoration:none; display:inline-block; max-width:100%; overflow-wrap:anywhere; text-indent:0; }   /* a long key name wraps inside the card */
@@ -359,8 +365,8 @@
     <div id="info">
     <div id="raidTimer" title="Raid state, read from the game's log files"></div>
     <div id="writesNote" title="Progress changes that wait to be sent to TarkovTracker"></div>
-    <div id="status">Starting…</div>
     </div>
+    <div id="status">Starting…</div>
   </header>
   <aside>
     <div id="tvTop">
@@ -533,12 +539,19 @@ const store = {
 };
 
 function setStatus(text, isErr) { const el = $("status"); el.textContent = text; el.title = text; el.classList.toggle("err", !!isErr); layoutHeader(); }
-// Put the map controls on a second row when the first row has no room for them.
+// On the Map tab, use two rows when one row has no room: the first row has the tabs and the raid timer,
+// the second row has the map controls and the status. The status counts as STATUS_MIN wide, because it
+// cuts a longer text: so a new status text never changes the number of rows, and the map does not move.
+// The other tabs always use one row: a long TarkovTracker error is cut to leave room for the status.
+const STATUS_MIN = 160;
 function layoutHeader() {
-  const h = document.querySelector("header"), tools = $("maptools");
+  const h = document.querySelector("header"), tools = $("maptools").offsetWidth;   // 0 on the other tabs
   h.classList.remove("two-rows");
-  const need = $("brand").offsetWidth + tools.offsetWidth + $("info").offsetWidth + 20 + 24; // two gaps and the side padding
-  h.classList.toggle("two-rows", tools.offsetWidth > 0 && need > h.clientWidth);
+  h.style.setProperty("--brand-w", $("brand").offsetWidth + "px");
+  const timer = $("raidTimer").offsetWidth, note = $("writesNote").offsetWidth ? $("writesNote").scrollWidth : 0;   // the note may be cut: its full width
+  const info = timer + note + (timer && note ? 10 : 0);
+  const need = $("brand").offsetWidth + tools + STATUS_MIN + info + 30 + 24; // the gaps and the side padding
+  h.classList.toggle("two-rows", tools > 0 && need > h.clientWidth);
 }
 window.addEventListener("resize", layoutHeader);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -577,8 +590,16 @@ const keyNote = (groups, where) => { const text = keyText(groups, where); return
 const EXTRACT_NEEDS = {
   EXFIL_vent: ["no backpack"], "Hole Exfill": ["no backpack"], lab_Vent: ["no backpack"],
   "ZB-014": ["ZB-014 key"], Cellars: ["Factory emergency exit key"], "Gate 0": ["Factory emergency exit key"], "Gate m": ["Factory emergency exit key"],
-  ex_customs_pmc_zb1013: ["power on", "Factory emergency exit key"], EXFIL_Bunker_D2: ["power on"],
-  ex_interchange_pmc_saferoom: ["power on", "Object #11SR keycard"],
+  ex_customs_pmc_zb1013: ["power lever on", "Factory emergency exit key"], EXFIL_Bunker_D2: ["power lever on"],
+  ex_interchange_pmc_saferoom: ["power lever on", "Object #11SR keycard"], EXFIL_Bunker: ["power lever on"],
+};
+// The lever that turns on the power of an extract: extract name -> tarkov.dev switch name.
+// The map shows the lever with the extract.
+const EXTRACT_SWITCHES = {
+  EXFIL_Bunker: "switch_autoId_00632_EXFIL_reserve_electric_switcher_lever",
+  EXFIL_Bunker_D2: "switch_autoId_00000_D2_LEVER_reserve_electric_switcher_lever",
+  ex_customs_pmc_zb1013: "switch_custom_DesignStuff_00034_reserve_electric_switcher_lever",
+  ex_interchange_pmc_saferoom: "switch_Shopping_Mall_DesignStuff_00055_reserve_electric_switcher_lever",
 };
 function extractNeeds(ex, name) {
   const needs = [];
@@ -971,6 +992,7 @@ function onWrites(ev) {
   el.classList.toggle("on", !!(ev.pending || ev.error));
   el.classList.toggle("err", !!ev.error);
   el.textContent = ev.error || `${ev.pending} change${ev.pending === 1 ? "" : "s"} to send…`;
+  el.title = ev.error || "Progress changes that wait to be sent to TarkovTracker";
   layoutHeader();
 }
 
@@ -1585,8 +1607,21 @@ function drawExtracts(mc) {
       m.on("mouseover", () => poly.addTo(S.layers.extracts));
       m.on("mouseout", () => poly.remove());
     }
+    drawLever(mc, ex, name, showName);
   }
   if ($("showTransits").checked) drawTransits(mc);
+}
+function drawLever(mc, ex, exName, showName) {
+  const sw = (mc.primary.switches || []).find((x) => x.name === EXTRACT_SWITCHES[ex.name]);
+  if (!sw?.position) return;
+  const name = t(S.mapsEn, sw.name, "Power switch");
+  const m = L.marker(pos(sw.position), {
+    zIndexOffset: 450, riseOnHover: true, title: `${name}. Turns on the power of the extract ${exName}`,
+    icon: L.divIcon({ className: "", iconSize: null, html: `<div class="ex-icon ex-lever"><b class="box">⚡</b>${showName ? `<span>${esc(name)}</span>` : ""}</div>` }),
+  });
+  m.bindPopup(`<b>${esc(name)}</b><div class="muted">Power lever</div><div>Turns on the power of the extract ${esc(exName)}.</div>`);
+  floorOnClick(m, sw.position);
+  m.addTo(S.layers.extracts);
 }
 // Transits: exits that take you to another map. tarkov.dev gives the condition of some of them
 // only as a game text key with no English text, so the app says only that there is one.

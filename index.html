@@ -631,6 +631,17 @@ const TASK_FIXES = [
     text: "Eliminate PMCs with AK-12 with proprietary suppressor and PS-320 scope on Streets of Tarkov, Shoreline, or Ground Zero",
     maps: ["5714dc692459777137212e12", "5704e554d2720bac5b8b456e", "653e6760052c01c1c805532f", "65b8d6f5cdde2479cb2a3125"] },
 ];
+// Most tasks have a "find in raid" step and a "hand over" step for one item. Some tasks have only the
+// hand-over step, with the found-in-raid condition in it (Thirsty - Secrets, Camera, Action!).
+// Such a step counts as a find-in-raid step: it shows on the mission cards with the FiR icon.
+function markFirHandOvers() {
+  const key = (o) => (o.items || []).map(ref).sort().join();
+  for (const task of S.tasks) {
+    const objs = task.objectives || [];
+    const finds = new Set(objs.filter((o) => o.type === "findItem").map(key));
+    for (const o of objs) if (o.type === "giveItem" && o.foundInRaid && !finds.has(key(o))) o.firHandOver = true;
+  }
+}
 function applyTaskFixes() {
   for (const fix of TASK_FIXES) {
     const obj = (S.tasksById.get(fix.task)?.objectives || []).find((o) => o.id === fix.step);
@@ -704,6 +715,7 @@ async function loadGameData() {
     S.keyLocks.get(ref(lock.key)).add(a.id);
   }
   applyTaskFixes();
+  markFirHandOvers();
   pruneStaleLocations();
   // item names (keys, extract payments): a large file, so the page does not wait for it
   getJSON(`${JSON_API}/${m}/items_en`).then((d) => {
@@ -1302,8 +1314,14 @@ function taskMaps(task) {
   return S.mapCfgs.filter((mc) => [...mc.ids].some((id) => ids.has(id)));
 }
 // step text, with long fixed openings made short
-const STEP_SHORT = [[/^Find the item in raid:\s*/i, "Find in raid: "], [/^Obtain the item:\s*/i, "Obtain: "]];
-const stepText = (obj) => STEP_SHORT.reduce((txt, [re, to]) => txt.replace(re, to), t(S.tasksEn, obj.description, obj.type));
+const STEP_SHORT = [[/^Find the item in raid:\s*/i, "FiR: "], [/^Obtain the item:\s*/i, "Obtain: "]];
+// a FiR hand-over step (see markFirHandOvers): "Hand over the found in raid item: X" -> "FiR: X"
+const FIR_GIVE_SHORT = /^Hand over (?:the |(any) )?found in raid (?:items?:\s*)?/i;
+const stepText = (obj) => {
+  const txt = t(S.tasksEn, obj.description, obj.type);
+  if (obj.firHandOver) return txt.replace(FIR_GIVE_SHORT, (_, any) => any ? "FiR: any " : "FiR: ");
+  return STEP_SHORT.reduce((x, [re, to]) => x.replace(re, to), txt);
+};
 const taskName = (task) => t(S.tasksEn, task.name, task.normalizedName);
 // Mission list: ticked tasks on the current map, then "any map" tasks. Tasks that tarkov.dev does not have are left out.
 // Completed steps are left out to keep the cards short.
@@ -1341,12 +1359,14 @@ const SVG_X = `<svg viewBox="0 0 10 10"><path d="M2 2L8 8M8 2L2 8"/></svg>`;
 const SVG_LENS = `<svg viewBox="0 0 10 10"><circle cx="4.2" cy="4.2" r="2.9"/><path d="M6.4 6.4L8.8 8.8"/></svg>`;
 function stepIcon(obj) {
   if (obj.type === "shoot") return `<span class="step-mark si-kill" title="Kill">${SVG_X}</span>`;
+  if (obj.firHandOver) return `<span class="step-mark si-fir" title="Found in raid">${SVG_LENS}</span>`;
   if (obj.type === "findItem") return obj.foundInRaid ? `<span class="step-mark si-fir" title="Found in raid">${SVG_LENS}</span>` : `<span class="step-mark si-obtain" title="Obtain">${SVG_LENS}</span>`;
   return "• ";
 }
 // "Hand over" steps are done at the trader, so the mission list leaves them out
 const HAND_OVER_TYPES = new Set(["giveItem", "giveQuestItem"]);
 function isRaidStep(obj) {
+  if (obj.firHandOver) return true;
   if (!RAID_TYPES.has(obj.type)) return false;
   // a "visit" step with no map is an Arena step ("Play a match in ...")
   if (obj.type === "visit" && !(obj.maps || []).length && !(obj.zones || []).length) return false;
@@ -1405,7 +1425,7 @@ function missionCard(task, here) {
     const prog = S.objDone?.get(obj.id);
     if (prog?.complete) continue;
     open++;
-    if (HAND_OVER_TYPES.has(obj.type)) { handOver++; continue; }
+    if (HAND_OVER_TYPES.has(obj.type) && !obj.firHandOver) { handOver++; continue; }
     const elsewhere = isElsewhere(obj);
     if (elsewhere && hidden) continue;
     const mo = onMap.get(obj.id);

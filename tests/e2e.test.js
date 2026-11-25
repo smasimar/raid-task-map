@@ -306,7 +306,20 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(handOver === "false,true", "the mission list leaves out hand-over steps");
   // long step openings are made short
   w.eval('S.tasksEn["fir1"] = "Find the item in raid: Salewa first aid kit"; S.tasksEn["ob1"] = "Obtain the item: Golden rooster"');
-  assert(w.eval('stepText({ description: "fir1" })') === "Find in raid: Salewa first aid kit" && w.eval('stepText({ description: "ob1" })') === "Obtain: Golden rooster", "short step openings");
+  assert(w.eval('stepText({ description: "fir1" })') === "FiR: Salewa first aid kit" && w.eval('stepText({ description: "ob1" })') === "Obtain: Golden rooster", "short step openings");
+  // a hand-over step with the found-in-raid condition and no find step counts as a FiR step
+  const fir = w.eval(`(() => {
+    S.tasksEn.g1 = "Hand over the found in raid item: Adrenaline injector"; S.tasksEn.g2 = "Hand over any found in raid PMC figurine"; S.tasksEn.g3 = "Hand over the item: Bolts";
+    const task = { id: "firT", objectives: [
+      { id: "g1", description: "g1", type: "giveItem", foundInRaid: true, items: ["adr"] },
+      { id: "g2", description: "g2", type: "giveItem", foundInRaid: true, items: ["fig"] },
+      { id: "f3", description: "f3", type: "findItem", foundInRaid: true, items: ["bolt"] },
+      { id: "g3", description: "g3", type: "giveItem", foundInRaid: true, items: ["bolt"] }] };
+    const keep = S.tasks; S.tasks = [task]; markFirHandOvers(); S.tasks = keep;
+    const [g1, g2, , g3] = task.objectives;
+    return [stepText(g1), stepText(g2), isRaidStep(g1), stepIcon(g1).includes("si-fir"), !!g3.firHandOver, isRaidStep(g3)].join("|");
+  })()`);
+  assert(fir === "FiR: Adrenaline injector|FiR: any PMC figurine|true|true|false|false", "a FiR hand-over step with no find step is a FiR step: " + fir);
   // steps with no spot on the map: red X (kill), white magnifier (obtain), gold magnifier (find in raid)
   assert(w.eval('stepIcon({ type: "shoot" })').includes("si-kill") && w.eval('stepIcon({ type: "findItem", foundInRaid: false })').includes("si-obtain") && w.eval('stepIcon({ type: "findItem", foundInRaid: true })').includes("si-fir") && w.eval('stepIcon({ type: "visit" })') === "• ", "step icons for steps with no spot");
   // locked doors layer: off by default; orange bars, brighter when a ticked task needs the key

@@ -212,6 +212,12 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   const levers = [...d.querySelectorAll(".ex-lever")];
   assert(levers.map((x) => x.textContent).join() === "⚡Bunker Power Switch", "the lever of an extract shows, with its name");
   assert(w.eval('extractNeeds({ name: "EXFIL_Bunker" }, "Bunker Hermetic Door").join()') === "power lever on", "the extract needs the lever");
+  assert(w.eval('extractNeeds({ name: "E8_yard" }, "Courtyard").join()') === "open in some raids only (about 40%; a green flare shows it)", "Courtyard is open in some raids only");
+  assert(w.eval('extractNeeds({ name: "ex_customs_pmc_gasstation" }, "Old Gas Station").join()') === "open in some raids only (about 50%; a green flare shows it)", "Old Gas Station is open in some raids only");
+  assert(w.eval('extractNeeds({ name: "ex_customs_pmc_auto" }, "Dorms V-Ex").join()') === "open in some raids only (about 50%)", "an extract with no sign shows only the chance");
+  assert(w.eval('extractNeeds({ name: "ex_customs_secret_voron_boat" }, "Smugglers Boat").length') === 0, "Smugglers' Boat is always open");
+  assert(w.eval('HIDDEN_EXTRACTS.has("CCP Temporary") && !RANDOM_EXTRACTS["CCP Temporary"]'), "CCP Temporary is not on the map");
+  assert(w.eval('extractNeeds({ name: "ZB-014" }, "ZB-014").join("|")') === "ZB-014 key|open in some raids only (about 66%; a green flare shows it)", "the chance comes after the other needs");
   console.log("extracts:", ex);
   assert([...d.querySelectorAll(".ex-shared")].length > 0 && [...d.querySelectorAll(".ex-shared")].every((x) => x.classList.contains("ex-pmc")), "with no raid, a shared extract has the PMC color");
   assert(ex.length === 3 && ex.includes("Crossroads") && ex.includes("Boat") && !ex.some((x) => x.includes("scav")), "PMC + shared extracts only");

@@ -222,6 +222,10 @@ cd tests; npm install; npm test          page tests (Node.js and jsdom)
   use in cheat software.
 - Game data: the [tarkov.dev](https://tarkov.dev) API. `maps.json` is from the
   tarkov-dev project (MIT).
+- Extracts that are open in some raids only: the chances are from the location data of the
+  [SPT project](https://github.com/sp-tarkov/server-csharp), and the signs of an open extract
+  (green flares) and the Lab gate rooms are from the Escape from Tarkov Wiki. They are written
+  in `index.html`; the app loads neither source.
 - Task progress, story chapters and chapter icons: [TarkovTracker.org](https://tarkovtracker.org).
   The icons are loaded from their site at run time; none are in this repository.
 - Story guides: the [Escape from Tarkov Wiki](https://escapefromtarkov.fandom.com). The app

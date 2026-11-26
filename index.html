@@ -603,6 +603,24 @@ const EXTRACT_NEEDS = {
   "ZB-014": ["ZB-014 key"], Cellars: ["Factory emergency exit key"], "Gate 0": ["Factory emergency exit key"], "Gate m": ["Factory emergency exit key"],
   ex_customs_pmc_zb1013: ["power lever on", "Factory emergency exit key"], EXFIL_Bunker_D2: ["power lever on"],
   ex_interchange_pmc_saferoom: ["power lever on", "Object #11SR keycard"], EXFIL_Bunker: ["power lever on"],
+  lab_Hangar_Gate: ["gate opened in cabin B24 (hangar, 2nd floor)"], lab_Parking_Gate: ["gate opened in room Y21 (2nd floor, next to R22)"],
+};
+// PMC extracts that are open in some raids only, with the chance in percent (the "Chance" of the
+// exit in the game's location data, as the SPT project has it; tarkov.dev does not give the chance).
+// The list agrees with the "Always available" column of the wiki. The wiki also gives the sign that
+// shows an open extract (RANDOM_HINTS).
+const RANDOM_EXTRACTS = {
+  ex_customs_pmc_gasstation: 50, ex_customs_pmc_auto: 50, ex_interchange_pmc_auto: 50,
+  lab_Hangar_Gate: 60, lab_Parking_Gate: 60, "Pier Boat": 50, E7_car: 50, E8_yard: 40,
+  "ZB-016": 66, "RUAF Gate": 66, "ZB-014": 66, "South V-Ex": 50,
+};
+// Extracts that the game removed but tarkov.dev still has (Shoreline "CCP Temporary"):
+// the map does not show them.
+const HIDDEN_EXTRACTS = new Set(["CCP Temporary"]);
+const GREEN_FLARE = "a green flare shows it";
+const RANDOM_HINTS = {
+  ex_customs_pmc_gasstation: GREEN_FLARE, "Pier Boat": GREEN_FLARE, E8_yard: GREEN_FLARE,
+  "ZB-016": GREEN_FLARE, "RUAF Gate": GREEN_FLARE, "ZB-014": GREEN_FLARE,
 };
 // The lever that turns on the power of an extract: extract name -> tarkov.dev switch name.
 // The map shows the lever with the extract.
@@ -620,6 +638,8 @@ function extractNeeds(ex, name) {
   if (/\(flare\)/i.test(name)) needs.push("green flare");
   if (/co-?op/i.test(name) || /coop/i.test(ex.name)) needs.push("a PMC and a Scav together");
   needs.push(...(EXTRACT_NEEDS[ex.name] || []));
+  const chance = RANDOM_EXTRACTS[ex.name];
+  if (chance) needs.push(`open in some raids only (about ${chance}%${RANDOM_HINTS[ex.name] ? `; ${RANDOM_HINTS[ex.name]}` : ""})`);
   return needs;
 }
 
@@ -1653,7 +1673,7 @@ function drawExtracts(mc) {
   const seen = new Set();
   for (const ex of mc.primary.extracts || []) {
     const faction = ex.faction || "shared";
-    if (!ex.position || (faction !== "shared" && side !== "both" && faction !== side)) continue;
+    if (!ex.position || HIDDEN_EXTRACTS.has(ex.name) || (faction !== "shared" && side !== "both" && faction !== side)) continue;
     const name = t(S.mapsEn, ex.name, ex.name);
     if (seen.has(faction + name)) continue;
     seen.add(faction + name);

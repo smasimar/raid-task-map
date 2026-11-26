@@ -27,6 +27,9 @@ RAID_ID_RE = re.compile(r"shortId: ([A-Z0-9]{6})")
 # Transits. At the start of each map the game writes "[Transit] Flag:Common, RaidId:<id>, Count:<n>, Locations:a -> b -> "
 # (PvP: "[Transit] `<profile>` Count:<n>, ..."). The raid id stays the same through the transits and Count is the
 # number of transits so far. Before a PvE transit it also writes "PVE transit hop ... side:Pmc".
+# Before a transit to an online map (Ground Zero 21+ -> Streets in PvE) it writes "Transit reconnect status:..."
+# before the map loads, and the [Transit] line comes only after GameStarted.
+TRANSIT_RECONNECT = "application|Transit reconnect "
 TRANSIT_RE = re.compile(r"\[Transit\].*?(?:RaidId:(\w+), )?Count:(\d+)")
 HOP_SIDE_RE = re.compile(r"transit hop .*?side:(\w+)", re.I)
 LOG_FOLDER_RE = re.compile(r"^log_\d+\.\d+\.\d+_\d+-\d+-\d+")
@@ -210,6 +213,8 @@ class GameState:
         self._hop_side = None         # the side from the "transit hop" line before a transit
         self._last_side = None        # the side of the last raid, for a transit with no other side data
         self.side_by_transit = {}     # transit raid id -> side of the first map
+        self._reconnect = False       # a "Transit reconnect" line came before the map that loads
+        self._side_before = None      # the side of the raid before the one that is in progress
 
     def snapshot(self):
         return {"mode": self.mode, "raid": dict(self.raid)}
@@ -228,6 +233,8 @@ class GameState:
         """The side of a raid that comes from a transit: the same as on the map before.
         No insurance screen comes before a transit, and the game selects the profile again
         (as at the end of a raid), so the other rules would see a Scav raid."""
+        if self._reconnect:
+            return self._hop_side or self._last_side
         if not self._transit or self._transit[1] < 1:
             return None
         return self._hop_side or self.side_by_transit.get(self._transit[0]) or self._last_side
@@ -314,9 +321,13 @@ class GameState:
                 self.side_by_id[r["raidId"]] = r["side"]
             if self._transit and self._transit[0] and r["side"] and self._transit[1] == 0:
                 self.side_by_transit[self._transit[0]] = r["side"]
+            self._side_before = self._last_side
             if r["side"]:
                 self._last_side = r["side"]
             self._hop_side = None
+            self._reconnect = False
+        elif TRANSIT_RECONNECT in message:
+            self._reconnect = True
         elif HOP_SIDE_RE.search(message):
             side = HOP_SIDE_RE.search(message).group(1).lower()
             self._hop_side = "pmc" if side.startswith("pmc") else "scav"
@@ -325,6 +336,15 @@ class GameState:
             self._transit = (m.group(1), int(m.group(2)))
             if self._transit[1] == 0:
                 self._hop_side = None   # a new raid, not a transit
+            elif r["phase"] == "raid" and not r["transits"]:
+                # the line came after GameStarted (transit to an online map): the raid is a transit
+                # from the raid before, so it has the side of that raid
+                r["transits"] = self._transit[1]
+                side = self._hop_side or self.side_by_transit.get(self._transit[0]) or self._side_before
+                if side and side != r["side"]:
+                    r["side"] = self._last_side = side
+                    if r["raidId"]:
+                        self.side_by_id[r["raidId"]] = side
         elif ("application|Network game matching aborted" in message
               or "application|Network game matching cancelled" in message):
             self.raid = new_raid()

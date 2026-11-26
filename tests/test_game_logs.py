@@ -153,6 +153,36 @@ class Raids(unittest.TestCase):
         run(state, reader, insurance + customs + back + self.BACKEND.format("01:59:00", "/client/raid/configuration").encode() + again)
         self.assertEqual(state.raid["side"], "scav")
 
+    def test_transit_to_an_online_map_keeps_the_side(self):
+        """Real PvE logs: a PMC raid on Ground Zero 21+ (local), then a transit to Streets (online).
+        No "transit hop" line comes; a "Transit reconnect" line comes before the map loads, and the
+        [Transit] line only after GameStarted."""
+        insurance = self.BACKEND.format("23:57:50", game_logs.INSURANCE_REQUEST).encode()
+        gz = (line("23:58:05", "scene preset path:maps/sandbox_high_preset.bundle rcid:sandbox_high.scenespreset.asset")
+              + line("23:58:21", "[Transit] Flag:Common, RaidId:6b07680c499efc4f210ec3ff, Count:0, Locations:Sandbox_high -> ")
+              + line("23:58:47", "GameStarted:29.73(0) real:42.72(0) diff:12.99") + line("23:58:47", "GameStarting:29.73(0) real:42.72(0) diff:12.99"))
+        back = line("23:59:15", "PrepareSelectedProfileLocally ProfileId:aaaa AccountId:1")
+        reconnect = line("23:59:16", "Transit reconnect status:Busy raidMode:Online location:TarkovStreets settingsLocal:False")
+        streets = (line("23:59:16", "scene preset path:maps/city_preset.bundle rcid:city.scenespreset.asset")
+                   + line("23:59:24", "TRACE-NetworkGameCreate profileStatus: 'Profileid: aaaa, Status: Busy, RaidMode: Online, Ip: 1.2.3.4, Port: 17004, Location: TarkovStreets, Sid: fr")
+                   + line("23:59:40", "GameStarting:33.64(0.63) real:46.61(2.99) diff:12.97") + line("23:59:52", "GameStarted:44.64(11) real:58.65(12.04) diff:14.01"))
+        late = line("23:59:53", "[Transit] `aaaa` Count:1, EventPlayer:False")
+        state, reader = game_logs.GameState(), game_logs.EntryReader()
+        run(state, reader, insurance + gz)
+        self.assertEqual(state.raid["side"], "pmc")
+        run(state, reader, back + reconnect + streets + late)
+        self.assertEqual((state.raid["side"], state.raid["transits"], state.raid["scenePath"]), ("pmc", 1, "maps/city_preset.bundle"))
+        # without the reconnect line, the late [Transit] line puts the side right
+        state, reader = game_logs.GameState(), game_logs.EntryReader()
+        run(state, reader, insurance + gz + back + streets)
+        self.assertEqual(state.raid["side"], "scav")
+        run(state, reader, late)
+        self.assertEqual((state.raid["side"], state.raid["transits"]), ("pmc", 1))
+        # a Scav raid that transits to an online map stays a Scav raid
+        state, reader = game_logs.GameState(), game_logs.EntryReader()
+        run(state, reader, self.BACKEND.format("23:57:50", "/client/raid/configuration").encode() + gz + back + reconnect + streets + late)
+        self.assertEqual(state.raid["side"], "scav")
+
     def test_follower_puts_the_three_logs_in_time_order(self):
         import tempfile, os
         with tempfile.TemporaryDirectory() as d:

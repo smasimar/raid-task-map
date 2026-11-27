@@ -217,6 +217,18 @@ const assert = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) pro
   assert(w.eval('extractNeeds({ name: "ex_customs_pmc_auto" }, "Dorms V-Ex").join()') === "open in some raids only (about 50%)", "an extract with no sign shows only the chance");
   assert(w.eval('extractNeeds({ name: "ex_customs_secret_voron_boat" }, "Smugglers Boat").length') === 0, "Smugglers' Boat is always open");
   assert(w.eval('HIDDEN_EXTRACTS.has("CCP Temporary") && !RANDOM_EXTRACTS["CCP Temporary"]'), "CCP Temporary is not on the map");
+  // floor fixes from the wiki: the named layer, or the lowest upper layer that covers the building
+  const fl = w.eval(`(() => {
+    const streets = { layers: [{ name: "2nd Floor", extents: [{ height: [10, 15] }] }, { name: "4th Floor", extents: [{ height: [20, 25] }] }] };
+    const customs = { layers: [{ name: "2nd Floor", extents: [{ height: [2, 6], bounds: [[[100, 100], [200, 200]]] }] },
+      { name: "3rd Floor", extents: [{ height: [7, 11], bounds: [[[0, 0], [50, 50]]] }] }, { name: "Underground", extents: [{ height: [-1000, 0], bounds: [[[0, 0], [50, 50]]] }] }] };
+    const p = { x: 10, y: 12, z: 10 };
+    const audio = fixFloor({ id: "639135bbc115f907b14700a7" }, p);
+    const beluga = (y) => fixFloor({ id: "64f6a9e6dd44b6417729b535" }, { x: 0, y, z: 0 }).floor || "none";
+    return [floorOf(streets, p), floorOf(streets, audio), audio.floor, beluga(5.9), beluga(10.1), beluga(-3),
+      floorOf(customs, { x: 10, y: 5, z: 10 }), floorOf(customs, { x: 10, y: 5, z: 10, floor: "2nd Floor" }), floorOf(customs, { x: 150, y: 1, z: 150, floor: "2nd Floor" })].join("|");
+  })()`);
+  assert(fl === "0|1|4th Floor|2nd Floor|3rd Floor|none|-1|1|0", "floor fixes: " + fl);
   assert(w.eval('extractNeeds({ name: "ZB-014" }, "ZB-014").join("|")') === "ZB-014 key|open in some raids only (about 66%; a green flare shows it)", "the chance comes after the other needs");
   console.log("extracts:", ex);
   assert([...d.querySelectorAll(".ex-shared")].length > 0 && [...d.querySelectorAll(".ex-shared")].every((x) => x.classList.contains("ex-pmc")), "with no raid, a shared extract has the PMC color");

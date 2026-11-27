@@ -886,8 +886,8 @@ function objectivesOnMap(task, mc) {
   const out = [];
   for (const obj of task.objectives || []) {
     const positions = [];
-    for (const z of obj.zones || []) if (mc.ids.has(ref(z.map)) && z.position) positions.push({ pos: z.position, kind: "zone", outline: z.outline, name: z.name });
-    for (const loc of obj.possibleLocations || []) if (mc.ids.has(ref(loc.map))) for (const p of loc.positions || []) positions.push({ pos: p, kind: "item" });
+    for (const z of obj.zones || []) if (mc.ids.has(ref(z.map)) && z.position) positions.push({ pos: fixFloor(obj, z.position), kind: "zone", outline: z.outline, name: z.name });
+    for (const loc of obj.possibleLocations || []) if (mc.ids.has(ref(loc.map))) for (const p of loc.positions || []) positions.push({ pos: fixFloor(obj, p), kind: "item" });
     const onMap = positions.length || (obj.maps || []).some((m) => mc.ids.has(ref(m)));
     if (!onMap) continue;
     // de-duplicate positions that appear once per map variant
@@ -1483,16 +1483,75 @@ function getCRS(mc) {
 }
 const pos = (p) => [p.z, p.x];
 // index of the floor (mc.layers) that holds this position, -1 = ground level
+// The floor of a task step from the wiki, where the height of the tarkov.dev position puts it on the
+// wrong floor (the floor heights of a map do not fit all its buildings). Step id -> floor name, or
+// a list of [lowest height, highest height, floor name] for a step whose positions are on different floors.
+// docs/task-floors.md lists all the task steps and the wiki text for each fix.
+const FLOOR_FIXES = {
+  "64f5aac4b63b74469b6c14c7": "2nd Floor",   // Glory to CPSU
+  "64f5b876a2a5bb727b61c5ad": "2nd Floor",   // Glory to CPSU
+  "6a26943d55478d73e6b4fadf": "2nd Floor",   // Glory to CPSU
+  "63a7db4a3e491955e65fb88b": "2nd Floor",   // Glory to CPSU - Part 1
+  "6679884cef969161e3e9d64d": [[-2, 99, "2nd Floor"]],   // Key to the City
+  "64f6a9e6dd44b6417729b535": [[0, 8, "2nd Floor"], [8, 99, "3rd Floor"]],   // Beyond the Red Meat
+  "638fd070202cd55bee01ca11": "2nd Floor",   // Audit
+  "63a7d8665199ab1f7d4a7747": "2nd Floor",   // Watching You
+  "639136fa9444fb141f4e6eef": "2nd Floor",   // Watching You
+  "6a5a95f70cfa2d5efcf39d77": "2nd Floor",   // House Arrest
+  "63a7cd3aee7b4d0d5507baee": "2nd Floor",   // Debtor
+  "63a7d767f32fa1316250c3da": "3rd Floor",   // House Arrest
+  "63a7dbc31943b749b5021ec3": "2nd Floor",   // House Arrest - Part 2
+  "6a5a9710671cbfe928bbfde2": "2nd Floor",   // Debtor
+  "639135534b15ca31f76bc318": "2nd Floor",   // Your Car Needs a Service
+  "63a7d8f404d3dc28a52a2104": "4th Floor",   // Audiophile
+  "639135bbc115f907b14700a7": "4th Floor",   // Audiophile
+  "63a7da6f5199ab1f7d4a774a": "4th Floor",   // Ballet Lover
+  "63a7d315f32fa1316250c3d2": [[12, 13.5, "4th Floor"]],   // Spotter
+  "639c39807c1532d85b0162a9": "4th Floor",   // Spotter
+  "63a7d2acee7b4d0d5507baf2": "3rd Floor",   // Spotter
+  "639c359f0a20a7001f00c7a8": "3rd Floor",   // Spotter
+  "63a7d6d61f06d111271f5aeb": "3rd Floor",   // Broadcast - Part 4
+  "64ee9df4496db64f9b7a4433": "4th Floor",   // The Door
+  "64ee9df4496db64f9b7a4435": "4th Floor",   // The Door
+  "64eea6059878a0569d6ec98b": "4th Floor",   // The Door
+  "64f731fa39e45b527a7c4300": "2nd Floor",   // Pets Won't Need It
+  "64f732240e186112c4455d84": "2nd Floor",   // Pets Won't Need It
+  "66d9cbb67b491f9d5304f6ea": "2nd Floor",   // Is This a Reference?
+  "6581676e7a18ff402fd23e68": "2nd Floor",   // Properties All Around
+  "675c37d2da4b531ba8daaadd": "2nd Floor",   // Private Club
+  "675c0444db2b69f48942f37c": [[4, 7, "2nd Floor"]],   // Abandoned Cargo
+  "6a574ff78f1b3fc8bdbb8755": "2nd Floor",   // Abandoned Cargo
+  "675c04b3fc6b273a36ed294a": "2nd Floor",   // Shipment Tracking
+  "66dad1dbb16caebe0e214d89": "3rd Floor",   // Is This a Reference?
+  "6740a202086cf3dbf687279a": [[-59, -50, "2nd Floor"]],   // Forge a Friendship
+  "5edabb0b0c502106f869bc03": "2nd Floor",   // Tarkov-Style Diplomacy
+  "5edabbff0880da21347b382b": "2nd Floor",   // Tarkov-Style Diplomacy
+};
+function fixFloor(obj, p) {
+  const fix = FLOOR_FIXES[obj.id];
+  const floor = typeof fix === "string" ? fix : fix?.find(([lo, hi]) => p.y >= lo && p.y < hi)?.[2];
+  return floor ? { ...p, floor } : p;
+}
+// The map layer of a position. A position with a floor name (FLOOR_FIXES) uses the layer of that name; if
+// that layer does not cover the building, it uses the lowest upper layer that covers it (Customs:
+// tarkov.dev draws the upper floor of Warehouse 17 only on its "3rd Floor" layer).
 function floorOf(mc, p) {
+  const layers = mc.layers || [];
+  const between = (v, a, b) => v >= Math.min(a, b) && v <= Math.max(a, b);
+  const inBounds = (ex) => !ex.bounds || ex.bounds.some((b) => between(p.x, b[0][0], b[1][0]) && between(p.z, b[0][1], b[1][1]));
+  if (p?.floor) {
+    const named = layers.findIndex((l) => l.name === p.floor && (l.extents || []).some(inBounds));
+    if (named >= 0) return named;
+    const up = layers.map((l, i) => ({ i, ex: (l.extents || []).filter((ex) => ex.bounds && inBounds(ex) && ex.height[0] > -500) }))
+      .filter((l) => l.ex.length).sort((a, b) => Math.min(...a.ex.map((e) => e.height[0])) - Math.min(...b.ex.map((e) => e.height[0])));
+    if (up.length) return up[0].i;
+  }
   const y = p?.y;
   if (typeof y !== "number") return -1;
-  const between = (v, a, b) => v >= Math.min(a, b) && v <= Math.max(a, b);
-  const layers = mc.layers || [];
   for (let i = 0; i < layers.length; i++) {
     for (const ex of layers[i].extents || []) {
       if (y < ex.height[0] || y >= ex.height[1]) continue;
-      if (!ex.bounds) return i;
-      if (ex.bounds.some((b) => between(p.x, b[0][0], b[1][0]) && between(p.z, b[0][1], b[1][1]))) return i;
+      if (inBounds(ex)) return i;
     }
   }
   return -1;
@@ -1856,7 +1915,7 @@ function drawQuestMarkers() {
         const cls = markerClass(o.obj, p.kind, keys, !!p.outline?.length);
         const floor = floorOf(S.current, p.pos);
         const offFloor = floor !== S.floorIndex;
-        const floorName = floor < 0 ? "Ground level" : S.current.layers[floor].name;
+        const floorName = p.pos.floor || (floor < 0 ? "Ground level" : S.current.layers[floor].name);
         const cnt = o.total > 1 ? ` (${o.count || 0}/${o.total})` : "";
         const tip = `<b>${esc(it.name)}</b> <span class="muted">· ${esc(it.trader)}</span><div style="margin-top:4px">${esc(o.text)}${cnt}</div>` +
           (p.kind === "item" ? `<div class="muted">Possible task item location</div>` : "") +
